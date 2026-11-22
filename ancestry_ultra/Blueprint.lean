@@ -1,4 +1,5 @@
 import Statement
+import QuantifiedSplit
 
 namespace OpenProblem.AncestryBlueprint
 
@@ -437,10 +438,133 @@ theorem every_pair_splits (c : Trace) (mark : c 0=true) (noFork : ¬HeadFork c)
     have other : c (u+r)=false := (wall r).symm.trans white
     exact ⟨r,by omega,lower,fd,white,by simpa [gate,white,other] using gateDiff⟩
 
+/-- A present-time equality collar of k strict eastern cells can lose its
+innermost dependency guard only across a white outer cell. Follow it in
+one independently initialized east orbit; no future gate matches are input. -/
+def guard (c : Trace) (s k : Nat) : Nat → Nat
+  | 0 => k
+  | i+1 => let d := guard c s k i
+           if east c (s+i) d then d else d-1
+
+private theorem guard_one (c : Trace) (a b n : Nat) (wa : c (a+1)=c (b+1))
+    (same : ∀ j, j≤n → east c a j=east c b j) :
+    ∀ j, j≤(if east c a n then n else n-1) → east c (a+1) j=east c (b+1) j := by
+  intro j bound
+  cases j with
+  | zero => exact wa
+  | succ j =>
+    have cap : j+1≤n := by split at bound <;> omega
+    change rule (east c a j) (east c a (j+1)) (east c a (j+2)) =
+      rule (east c b j) (east c b (j+1)) (east c b (j+2))
+    rw [same j (by omega)]
+    by_cases interior : j+2≤n
+    · rw [same (j+1) cap,same (j+2) interior]
+    · have edge : j+1=n := by omega
+      have black : east c a n=true := by
+        cases h : east c a n with
+        | true => rfl
+        | false => simp [h] at bound; omega
+      have black' : east c b n=true := (same n (Nat.le_refl _)).symm.trans black
+      rw [edge,black,black']
+      simp [rule]
+
+theorem guard_sound (c : Trace) (s u k i : Nat)
+    (initial : ∀ j, j≤k → east c s j=east c u j)
+    (wall : ∀ h, h≤i → c (s+h)=c (u+h)) :
+    ∀ j, j≤guard c s k i → east c (s+i) j=east c (u+i) j := by
+  induction i with
+  | zero => simpa [guard] using initial
+  | succ i ih =>
+    exact guard_one c (s+i) (u+i) (guard c s k i)
+      (by simpa only [Nat.add_assoc] using wall (i+1) (by omega))
+      (ih (fun h small => wall h (by omega)))
+
+/-- A quantitative obstruction at every pair of distinct ages. A first
+west split is guaranteed; every matched present east collar must be gone
+by that actual finite arrival. This compares the two marked cones without
+supposing there is a present or future return of any prescribed width. -/
+theorem every_pair_exhausts (c : Trace) (mark : c 0=true) (noFork : ¬HeadFork c)
+    (s u : Nat) (su : s<u) (wall : ∀ i, c (s+i)=c (u+i)) :
+    ∃ r, r<u ∧ (∀ j, j<r+1 → west c s j=west c u j) ∧
+      west c s (r+1) ≠ west c u (r+1) ∧ c (s+r)=false ∧
+      east c (s+r) 1 ≠ east c (u+r) 1 ∧
+      ∀ k, (∀ j, j≤k → east c s j=east c u j) → guard c s k r=0 := by
+  obtain ⟨r,le,lower,split,white,ne⟩ := every_pair_splits c mark noFork s u su wall
+  refine ⟨r,le,lower,split,white,ne,?_⟩
+  intro k common
+  by_cases z : guard c s k r=0
+  · exact z
+  · exact False.elim (ne (guard_sound c s u k r common (fun h _ => wall h) 1 (by omega)))
+
+/-- Local period on a single bounded observation interval; no infinite
+return or ultimately periodic east column is assumed. -/
+def ClockWindow (f : Trace) (a p last : Nat) : Prop :=
+  ∀ i r, a+p*i+r≤last → f (a+p*i+r)=f (a+r)
+
+/-- Quantitative two-clock obstruction, extending FixedColumnPair's
+infinite-column argument. Only d unknown interior cells can vary. A finite
+strip through the stated horizon either forks or contradicts the west tip. -/
+theorem finite_cavity (c : Trace) (mark : c 0=true) (a p d : Nat) (pos : 0<p)
+    (wall : ∀ i r, c (a+p*i+r)=c (a+r))
+    (right : ClockWindow (fun t => east c t (d+1)) a p (2*(a+p*2^d))) :
+    HeadFork c := by
+  apply Classical.byContradiction
+  intro noFork
+  let f (i j : Nat) := east c (a+p*i) (j+1)
+  let bits (i : Nat) := FiniteWindowRecurrence.window (f i) d 0
+  let code (i : Nat) := FiniteWindowRecurrence.encode (bits i)
+  obtain ⟨i,j,lt,cap,e⟩ := QuantifiedSplit.repeat_le (2^d) code
+    (fun n _ => by simpa only [code,bits,FiniteWindowRecurrence.window_len] using
+      FiniteWindowRecurrence.encode_bound (bits n))
+  have words : bits i=bits j := FiniteWindowRecurrence.same_encode_eq
+    (by simp [bits,FiniteWindowRecurrence.window_len]) e
+  let s := a+p*i
+  let u := a+p*j
+  have su : s<u := Nat.add_lt_add_left (Nat.mul_lt_mul_of_pos_left lt pos) a
+  have ub : u≤a+p*2^d := Nat.add_le_add_left (Nat.mul_le_mul_left p cap) a
+  have same (h : Nat) : c (s+h)=c (u+h) := (wall i h).trans (wall j h).symm
+  have outer (h : Nat) (ht : h≤u) : east c (s+h) (d+1)=east c (u+h) (d+1) := by
+    exact (right i h (by change s+h≤_; omega)).trans
+      (right j h (by change u+h≤_; omega)).symm
+  have band (h : Nat) (ht : h≤u) (x : Nat) (hx : x≤d+1) : east c (s+h) x=east c (u+h) x := by
+    induction h generalizing x with
+    | zero =>
+      cases x with
+      | zero => simpa [east_wall] using same 0
+      | succ x =>
+        by_cases top : x=d
+        · subst x; exact outer 0 (by omega)
+        · have inside : x<d := by omega
+          have val := congrArg (fun q : List Bool => q[x]?) words
+          change (FiniteWindowRecurrence.window (f i) d 0)[x]? =
+            (FiniteWindowRecurrence.window (f j) d 0)[x]? at val
+          rw [List.getElem?_eq_getElem (by simpa [FiniteWindowRecurrence.window_len] using inside),
+            List.getElem?_eq_getElem (by simpa [FiniteWindowRecurrence.window_len] using inside),
+            FiniteWindowRecurrence.window_at _ _ _ _ inside,
+            FiniteWindowRecurrence.window_at _ _ _ _ inside,Nat.zero_add] at val
+          exact Option.some.inj val
+    | succ h ih =>
+      cases x with
+      | zero => rw [east_wall,east_wall,same]
+      | succ x =>
+        by_cases top : x=d
+        · subst x; exact outer (h+1) ht
+        · change rule (east c (s+h) x) (east c (s+h) (x+1)) (east c (s+h) (x+2)) =
+            rule (east c (u+h) x) (east c (u+h) (x+1)) (east c (u+h) (x+2))
+          rw [ih (by omega) x (by omega),ih (by omega) (x+1) (by omega),
+            ih (by omega) (x+2) (by omega)]
+  obtain ⟨r,ru,_,_,_,ne⟩ := every_pair_splits c mark noFork s u su same
+  exact ne (band r (by omega) 1 (by omega))
+
 /-- Every putative periodic wall can be specified by a finite onset/period word.
 This is a sequence on TIME, never a spatial periodicization of a genuine age row. -/
 def repeatWord (c : Trace) (T P i : Nat) : Bool :=
   if i < T then c i else c (T + (i-T) % P)
+
+theorem repeat_return (c : Trace) (T P a : Nat) (ha : T≤a) (i r : Nat) :
+    repeatWord c T P (a+P*i+r) = repeatWord c T P (a+r) := by
+  simp only [repeatWord,ite_eq_right (show ¬a+P*i+r<T by omega),ite_eq_right (show ¬a+r<T by omega),
+    show a+P*i+r-T=(a+r-T)+P*i by omega,Nat.add_mul_mod_self_left]
 
 theorem L1 (c : Trace) (hmark : c 0 = true) (T P : Nat) (hp : 0 < P)
     (seedPrefix : ∀ j, 0 < j → j < T+P → origin (repeatWord c T P) j = false) :
@@ -465,7 +589,10 @@ theorem L1 (c : Trace) (hmark : c 0 = true) (T P : Nat) (hp : 0 < P)
           by_cases t0 : T=0
           · simp [t0,hmark]
           · simp [show 0<T by omega,hmark]
-        have forced := every_pair_splits w mark fork
+        have forced := every_pair_exhausts w mark fork
+        have no_cavity (a d : Nat) (ha : T≤a) :
+            ¬ClockWindow (fun t => east w t (d+1)) a P (2*(a+P*2^d)) :=
+          fun h => fork (finite_cavity w mark a P d hp (repeat_return c T P a ha) h)
         -- forced applies to EVERY pair of sufficiently late equal clock
         -- phases. Its first west split supplies the location and the white
         -- phase of an independently constrained single east comparison.
