@@ -309,3 +309,19 @@ the prior heads. No uniform bound on the spatial transients as k grows
 is asserted. The unsolved estimate remains an incompatibility for these
 blocks on the marked approximants, or an argument furnishing a sufficiently
 long recurrence relative to the varying genuine cut.
+
+The first cofinite depth b can enter the *existing* quantitative marked
+spatial-patch theorem, not just a single-bit endpoint ceiling. For singleton
+d=s set Q=u-s, D=u-r. At physical age u-b, a strict-west bit i has normalized
+left depth j=u-b-i-1. Thus the forced solid-black block includes the whole
+nonempty interval [max(0,D-2b), Q-3] when w>0. When w=0 the upper endpoint
+is u-b-2, still >=Q-P-3. If the untruncated lower endpoint is negative,
+the protrusion into vacuum itself is impossible. Apply the period-one
+spatial-patch estimate in RUN_RESULT.md to this genuine row at u-b: an
+interval [a,e] of black cells cannot occur if k=ceil(a/2), K=4^k,
+u-b>=k+K+20 and e>=3(K+5)^2. Since u-b>=e here, this bounds Q-P-3 by
+O(4^max(0,D-2b)) in the large-Q regime, or equivalently strengthens the
+return deficit to D>=2b+(1/2)log2(Q-P-3)-O(1). The exact interval
+statement is the useful one when constants or boundary cases matter.
+The gain 2b is allowed even when most of the older heads differ: b measures
+actual finite inverse survival, not the length of an identical past word.
