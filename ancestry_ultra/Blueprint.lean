@@ -252,15 +252,6 @@ private theorem mirrored (c : Trace) (t : Nat) (bw : c t=true) (white : c (t+1)=
   rw [west0,east0,bw,zero] at q
   cases u : west c t 2 <;> cases v : east c t 2 <;> cases b : c (t+2) <;> simp_all [rule]
 
-def Visit (c : Trace) (P p : Nat) (w : Seven) (t : Nat) : Prop :=
-  t%P=p ∧ c t=false ∧ seven c (t+1)=w
-
-/-- The stamp contains the preceding wall and preceding masked WEST
-request. Opposite current requests are therefore fresh forks. -/
-def WesternFork (c : Trace) (P p : Nat) (w : Seven) (stamp : Mem) : Prop :=
-  ∀ N (b : Bool), ∃ t, N≤t ∧ Visit c P p w (t+1) ∧
-    (c t,whiteNeed c t)=stamp ∧ need c (t+1)=b
-
 -- The condensation-rank certificate from the shared Step 4, now
 -- applied to the actual initialized eastern half of an imposed clock.
 private def r8bad (a b c d e f g h : Bool) := !reset ⟨a,b,c,d,e,f,g⟩ h
@@ -434,19 +425,25 @@ private theorem ballistic (c : Trace) (black : BlackLock c) (k s u : Nat)
       | succ j => simpa [Nat.add_assoc,Nat.add_comm 1 j] using step.1 j (by omega)
     · simpa [Nat.add_assoc,Nat.add_comm 1 k] using step.2
 
-open FiniteWindowRecurrence in
-/-- Two initialized cuts with the same eight-cell reset (indeed same
-arbitrarily large eastern prefix) and same clock. The finite western
-mark supplies an explicit nearest source and deadline at the newer age.
-Both initial collars may be required arbitrarily large independently. -/
+/-- A paired reset REALIZED by two distinct ages of these same
+initialized halves, and its nearest later western collision. -/
+structure Matched (c : Trace) (T P d h s u k : Nat) : Prop where
+  mature : T≤s
+  ordered : s<u
+  phase : (s-T)%P=(u-T)%P
+  oldReset : noreset c s=false
+  newReset : noreset c u=false
+  sharedEast : ∀ i,i≤h+8 → east c s i=east c u i
+  deep : d≤k
+  deadline : k<u
+  sharedWest : ∀ i,i≤k → west c s i=west c u i
+  founder : west c s (k+1)≠west c u (k+1)
+  common : ∀ j,j<k → whiteNeed c (s+j)=whiteNeed c (u+j)
+  split : whiteNeed c (s+k)≠whiteNeed c (u+k)
+
+/-- The common collars can be required arbitrarily wide independently. -/
 def ResetStarts (c : Trace) (T P : Nat) : Prop :=
-  ∀ N d h, ∃ s u k,N≤s ∧ T≤s ∧ s<u ∧ (s-T)%P=(u-T)%P ∧
-    noreset c s=false ∧ noreset c u=false ∧
-    (∀ i,i≤h+8 → east c s i=east c u i) ∧
-    d≤k ∧ k<u ∧ (∀ i,i≤k → west c s i=west c u i) ∧
-    west c s (k+1)≠west c u (k+1) ∧
-    (∀ j,j<k → whiteNeed c (s+j)=whiteNeed c (u+j)) ∧
-    whiteNeed c (s+k)≠whiteNeed c (u+k)
+  ∀ N d h, ∃ s u k,N≤s ∧ Matched c T P d h s u k
 
 open FiniteWindowRecurrence in
 theorem reset_starts (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
@@ -488,27 +485,57 @@ theorem reset_starts (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
   have clk := same_clock c T P per s u (by omega) (by omega) (ps.trans pu.symm)
   exact ⟨s,u,k,by omega,by omega,by omega,ps.trans pu.symm,rs,ru,
     fun i hi => same_window (es.trans eu.symm) i (by omega),by omega,by omega,
-    fun i hi => near i (by omega),ne,ballistic c black k s u clk near ne⟩
+    fun i hi => near i (by omega),ne,(ballistic c black k s u clk near ne).1,
+    (ballistic c black k s u clk near ne).2⟩
 
-/-- L1 selects one of the western fresh forks on a reset-capable
-seven-word actually reached by the independently initialized east half.
-It requires neither actual eighth extension to reset. -/
+/-- Orient one selected arm of the actual split. The other arm is
+present in the claim but its eastern label is unrestricted. -/
+def Arm (c : Trace) (T P d h t v : Nat) : Prop :=
+  ∃ s u k, Matched c T P d h s u (k+1) ∧
+    ((t=s+k ∧ v=u+k) ∨ (t=u+k ∧ v=s+k))
+
+private theorem arm_stamp (c : Trace) (T P d h t v : Nat)
+    (period : ∀t,T≤t → c (t+P)=c t) (arm : Arm c T P d h t v) :
+    c t=c v ∧ whiteNeed c t=whiteNeed c v ∧ c (t+1)=false ∧ c (v+1)=false ∧
+      need c (t+1)≠need c (v+1) := by
+  obtain ⟨s,u,k,m,pair⟩ := arm
+  have clk := same_clock c T P period s u m.mature (Nat.le_trans m.mature (Nat.le_of_lt m.ordered)) m.phase
+  have start := clk k
+  have nxt : c (s+k+1)=c (u+k+1) := by simpa only [Nat.add_assoc] using clk (k+1)
+  have old := m.common k (by omega)
+  have split : whiteNeed c (s+k+1)≠whiteNeed c (u+k+1) := by simpa only [Nat.add_assoc] using m.split
+  have white : c (u+k+1)=false := by
+    cases z : c (u+k+1)
+    · rfl
+    · exact False.elim (split (by simp [whiteNeed,nxt,z]))
+  have whiteS := nxt.trans white
+  have unequal : need c (s+k+1)≠need c (u+k+1) := by
+    simpa only [whiteNeed,whiteS,white,Bool.not_false,Bool.true_and] using split
+  rcases pair with ⟨rfl,rfl⟩|⟨rfl,rfl⟩
+  · exact ⟨start,old,whiteS,white,unequal⟩
+  · exact ⟨start.symm,old.symm,white,whiteS,Ne.symm unequal⟩
+
+/-- L1: at least ONE arm of an actual marked collision challenges the
+inverse predictor on a capable label. This does not require either
+recurrence of the endpoint word or coincidence of the two endpoint words. -/
 theorem L1 (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
     (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
-    (past : Prefix c T) (black : BlackLock c)
-    (starts : ResetStarts c T P) :
-    ∃ p w stamp, p<P ∧ capable w=true ∧ WesternFork c P p w stamp := by
+    (past : Prefix c T) (black : BlackLock c) (starts : ResetStarts c T P) :
+    ∀ n, ∃ t v,n≤t ∧ Arm c T P n n t v ∧ capable (seven c (t+2))=true ∧
+      need c (t+1)≠guess (seven c (t+2)) := by
   sorry
 
-/-- L2 concerns only the 67/91 high-eighth escape, at the FIRST
-white tick after a black with raw eastern head zero. No other class
-or phase, and no assumption of eventual white agreement. -/
-theorem L2 (c : Trace) (T P p : Nat) (w : Seven) (hp : 0<P) (ph : p<P)
-    (mark : c 0=true) (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
-    (past : Prefix c T) (black : BlackLock c) (cap : capable w=true)
-    (special : code w=67 ∨ code w=91) (fork : WesternFork c P p w (true,false)) :
-    ∃ N, ∀ t, N≤t → Visit c P p w (t+1) → c t=true → east c t 1=false →
-      BlackCut c t w → xor (west c t 2) (east c t 2)=c (t+2) → east c (t+2) 8=true → reset w (east c (t+2) 8)=false → east c (t+1) 1=guess w := by
+/-- L2: exclude the two surviving actual escape classes on an arm
+from sufficiently deep matched reset starts. It says nothing about
+unmatched cuts, bounded source collars, or any other phase or word. -/
+theorem L2 (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
+    (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
+    (past : Prefix c T) (black : BlackLock c) :
+    ∃ n, ∀ t v,n≤t → Arm c T P n n t v → c t=true → c (t+1)=false → east c t 1=false →
+      let w := seven c (t+2)
+      (code w=67 ∨ code w=91) → BlackCut c t w →
+      xor (west c t 2) (east c t 2)=c (t+2) → east c (t+2) 8=true →
+      reset w (east c (t+2) 8)=false → east c (t+1) 1=guess w := by
   sorry
 
 private theorem stays_high (c : Trace) (t : Nat) (white : c t=false) (old : east c t 1=true) :
@@ -520,40 +547,26 @@ private theorem stays_high (c : Trace) (t : Nat) (white : c t=false) (old : east
 theorem collision (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
     (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
     (past : Prefix c T) (black : BlackLock c) (join : Joined c) : False := by
-  obtain ⟨p,w,stamp,ph,cap,fork⟩ := L1 c T P hp mark period mixed past black
-    (reset_starts c T P hp mark period black join)
-  have escaped (N : Nat) : ∃ t, N≤t ∧ Visit c P p w (t+1) ∧
-      stamp=(true,false) ∧ c t=true ∧ east c t 1=false ∧ (code w=67 ∨ code w=91) ∧
-      east c (t+2) 8=true ∧ reset w (east c (t+2) 8)=false ∧ east c (t+1) 1≠guess w := by
-    obtain ⟨t,late,v,tag,needOpp⟩ := fork N (!guess w)
-    have outside : east c (t+1) 1≠guess w := by
-      rw [←join (t+1) v.2.1,needOpp];simp
-    obtain ⟨spec,bit,unsync⟩ := decoder_bound c (t+1) v.2.1 (by rwa [v.2.2]) (by rwa [v.2.2])
-    rw [v.2.2] at spec unsync
-    have shape := older_escape c t w v.2.2 v.2.1 spec outside
-    rcases shape with ⟨back,words⟩|⟨back,words⟩
-    · have oldW : c t=false := congrArg Prod.snd back
-      have old1 : east c t 1=true := congrArg Prod.fst back
-      have stampEq : stamp=(false,true) := by rw [←tag];simp [oldW,whiteNeed,join t oldW,old1]
-      obtain ⟨u,_,visit,ts,zero⟩ := fork N false
-      rw [stampEq] at ts
-      have uw : c u=false := congrArg Prod.fst ts
-      have u1 : east c u 1=true := by
-        have masked : whiteNeed c u=true := congrArg Prod.snd ts
-        simpa [whiteNeed,uw,join u uw] using masked
-      have high := stays_high c u uw u1
-      rw [←join (u+1) visit.2.1,zero] at high
-      contradiction
-    · have bw : c t=true := congrArg Prod.snd back
-      have zero : east c t 1=false := congrArg Prod.fst back
-      have stampEq : stamp=(true,false) := by rw [←tag];simp [bw,whiteNeed]
-      exact ⟨t,late,v,stampEq,bw,zero,words,bit,unsync,outside⟩
-  obtain ⟨_,_,_,stampEq,_,_,special,_,_,_⟩ := escaped 0
-  rw [stampEq] at fork
-  obtain ⟨N,stop⟩ := L2 c T P p w hp ph mark period mixed past black cap special fork
-  obtain ⟨t,late,v,_,bw,zero,spec,bit,unsync,different⟩ := escaped N
-  have cut := physical_cut c t w v.2.2 v.2.1 spec different (Prod.ext zero bw)
-  exact different (stop t late v bw zero cut (mirrored c t bw v.2.1 zero join) bit unsync)
+  obtain ⟨n,stop⟩ := L2 c T P hp mark period mixed past black
+  obtain ⟨t,v,late,arm,cap,bad⟩ := L1 c T P hp mark period mixed past black
+    (reset_starts c T P hp mark period black join) n
+  obtain ⟨last,shared,white,other,unequal⟩ := arm_stamp c T P n n t v period arm
+  have wrong : east c (t+1) 1≠guess (seven c (t+2)) := by rwa [←join (t+1) white]
+  obtain ⟨spec,bit,unsync⟩ := decoder_bound c (t+1) white cap wrong
+  have shape := older_escape c t _ rfl white spec wrong
+  rcases shape with ⟨back,_⟩|⟨back,words⟩
+  · have oldW : c t=false := congrArg Prod.snd back
+    have old1 : east c t 1=true := congrArg Prod.fst back
+    have vW : c v=false := last.symm.trans oldW
+    have same := shared
+    simp only [whiteNeed,oldW,vW,Bool.not_false,Bool.true_and,join t oldW,join v vW,old1] at same
+    have t1 := stays_high c t oldW old1
+    have v1 := stays_high c v vW same.symm
+    exact unequal ((join (t+1) white).trans (t1.trans (v1.symm.trans (join (v+1) other).symm)))
+  · have bw : c t=true := congrArg Prod.snd back
+    have zero : east c t 1=false := congrArg Prod.fst back
+    have cut := physical_cut c t _ rfl white words wrong back
+    exact wrong (stop t v late arm bw white zero words cut (mirrored c t bw white zero join) bit unsync)
 
 private theorem halves_actual (t d : Nat) :
     east center t d=cell t (d:Int) ∧ west center t d=cell t (-(d:Int)) := by
