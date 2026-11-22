@@ -1,4 +1,5 @@
 import Statement
+import OutgoingClock
 
 /-! Route A. Laurent coefficients are represented by their integer exponent.
 Multiplication by z + z⁻¹ is the linear Rule 90 propagator. Rule 30 injects
@@ -13,15 +14,6 @@ def interiorSource (t : Nat) (x : Int) : Bool :=
 def interior : Nat → Int → Bool
   | 0, _ => false
   | t + 1, x => xor (xor (interior t (x-1)) (interior t (x+1))) (interiorSource t x)
-
-/-- Hard arithmetic link. On one sufficiently late dyadic shell, a Mersenne
-coefficient and a non-Mersenne odd multiple have the SAME interior parity.
-The multiple may be chosen after the shell; no periodicity or recurrence
-of a guessed finite-state source is assumed. -/
-theorem L1 (P N : Nat) (hP : 0 < P) :
-    ∃ k j : Nat, 0 < j ∧ N < 2^k ∧
-      interior (2^k - 1) 0 = interior ((2 * (P*j) + 1) * 2^k - 1) 0 := by
-  sorry
 
 def wave : Nat → Int → Bool
   | 0, x => decide (x = 0)
@@ -174,6 +166,226 @@ theorem L2 (k d : Nat) (hd : 0 < d) :
   · rw [strip_ones (2*d+1) k (by omega), show 2*d+1-1=2*d by omega]
     exact fringe_even d hd
 
+/-- Right-normalized Laurent multiplication by (1+z²), repeated n times. -/
+private def walk : Nat → (Int → Bool) → Int → Bool
+  | 0, f, x => f x
+  | t+1, f, x => xor (walk t f x) (walk t f (x-2))
+
+private theorem walk_xor (t : Nat) (f g : Int → Bool) (x : Int) :
+    walk t (fun y => xor (f y) (g y)) x = xor (walk t f x) (walk t g x) := by
+  induction t generalizing x with
+  | zero => rfl
+  | succ t ih =>
+    simp only [walk,ih]
+    generalize walk t f x=a; generalize walk t g x=b
+    generalize walk t f (x-2)=c; generalize walk t g (x-2)=d
+    cases a <;> cases b <;> cases c <;> cases d <;> rfl
+
+private theorem walk_flip (t : Nat) (f : Int→Bool) (x : Int) :
+    walk t (fun y => xor (f y) (f (y-2))) x = walk (t+1) f x := by
+  induction t generalizing x with
+  | zero => rfl
+  | succ t ih => simp only [walk,ih]
+
+private theorem walk_pow (k t : Nat) (f : Int→Bool) (x : Int) :
+    walk (t+2^k) f x = xor (walk t f x) (walk t f (x - 2*(2^k:Nat))) := by
+  induction k generalizing t x with
+  | zero => simp [walk]
+  | succ k ih =>
+    rw [Nat.pow_succ, show t+2^k*2=t+2^k+2^k by omega, ih, ih (t:=t), ih (t:=t)]
+    have h : x-2*((2^k:Nat):Int)-2*((2^k:Nat):Int) =
+        x-2*(((2^k:Nat)*2:Nat):Int) := by push_cast; omega
+    rw [h]
+    generalize walk t f x=a; generalize walk t f (x-2*((2^k:Nat):Int))=b
+    generalize walk t f (x-2*(((2^k:Nat)*2:Nat):Int))=c
+    cases a <;> cases b <;> cases c <;> rfl
+
+private theorem walk_cone (r : Nat) (f : Int→Bool) (x : Int)
+    (hz : ∀ y : Int, x-2*(r:Int) ≤ y → y ≤ x → f y=false) : walk r f x=false := by
+  induction r generalizing x with
+  | zero => exact hz x (by omega) (by omega)
+  | succ r ih =>
+    simp only [walk]
+    rw [ih x (fun y hy h => hz y (by omega) h),
+        ih (x-2) (fun y hy h => hz y (by omega) (by omega))]
+    rfl
+
+/-- The entire right-moving inverse of row zero is a solid black ray. -/
+private theorem back_ones : OutgoingClock.step (fun _ => true) = OutgoingClock.seed := by
+  funext i
+  cases i with
+  | zero => rfl
+  | succ i => simp [OutgoingClock.step,OutgoingClock.lower,OutgoingClock.seed]
+
+/-- At time t, an actual right endpoint at depth d in the dyadic collar
+1..k can only occur at depth STRICTLY below twice the next epoch's phase. -/
+theorem collar_support (t k d : Nat) (hd : 0<d) (hk : d≤k)
+    (he : interiorSource t ((t:Int)-d)=true) : d < 2*((t+1) % 2^k) := by
+  let D := 2^k
+  let p := (t+1)%D
+  let q := (t+1)/D
+  change d<2*p
+  have hsum : p+q*D=t+1 := by
+    simpa [p,q,Nat.mul_comm,D] using Nat.mod_add_div (t+1) D
+  have ident (i : Nat) : OutgoingClock.traj (fun _ => true) (t+1) i =
+      cell t ((t:Int)-i) := by
+    rw [show t+1=1+t by omega, ← OutgoingClock.traj_add]
+    change OutgoingClock.traj (OutgoingClock.step (fun _ => true)) t i = _
+    rw [back_ones, ←OutgoingClock.actual_eq]; rfl
+  have folded (i : Nat) (hi : i≤k) :
+      cell t ((t:Int)-i) = OutgoingClock.traj (fun _ => true) p i := by
+    rw [←ident,←hsum]
+    exact OutgoingClock.prefixPeriod_mul _ k q p i hi
+  obtain ⟨a,h⟩ := Bool.and_eq_true_iff.mp he
+  obtain ⟨ha,hb⟩ := Bool.and_eq_true_iff.mp a
+  by_cases hp : p=0
+  · rw [show (t:Int)-d+1=(t:Int)-(d-1:Nat) by omega, folded (d-1) (by omega), hp] at hb
+    contradiction
+  · have pm : p=(p-1)+1 := by omega
+    have ret : OutgoingClock.traj (fun _ => true) p d = OutgoingClock.traj OutgoingClock.seed (p-1) d := by
+      rw [pm,show p-1+1=1+(p-1) by omega, ←OutgoingClock.traj_add]
+      change OutgoingClock.traj (OutgoingClock.step (fun _ => true)) _ _ = _
+      rw [back_ones]; congr 2 <;> omega
+    rw [folded d hk, ret] at ha
+    apply Classical.byContradiction; intro high
+    have vac := (OutgoingClock.peakTraj OutgoingClock.seed_peak (p-1)).2 d (by omega)
+    rw [vac] at ha
+    contradiction
+
+/-- All genuine interior sources except the first k right-normalized lanes. -/
+def coreSource (k t : Nat) (x : Int) : Bool :=
+  interiorSource t x && decide ((k:Int)<(t:Int)-x)
+
+/-- Full Rule 90 linear response to the moving interior core, in physical coordinates. -/
+def core (k : Nat) : Nat → Int → Bool
+  | 0, _ => false
+  | t+1, x => xor (xor (core k t (x-1)) (core k t (x+1))) (coreSource k t x)
+
+private def stripSource (k t : Nat) (d : Int) : Bool :=
+  xor (interiorSource t ((t:Int)+1-d)) (coreSource k t ((t:Int)+1-d))
+
+private theorem strip_support (k t : Nat) (y : Int) (active : stripSource k t y=true) :
+    0≤y ∧ y≤2*((((t+1)%2^k):Nat):Int) := by
+  unfold stripSource coreSource at active
+  by_cases hy : y≤0
+  · have hz : interiorSource t ((t:Int)+1-y)=false := by
+      simp [interiorSource,rightVac t ((t:Int)+1-y) (by omega)]
+    simp [hz] at active
+  by_cases hy1 : y=1
+  · subst y; simp [interiorSource] at active
+  have hc : ¬(k:Int)<(t:Int)-((t:Int)+1-y) := by
+    intro h; simp [h] at active
+  have e : interiorSource t ((t:Int)+1-y)=true := by simpa [hc] using active
+  let d := (y-1).toNat
+  have hd : (d:Int)=y-1 := by dsimp [d]; omega
+  rw [show (t:Int)+1-y=(t:Int)-d by omega] at e
+  have lim := collar_support t k d (by omega) (by omega) e
+  omega
+
+private theorem packet_hole (k q r p : Nat) (m : Int) (f : Int→Bool)
+    (hx : p+r+1=2^k) (hf : ∀ y, f y=true → 0≤y ∧ y≤2*(p:Int)) :
+    walk (q*2^k+r) f (m*(2*((2^k:Nat):Int))-1)=false := by
+  induction q generalizing m with
+  | zero =>
+    simp only [Nat.zero_mul,Nat.zero_add]
+    apply walk_cone
+    intro y hy hy'
+    cases e : f y with
+    | false => rfl
+    | true =>
+      obtain ⟨lo,hi⟩ := hf y e
+      have pos : 0 < ((2^k:Nat):Int) := by exact_mod_cast Nat.pow_pos (a:=2) (by decide)
+      by_cases hm : m≤0
+      · have le := Int.mul_le_mul_of_nonneg_right hm (show 0≤2*((2^k:Nat):Int) by omega)
+        simp only [Int.zero_mul] at le; omega
+      · have le := Int.mul_le_mul_of_nonneg_right (show 1≤m by omega)
+            (show 0≤2*((2^k:Nat):Int) by omega)
+        simp only [Int.one_mul] at le; omega
+  | succ q ih =>
+    rw [Nat.succ_mul,show q*2^k+2^k+r=q*2^k+r+2^k by omega,walk_pow,ih]
+    have off : m*(2*((2^k:Nat):Int))-1-2*((2^k:Nat):Int) =
+        (m-1)*(2*((2^k:Nat):Int))-1 := by rw [Int.sub_mul,Int.one_mul];omega
+    rw [off,ih];rfl
+
+private theorem source_hole (k t u : Nat) (m : Int) (hm : (t+1+u+1)%2^k=0) :
+    walk u (stripSource k t) (m*(2*((2^k:Nat):Int))-1)=false := by
+  let D := 2^k
+  let p := (t+1)%D
+  let r := u%D
+  have hD : 0<D := Nat.pow_pos (by decide)
+  have hp : p<D := Nat.mod_lt _ hD
+  have hr : r<D := Nat.mod_lt _ hD
+  have he : (p+r+1)%D=0 := by
+    have eq : (p+r)%D=(t+1+u)%D := (Nat.add_mod _ _ _).symm
+    calc (p+r+1)%D = ((p+r)%D+1%D)%D := Nat.add_mod _ _ _
+         _ = ((t+1+u)%D+1%D)%D := by rw [eq]
+         _ = (t+1+u+1)%D := (Nat.add_mod _ _ _).symm
+         _ = 0 := hm
+  have total : p+r+1=D := by
+    by_cases sm : p+r+1<D
+    · rw [Nat.mod_eq_of_lt sm] at he; omega
+    · rw [Nat.mod_eq_sub_mod (by omega),Nat.mod_eq_of_lt (show p+r+1-D<D by omega)] at he
+      omega
+  have hu : u=(u/D)*D+r := by
+    simpa [r,Nat.mul_comm,Nat.add_comm] using (Nat.mod_add_div u D).symm
+  calc
+    _ = walk ((u/D)*D+r) (stripSource k t) (m*(2*((2^k:Nat):Int))-1) :=
+      congrArg (fun n => walk n (stripSource k t) _) hu
+    _ = false := packet_hole k (u/D) r p m _ total (strip_support k t)
+
+private def gap (k t : Nat) (d : Int) : Bool :=
+  xor (interior t ((t:Int)-d)) (core k t ((t:Int)-d))
+
+private theorem gap_step (k t : Nat) (d : Int) :
+    gap k (t+1) d = xor (xor (gap k t d) (gap k t (d-2))) (stripSource k t d) := by
+  unfold gap stripSource
+  simp only [interior,core,Int.natCast_succ]
+  rw [show (t:Int)+1-d-1=(t:Int)-d by omega,
+      show (t:Int)+1-d+1=(t:Int)-(d-2) by omega]
+  generalize interior t ((t:Int)-d)=a;generalize interior t ((t:Int)-(d-2))=b
+  generalize core k t ((t:Int)-d)=c;generalize core k t ((t:Int)-(d-2))=e
+  generalize interiorSource t ((t:Int)+1-d)=f;generalize coreSource k t ((t:Int)+1-d)=g
+  cases a <;> cases b <;> cases c <;> cases e <;> cases f <;> cases g <;> rfl
+
+private theorem gap_after (k t u : Nat) (m : Int) (hm : (t+u+1)%2^k=0) :
+    walk u (gap k t) (m*(2*((2^k:Nat):Int))-1)=false := by
+  induction t generalizing u with
+  | zero => apply walk_cone; intro y _ _; rfl
+  | succ t ih =>
+    have step : gap k (t+1) = fun d =>
+        xor (xor (gap k t d) (gap k t (d-2))) (stripSource k t d) := funext (gap_step k t)
+    rw [step, walk_xor, walk_flip, ih (u+1) (by rwa [show t+(u+1)+1=t+1+u+1 by omega]),
+      source_hole k t u m hm]; rfl
+
+/-- Uniform moving-core deletion, for EVERY multiplier b: all right-endpoint
+sources at original depths 1 through k can be discarded exactly at every
+shell b·2^(k+1)−1. The width k grows with shell order. -/
+theorem shell_cut (k b : Nat) (hb : 0<b) :
+    interior (b*2^(k+1)-1) 0 = core k (b*2^(k+1)-1) 0 := by
+  let n := b*2^(k+1)-1
+  have pos : 0<b*2^(k+1) := Nat.mul_pos hb (Nat.pow_pos (by decide))
+  have hplus : n+1=b*2^(k+1) := by dsimp [n];omega
+  have mod0 : (n+0+1)%2^k=0 := by
+    rw [Nat.add_zero,hplus,Nat.pow_succ,show b*(2^k*2)=(b*2)*2^k by ac_rfl,Nat.mul_mod_left]
+  have h := gap_after k n 0 (b:Int) mod0
+  have idx : (b:Int)*(2*((2^k:Nat):Int))-1=(n:Int) := by
+    have eq : b*2^(k+1)=b*(2*2^k) := by rw [Nat.pow_succ,Nat.mul_comm (2^k) 2]
+    have lift : ((b*2^(k+1):Nat):Int)=(b:Int)*(2*((2^k:Nat):Int)) := by
+      rw [eq];push_cast;rfl
+    omega
+  change gap k n _=false at h
+  rw [idx] at h
+  simpa [gap] using h
+
+/-- Hard arithmetic link. On one sufficiently late dyadic shell, a Mersenne
+coefficient and a non-Mersenne odd multiple have the SAME interior parity.
+The multiple may be chosen after the shell; no periodicity or recurrence
+of a guessed finite-state source is assumed. -/
+theorem L1 (P N : Nat) (hP : 0 < P) :
+    ∃ k j : Nat, 0 < j ∧ N < 2^(k+1) ∧
+      core k (2^(k+1) - 1) 0 = core k ((2 * (P*j) + 1) * 2^(k+1) - 1) 0 := by
+  sorry
+
 private theorem repeat_add {f : Nat → Bool} {T P : Nat}
     (h : ∀ t, T ≤ t → f (t+P)=f t) (t : Nat) (ht : T≤t) (m : Nat) :
     f (t + P*m) = f t := by
@@ -185,19 +397,22 @@ private theorem repeat_add {f : Nat → Bool} {T P : Nat}
 theorem close_step4 (hcenter : EventuallyPeriodic center) : False := by
   obtain ⟨T,P,hP,period⟩ := hcenter
   obtain ⟨k,j,hj,ht,he⟩ := L1 P T hP
-  have hpow : 0 < 2^k := Nat.pow_pos (by decide)
+  have hpow : 0 < 2^(k+1) := Nat.pow_pos (by decide)
   have hd : 0 < P*j := Nat.mul_pos hP hj
-  obtain ⟨h₁,h₂⟩ := L2 k (P*j) hd
-  have halg : (2*(P*j)+1)*2^k = P*((2*j)*2^k) + 2^k := by
+  obtain ⟨h₁,h₂⟩ := L2 (k+1) (P*j) hd
+  have halg : (2*(P*j)+1)*2^(k+1) = P*((2*j)*2^(k+1)) + 2^(k+1) := by
     rw [Nat.add_mul, Nat.one_mul]
     congr 1
     ac_rfl
-  have hindex : (2^k - 1) + P*((2*j)*2^k) = (2*(P*j)+1)*2^k - 1 := by
+  have hindex : (2^(k+1) - 1) + P*((2*j)*2^(k+1)) = (2*(P*j)+1)*2^(k+1) - 1 := by
     rw [halg]; omega
-  have htime := repeat_add period (2^k-1) (by omega) ((2*j)*2^k)
+  have ca : interior (2^(k+1)-1) 0 = core k (2^(k+1)-1) 0 := by
+    simpa using shell_cut k 1 (by decide)
+  have cb := shell_cut k (2*(P*j)+1) (by omega)
+  have htime := repeat_add period (2^(k+1)-1) (by omega) ((2*j)*2^(k+1))
   rw [hindex] at htime
   unfold center at htime
-  rw [row_split _ 0, row_split (2^k-1) 0, h₁, h₂, ← he] at htime
-  cases hh : interior (2^k-1) 0 <;> simp [hh] at htime
+  rw [row_split _ 0, row_split (2^(k+1)-1) 0, h₁, h₂, ca, cb, ← he] at htime
+  cases hh : core k (2^(k+1)-1) 0 <;> simp [hh] at htime
 
 end OpenProblem.BoundsBlueprint
