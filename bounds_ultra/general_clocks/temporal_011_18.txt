@@ -1,0 +1,1 @@
+temporal 011 width 18 host 5123 complete DFA True expanded/known 954 954 word counts k=1.. [2, 3, 4, 6, 8, 10, 14, 19, 25, 35, 47, 62, 84, 112, 144, 187, 242, 310, 396, 503, 635, 804, 1018, 1281, 1609, 2027, 2549, 3206, 4040, 5088, 6404] max SCC eigen brackets 1.256076244 1.256076245 log2 finite-word upper/strobe 0.40789541

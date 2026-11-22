@@ -1,0 +1,1 @@
+temporal 0011 width 18 host 6186 complete DFA True expanded/known 987 987 word counts k=1.. [2, 4, 7, 11, 15, 20, 26, 36, 50, 68, 90, 118, 154, 199, 260, 339, 442, 579, 755, 987, 1283, 1678, 2194, 2869, 3753, 4901, 6393, 8339, 10871, 14182, 18479] max SCC eigen brackets 1.303572331 1.303572331 log2 finite-word upper/strobe 0.45721287

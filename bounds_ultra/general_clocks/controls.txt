@@ -1,0 +1,4 @@
+R90 P 01 unclamped checked 501 finite-west original mark; east GF2 num/den 0x11 0x15 eventual spatial period 6 first 20 x1 physical 00010100000000010101
+R90 P 011 unclamped checked 501 finite-west original mark; east GF2 num/den 0x1b 0x1f eventual spatial period 5 first 20 x1 physical 00100001011011001101
+R90 P 00101 unclamped checked 501 finite-west original mark; east GF2 num/den 0x1ef 0x1d7 eventual spatial period 17 first 20 x1 physical 01110000101001000000
+R90 P 0011 unclamped checked 501 finite-west original mark; east GF2 num/den 0x63 0x6b eventual spatial period 12 first 20 x1 physical 01101101111111101100

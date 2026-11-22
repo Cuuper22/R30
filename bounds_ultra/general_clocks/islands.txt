@@ -1,0 +1,5 @@
+01 repeating white-labels (0, 1, 0, 0, 0) accepted True temporal length 10 west transient 0 spatial period 155 max zero gap 7 max inverse synchronization 25 C 26 island/age limsup ≤ 0.9259259259259259 R90 no reset
+011 repeating white-labels (0, 1, 1) accepted True temporal length 9 west transient 14 spatial period 135 max zero gap 7 max inverse synchronization 35 C 36 island/age limsup ≤ 0.9459459459459459 R90 no reset
+0011 repeating white-labels (1,) accepted True temporal length 4 west transient 0 spatial period 7 max zero gap 6 max inverse synchronization None C None island/age limsup ≤ None R90 no reset
+0011 repeating white-labels (3,) accepted True temporal length 4 west transient 0 spatial period 7 max zero gap 1 max inverse synchronization None C None island/age limsup ≤ None R90 no reset
+00101 repeating white-labels (0,) accepted True temporal length 5 west transient 0 spatial period 25 max zero gap 5 max inverse synchronization 23 C 24 island/age limsup ≤ 0.92 R90 no reset

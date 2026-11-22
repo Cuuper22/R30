@@ -1,0 +1,5 @@
+0011 (1,) closed False rewinds 21 distinct tail rotation classes 72 max spatial period 28 max locking prefix 28 longest Zero 8 vacuum accessible False
+0011 (3,) closed False rewinds 21 distinct tail rotation classes 72 max spatial period 28 max locking prefix 28 longest Zero 8 vacuum accessible False
+011 (0, 1, 1) closed True rewinds 1 distinct tail rotation classes 1 max spatial period 135 max locking prefix 135 longest Zero 7 vacuum accessible False
+00101 (0,) closed True rewinds 1 distinct tail rotation classes 1 max spatial period 25 max locking prefix 25 longest Zero 5 vacuum accessible False
+01 (0, 1, 0, 0, 0) closed True rewinds 1 distinct tail rotation classes 2 max spatial period 155 max locking prefix 155 longest Zero 7 vacuum accessible False

@@ -1,0 +1,8 @@
+word 5 temporal 10 spatial transient 0 spatial period 155 normalized white/black masks 0/0
+initial B parity 0: physical west travel/time 31/8 (cycle travel/time 310/80)
+initial B parity 1: physical west travel/time 31/8 (cycle travel/time 310/80)
+word 3555 temporal 36 spatial transient 63577 spatial period 1880784 normalized white/black masks 0/0
+initial B parity 0: physical west travel/time 52244/17431 (cycle travel/time 1880784/627516)
+initial B parity 1: physical west travel/time 52244/17431 (cycle travel/time 1880784/627516)
+word 35555 no Brent confirmation by 30000000
+word 353555 no Brent confirmation by 30000000

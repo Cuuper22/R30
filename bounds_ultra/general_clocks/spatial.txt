@@ -1,0 +1,24 @@
+spatial 01 8 finite mature count 112 per-site log-count 0.85092 q-variable hosts (size,absorbing) [(112, True)] R90 full 256
+spatial 01 12 finite mature count 986 per-site log-count 0.82879 q-variable hosts (size,absorbing) [(792, True), (49, False)] R90 full 4096
+spatial 01 16 finite mature count 6432 per-site log-count 0.79069 q-variable hosts (size,absorbing) [(2555, False), (760, True)] R90 full 65536
+spatial 01 18 finite mature count 13891 per-site log-count 0.76455 q-variable hosts (size,absorbing) [(5651, False), (2110, True)] R90 full 262144
+spatial 01 20 finite mature count 35495 per-site log-count 0.75577 q-variable hosts (size,absorbing) [(11606, False), (5352, True)] R90 full 1048576
+spatial 01 22 finite mature count 83309 per-site log-count 0.74301 q-variable hosts (size,absorbing) [(13706, True), (8963, False), (6334, False)] R90 full 4194304
+spatial 011 8 finite mature count 107 per-site log-count 0.84268 q-variable hosts (size,absorbing) [(73, True)] R90 full 256
+spatial 011 12 finite mature count 732 per-site log-count 0.79297 q-variable hosts (size,absorbing) [(463, True), (25, False)] R90 full 4096
+spatial 011 16 finite mature count 4611 per-site log-count 0.76068 q-variable hosts (size,absorbing) [(1880, True), (35, False)] R90 full 65536
+spatial 011 18 finite mature count 9830 per-site log-count 0.73683 q-variable hosts (size,absorbing) [(5123, True)] R90 full 262144
+spatial 011 20 finite mature count 21070 per-site log-count 0.71815 q-variable hosts (size,absorbing) [(13546, True)] R90 full 1048576
+spatial 011 22 finite mature count 48713 per-site log-count 0.70782 q-variable hosts (size,absorbing) [(35017, True)] R90 full 4194304
+spatial 0011 8 finite mature count 85 per-site log-count 0.80117 q-variable hosts (size,absorbing) [(66, True)] R90 full 256
+spatial 0011 12 finite mature count 607 per-site log-count 0.77046 q-variable hosts (size,absorbing) [(526, True)] R90 full 4096
+spatial 0011 16 finite mature count 4316 per-site log-count 0.75472 q-variable hosts (size,absorbing) [(2848, False)] R90 full 65536
+spatial 0011 18 finite mature count 10478 per-site log-count 0.74195 q-variable hosts (size,absorbing) [(6186, False)] R90 full 262144
+spatial 0011 20 finite mature count 26239 per-site log-count 0.73397 q-variable hosts (size,absorbing) [(14961, False)] R90 full 1048576
+spatial 0011 22 finite mature count 65855 per-site log-count 0.72759 q-variable hosts (size,absorbing) [(35436, False)] R90 full 4194304
+spatial 00101 8 finite mature count 106 per-site log-count 0.84099 q-variable hosts (size,absorbing) [(106, True)] R90 full 256
+spatial 00101 12 finite mature count 860 per-site log-count 0.81235 q-variable hosts (size,absorbing) [(860, True)] R90 full 4096
+spatial 00101 16 finite mature count 6550 per-site log-count 0.79233 q-variable hosts (size,absorbing) [(6548, True)] R90 full 65536
+spatial 00101 18 finite mature count 17067 per-site log-count 0.78105 q-variable hosts (size,absorbing) [(17062, True)] R90 full 262144
+spatial 00101 20 finite mature count 43813 per-site log-count 0.77095 q-variable hosts (size,absorbing) [(43810, True)] R90 full 1048576
+spatial 00101 22 finite mature count 114017 per-site log-count 0.76359 q-variable hosts (size,absorbing) [(114004, True)] R90 full 4194304
