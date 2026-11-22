@@ -6,8 +6,8 @@ if (!allowed.has(scope)) throw Error("unknown checkpoint scope");
 const repo = "Cuuper22/R30";
 const dir = "rule30_target/sync";
 const stat = await tools.mcp__codex_apps__github_get_repo({repository_full_name: repo});
-if (stat.structuredContent?.visibility !== "private" || !stat.structuredContent?.permissions?.push)
-  throw Error("refusing to sync: expected private repository with push access");
+if (stat.structuredContent?.id !== "1467162572" || stat.structuredContent?.visibility !== "public" || !stat.structuredContent?.permissions?.push)
+  throw Error("refusing to sync: expected the confirmed public R30 repository with push access");
 const local = await tools.exec_command({cmd:`python '${dir}/snapshot_worker.py' ${scope}`,max_output_tokens:100000});
 if (local.exit_code !== 0) throw Error(local.output);
 const shot = JSON.parse(local.output);
