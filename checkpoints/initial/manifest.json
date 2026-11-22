@@ -1,0 +1,127 @@
+{
+  "format": "tar+zstd",
+  "bytes": 23198523,
+  "sha256": "2de6460c95fcf675d21b217cdd80b2212e680aad9f9ecfbf7ef989fb8e11ae4b",
+  "parts": [
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-000",
+      "git_blob": "351b67c096bf8f7054ce49f3a5ece4bace626b94"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-001",
+      "git_blob": "a79c5879bb521324b7958b5dc3b5ad4252553244"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-002",
+      "git_blob": "982bb7d311db37ad0503153570d9df1b3c59e799"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-003",
+      "git_blob": "59297b7149a26c99d70de5d23c76b38af5a48c5a"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-004",
+      "git_blob": "cb783c4f6e071eb063fda1f481f068fa15515e73"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-005",
+      "git_blob": "060dd31a07ae62bf863158ef740451a0b41256c4"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-006",
+      "git_blob": "96dbacc06bee52629af4e01811189dc12f05ad22"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-007",
+      "git_blob": "a6bbc7873864d39b98bf2abfce45d2c9af0336d3"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-008",
+      "git_blob": "ca26c4955826d995eab2e1252b370bed15efcd87"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-009",
+      "git_blob": "2eeec035ddd67e8012b0ac98fd71b2de88765a25"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-010",
+      "git_blob": "aa817a86394ec10ecc223e423bee936bfad3d5ba"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-011",
+      "git_blob": "5d69ce85ab21a93bbc8e4c6c3461a2815ed889fa"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-012",
+      "git_blob": "18de26a0b4f12688fae31e1af74b4d256d96db8b"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-013",
+      "git_blob": "12db6828293134d245054189e5123935388d688a"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-014",
+      "git_blob": "8ac751c9dcbbed8578b5a45d51e09f574991413a"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-015",
+      "git_blob": "bad3f9307dccff063d25762aa0cbd6e361a15e47"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-016",
+      "git_blob": "74f6ecfb03f2af749b336b3030433b809d901d71"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-017",
+      "git_blob": "f4db4e41954b9af583cc273bd5bfb5841ff22f2a"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-018",
+      "git_blob": "b0a51bf3e9835fc52c136475994de794bca33ecb"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-019",
+      "git_blob": "b9ed85d9151e2b378691f3d87e8022146ec9df1e"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-020",
+      "git_blob": "99bc07f89814ae19c88346101c9f057f0b1d12ba"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-021",
+      "git_blob": "aa6d4c156948a5cac3ce48145973c033208e823b"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-022",
+      "git_blob": "89ef5c586c5f43fc0b604e440949fc245aa28a9c"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-023",
+      "git_blob": "754619237ac2e42ceee8af37f4b4b02b523cae70"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-024",
+      "git_blob": "23a85ca331e496073df9eb79eba4b3104b71a940"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-025",
+      "git_blob": "a74ad2e02f2f3a3be75874207083adfb458c4df5"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-026",
+      "git_blob": "1f4ada08fde22401e7d529f77e7dbb8b44aa76b9"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-027",
+      "git_blob": "15345ab95503b9f473fe73ad7926039c15f3874a"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-028",
+      "git_blob": "8b19cf646e82011529a18d0a71b7b3d399cd7616"
+    },
+    {
+      "path": "checkpoints/initial/project.tar.zst.part-029",
+      "git_blob": "c2a3bba785295d150fb024231fbdd7b7c3a42fdb"
+    }
+  ]
+}
