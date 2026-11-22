@@ -1,0 +1,16 @@
+R90 P 01 unclamped checked 502 finite-west original mark; east GF2 num/den 0x11 0x15 eventual spatial period 6 first 20 x1 physical 00010100000000010101
+true R90 exact input 01 wall-filter mismatches on 455 interior ticks 152
+R90 P 011 unclamped checked 502 finite-west original mark; east GF2 num/den 0x1b 0x1f eventual spatial period 5 first 20 x1 physical 00100001011011001101
+true R90 exact input 011 wall-filter mismatches on 455 interior ticks 123
+R90 P 0011 unclamped checked 502 finite-west original mark; east GF2 num/den 0x63 0x6b eventual spatial period 12 first 20 x1 physical 01101101111111101100
+true R90 exact input 0011 wall-filter mismatches on 455 interior ticks 76
+R90 P 00101 unclamped checked 502 finite-west original mark; east GF2 num/den 0x1ef 0x1d7 eventual spatial period 17 first 20 x1 physical 01110000101001000000
+true R90 exact input 00101 wall-filter mismatches on 455 interior ticks 113
+R90 P 0110000000110000001 unclamped checked 502 finite-west original mark; east GF2 num/den 0x490d555849 0x5500080055 eventual spatial period 786435 first 20 x1 physical 00101111010111100111
+true R90 exact input 0110000000110000001 wall-filter mismatches on 455 interior ticks 203
+actual R30 rooted ticks in eligible tiles all match 244
+true finite east under R30 clamped clock 01 wall-filter mismatches 59
+true finite east under R30 clamped clock 011 wall-filter mismatches 123
+true finite east under R30 clamped clock 0011 wall-filter mismatches 114
+true finite east under R30 clamped clock 00101 wall-filter mismatches 83
+true finite east under R30 clamped clock 0110000000110000001 wall-filter mismatches 0

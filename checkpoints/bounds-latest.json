@@ -82,7 +82,7 @@
   "bounds_ultra/barrier2/symbolic_58203_periodic_rivals.cpp": "7daf2d644daeab6725b23babd8a31d2d539e4fe1",
   "bounds_ultra/general_clocks/controls.py": "985a660f7a2207446ab2230e86419c5b2e3945d2",
   "bounds_ultra/general_clocks/temporal_0011_18.txt": "606502b3a81dd496276ce08561d9c267d118531f",
-  "bounds_ultra/general_clocks/RESULTS.md": "1c2d95eef36af0bc0c5755b1d3d881d4c35da7f8",
+  "bounds_ultra/general_clocks/RESULTS.md": "e23143ecede78cb35ac16c1e6afd35e1bdffcef7",
   "bounds_ultra/general_clocks/temporal_01_25.txt": "8ee8c41f8d3f945af068563b421f3ef8ec37a40b",
   "bounds_ultra/general_clocks/temporal_01_18.txt": "6528b23d3fda7c7008737818c0f4cb3dbd9486dd",
   "bounds_ultra/general_clocks/periodic_islands.py": "a1ab88c3624e3ae20d139ed860b311b94a11da54",
@@ -132,5 +132,9 @@
   "bounds_ultra/general_clocks/strip_entropy.txt": "a3501fec8332353d2da18e1b98064ae435fa5d99",
   "bounds_ultra/general_clocks/marked_rewind.py": "e664992cd83116fa4a4c25c8075875a98a2880a7",
   "bounds_ultra/general_clocks/probe_shear.txt": "e38d2b86c5a00346a26619b3108a08813bb6904c",
-  "bounds_ultra/general_clocks/probe_shear.py": "c83cff13321f988a2d5023c72428e4b6242defbf"
+  "bounds_ultra/general_clocks/probe_shear.py": "c83cff13321f988a2d5023c72428e4b6242defbf",
+  "bounds_ultra/general_clocks/ab_wall_filter.txt": "fd3f0ce74782d510e065461d0eda4d8ef7b57158",
+  "bounds_ultra/general_clocks/cyclic_gap.txt": "a5be374f7ffed84c0caf6f0328f4fc75f4ba7800",
+  "bounds_ultra/general_clocks/ab_wall_filter.py": "1dfcf102068e9565f1a0ef3cc8c10f7a58d0a53a",
+  "bounds_ultra/general_clocks/cyclic_gap.cpp": "afbeebc42aa27f525f0355f8c49e06b0c30dea84"
 }
