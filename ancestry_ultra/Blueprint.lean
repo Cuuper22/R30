@@ -1,5 +1,6 @@
 import Statement
 import MaskedRightRigidity
+import QuantifiedSplit
 
 namespace OpenProblem.AncestryBlueprint
 
@@ -1128,12 +1129,445 @@ theorem excludes_pulse_basin (c : Trace) (mark : c 0=true) (ep : EventuallyPerio
     show t+P-1=(t-1)+P by omega,per (t-1) (by omega),
     show t+P-2=(t-2)+P by omega,per (t-2) (by omega)]
 
+
+/- Arbitrary normalized front: unlike the singleton's fixed left rim,
+the strict right tape carried by this front at its birth is unrestricted. -/
+namespace RenewalFront
+variable (side : Nat → Int → Bool)
+variable (law : ∀ t j, side (t+1) j=rule (side t (j-2)) (side t (j-1)) (side t j))
+variable (vac : ∀ t j,j<0 → side t j=false) (root : ∀ t,side t 0=true)
+/-- Sideways left recovery holds for any two time offsets and any spatial displacement. -/
+private def LaneEq (A B : Nat) (k j : Int) : Prop :=
+  ∀ t, side (A+t) j=side (B+t) (j+k)
+
+private theorem xor_injective (a b c : Bool) :
+    xor a c=xor b c → a=b := by
+  cases a <;> cases b <;> cases c <;> decide
+
+include law in
+private theorem rewind {A B : Nat} {k j : Int}
+    (here : LaneEq side A B k j) (next : LaneEq side A B k (j+1)) :
+    LaneEq side A B k (j-1) := by
+  intro t
+  have obs := next (t+1)
+  rw [show A+(t+1)=A+t+1 by omega,show B+(t+1)=B+t+1 by omega,
+    law,law,
+    show j+1-1=j by omega,show j+1-2=j-1 by omega,
+    show j+1+k-1=j+k by omega,show j+1+k-2=j-1+k by omega,
+    ←here t,←next t] at obs
+  exact xor_injective _ _ _ obs
+
+include law in
+private theorem rewind_all {A B : Nat} {k j : Int}
+    (here : LaneEq side A B k j) (next : LaneEq side A B k (j+1)) :
+    ∀ i≤j+1, LaneEq side A B k i := by
+  intro i hi
+  have recPair : ∀ n : Nat, LaneEq side A B k (j-n) ∧ LaneEq side A B k (j-n+1) := by
+    intro n
+    induction n with
+    | zero => simpa using And.intro here next
+    | succ n ih =>
+      refine ⟨?_,?_⟩
+      · rw [show j-(↑(n+1):Int)=j-(n:Int)-1 by omega]
+        exact rewind side law ih.1 ih.2
+      · rw [show j-(↑(n+1):Int)+1=j-(n:Int) by omega]
+        exact ih.1
+  by_cases e : i=j+1
+  · exact e ▸ next
+  · have q : j-((j-i).toNat:Int)=i := by omega
+    rw [←q]
+    exact (recPair _).1
+
+include law vac root in
+/-- No two distinct adjacent normalized-west lane pairs have the same
+complete later trajectory, even allowing independent temporal shifts.
+The exact all-time occupied left edge is a spatial boundary marker. -/
+private theorem no_repeated_lane_pair (A B : Nat) (j k : Int) (d : 0<k) (hj : -k≤j+1)
+    (here : LaneEq side A B k j) (next : LaneEq side A B k (j+1)) : False := by
+  have e := rewind_all side law here next (-k) hj 0
+  simp only [Nat.add_zero,show -k+k=0 by omega] at e
+  rw [vac A _ (by omega),root] at e
+  exact Bool.noConfusion e
+
+open FiniteWindowRecurrence QuantifiedSplit
+
+private theorem from_return {Q p : Nat} {x : Int}
+    (h : ∀ t, side (Q+t+p) x=side (Q+t) x) (m r : Nat) :
+    side (Q+r+p*m) x=side (Q+r) x := by
+  induction m with
+  | zero => simp
+  | succ m ih =>
+    rw [Nat.mul_succ,←Nat.add_assoc,show Q+r+p*m=Q+(r+p*m) by omega,h,
+      ←Nat.add_assoc,ih]
+
+include law vac root in
+/-- Adjacent lane pairs have unbounded eventual time periods. If two
+neighboring normalized-west lanes at depth m simultaneously inherit the
+same period p, then their p-tick certificates identify every earlier
+aligned lane pair as a different word of length 2*p. -/
+private theorem periodic_pair_width_bound (m A p : Nat) (hp : 0<p)
+    (lo : ∀ t≥A, side (t+p) (m:Int)=side t (m:Int))
+    (hi : ∀ t≥A, side (t+p) ((m:Int)+1)=side t ((m:Int)+1)) :
+    m<2^(p+p) := by
+  have hLo : LaneEq side (A+p) A 0 (m:Int) := by
+    intro t
+    simpa [Nat.add_comm p t,Nat.add_assoc] using lo (A+t) (by omega)
+  have hHi : LaneEq side (A+p) A 0 ((m:Int)+1) := by
+    intro t
+    simpa [Nat.add_comm p t,Nat.add_assoc] using hi (A+t) (by omega)
+  have allP (x : Int) (hx : x≤(m:Int)+1) (t : Nat) :
+      side (A+t+p) x=side (A+t) x := by
+    have h := rewind_all side law hLo hHi x hx t
+    simpa [Nat.add_comm p t,Nat.add_assoc] using h
+  apply Classical.byContradiction
+  intro notSmall
+  have large : 2^(p+p)≤m := by omega
+  let f (d i : Nat) := if i<p then side (A+i) (d:Int) else side (A+(i-p)) ((d:Int)+1)
+  let w (d : Nat) := window (f d) (p+p) 0
+  let key (d : Nat) := encode (w d)
+  have cap (d : Nat) : key d<2^(p+p) := by
+    simpa only [key,w,window_len] using encode_bound (w d)
+  obtain ⟨i,j,lt,jb,eq⟩ := repeat_le (2^(p+p)) key (by intro d _; exact cap d)
+  have words : w i=w j := same_encode_eq (by simp [w,window_len]) eq
+  have cells (r : Nat) (hr : r<p+p) : f i r=f j r := by
+    have g := congrArg (fun xs : List Bool => xs[r]?) words
+    simpa [w,window,hr] using g
+  let k : Int := (j:Int)-i
+  have smalli : i≤m := by omega
+  have smallj : j≤m := by omega
+  have iShift : (i:Int)+k=(j:Int) := by dsimp [k]; omega
+  have sShift : (i:Int)+1+k=(j:Int)+1 := by dsimp [k]; omega
+  have same0 : LaneEq side A A k (i:Int) := by
+    intro t
+    let r := t%p
+    let q := t/p
+    have d : t=r+p*q := by exact (Nat.mod_add_div t p).symm
+    have low : r<p := Nat.mod_lt t hp
+    rw [iShift,d,←Nat.add_assoc,
+      from_return side (allP _ (by omega)) q r,from_return side (allP _ (by omega)) q r]
+    have e := cells r (by omega)
+    simpa [f,low] using e
+  have same1 : LaneEq side A A k ((i:Int)+1) := by
+    intro t
+    let r := t%p
+    let q := t/p
+    have d : t=r+p*q := by exact (Nat.mod_add_div t p).symm
+    have low : r<p := Nat.mod_lt t hp
+    rw [sShift,d,←Nat.add_assoc,
+      from_return side (allP _ (by omega)) q r,from_return side (allP _ (by omega)) q r]
+    have e := cells (p+r) (by omega)
+    simpa [f,show ¬p+r<p by omega,show p+r-p=r by omega] using e
+  exact no_repeated_lane_pair side law vac root A A (i:Int) k (by dsimp [k]; omega)
+    (by dsimp [k]; omega) same0 same1
+
+
+include law vac in
+open FiniteWindowRecurrence QuantifiedSplit in
+private theorem prefix_cycle (d : Nat) :
+    ∃ p,0<p ∧ p≤2^(d+1) ∧ ∀ t,2^(d+1)≤t → ∀ k, k≤d →
+      side (t+p) (k:Int)=side t (k:Int) := by
+  let w t := window (fun i : Nat => side t (i:Int)) (d+1) 0
+  obtain ⟨a,b,ab,bc,eq⟩ := repeat_le (2^(d+1)) (fun t => encode (w t))
+    (fun t _ => by simpa [w,window_len] using encode_bound (w t))
+  have rows := same_encode_eq (by simp [w,window_len]) eq
+  have matchAt (n : Nat) : ∀ i : Int,i≤(d:Int) → side (a+n) i=side (b+n) i := by
+    induction n with
+    | zero =>
+      intro i hi
+      by_cases neg : i<0
+      · rw [vac _ _ neg,vac _ _ neg]
+      · have low : i.toNat < d+1 := by omega
+        have h := congrArg (fun xs : List Bool => xs[i.toNat]?) rows
+        have take (v : Nat) : (w v)[i.toNat]?=some (side v i) := by
+          change (List.ofFn (fun j : Fin (d+1) => side v ((0+j.val:Nat):Int)))[i.toNat]?=_
+          rw [List.getElem?_ofFn]; simp [low,Int.toNat_of_nonneg (by omega : 0≤i)]
+        rw [take,take] at h; exact Option.some.inj h
+    | succ n ih =>
+      intro i hi
+      rw [show a+(n+1)=a+n+1 by omega,show b+(n+1)=b+n+1 by omega,
+        law,law,ih (i-2) (by omega),ih (i-1) (by omega),ih i hi]
+  refine ⟨b-a,by omega,by omega,?_⟩
+  intro t ht k hk
+  have h := matchAt (t-a) (k:Int) (by omega)
+  rw [show a+(t-a)=t by omega,show b+(t-a)=t+(b-a) by omega] at h
+  exact h.symm
+private def EventuallyP (p : Nat) (j : Int) : Prop :=
+  ∃ A, ∀ t≥A, side (t+p) j=side t j
+
+private def EventuallyWhite (j : Int) : Prop :=
+  ∃ A, ∀ t≥A, side t j=false
+
+include law in
+private theorem period_advance_of_recurring_black {p : Nat} {j : Int}
+    (lo : EventuallyP side p (j-1)) (hi : EventuallyP side p j)
+    (recurs : ¬ EventuallyWhite side j) :
+    EventuallyP side p (j+1) := by
+  obtain ⟨A,lo⟩ := lo
+  obtain ⟨B,hi⟩ := hi
+  obtain ⟨s,late,hit⟩ : ∃ s, max A B≤s ∧ side s j=true := by
+    apply Classical.byContradiction
+    intro misses
+    apply recurs
+    refine ⟨max A B,?_⟩
+    intro t ht
+    cases e : side t j
+    · rfl
+    · exact False.elim (misses ⟨t,ht,e⟩)
+  have start : side (s+1+p) (j+1)=side (s+1) (j+1) := by
+    rw [show s+1+p=s+p+1 by omega,law,law,
+      show j+1-1=j by omega,show j+1-2=j-1 by omega,
+      lo _ (by omega),hi _ (by omega),hit]
+    cases side s (j-1) <;> cases side (s+p) (j+1) <;>
+      cases side s (j+1) <;> rfl
+  have stable (r : Nat) : side (s+1+r+p) (j+1)=side (s+1+r) (j+1) := by
+    induction r with
+    | zero => exact start
+    | succ r prev =>
+      rw [show s+1+(r+1)+p=s+1+r+p+1 by omega,
+        show s+1+(r+1)=s+1+r+1 by omega,law,law,
+        show j+1-1=j by omega,show j+1-2=j-1 by omega,
+        lo _ (by omega),hi _ (by omega),prev]
+  refine ⟨s+1,?_⟩
+  intro t ht
+  have e : t=s+1+(t-(s+1)) := by omega
+  rw [e]
+  exact stable _
+
+
+include law vac in
+/-- A bounded normalized prefix is already on a cycle by a bound
+which depends only on its width. If a deep zero exists on every tick
+after some later date, it must already hold throughout this cycle. -/
+private theorem white_now (j t : Nat) (late : 2^(j+1)≤t)
+    (white : EventuallyWhite side (j:Int)) : side t (j:Int)=false := by
+  obtain ⟨p,hp,_,clock⟩ := prefix_cycle side law vac j
+  obtain ⟨a,white⟩ := white
+  have repeated := period_mul (fun s => side s (j:Int)) _ p
+    (fun s hs => clock s hs j (by omega)) a t late
+  have growth : a≤p*a := by simpa using Nat.mul_le_mul_right a hp
+  exact repeated.symm.trans (white _ (by omega))
+
+def laneCap (j : Nat) : Nat := j+2+2^(2^(j+2)+2^(j+2))
+
+include law vac root in
+/-- Uniform in all possible initial eastern tails, including the time
+before which the lane could be transient. The growing bound is used
+symbolically and is never enumerated. -/
+theorem vacant_lane (j : Nat) :
+    ∃ k,j≤k ∧ k≤laneCap j ∧ ∀ t,2^(laneCap j+1)≤t → side t (k:Int)=false := by
+  let D := laneCap j
+  obtain ⟨p,hp,pbound,small⟩ := prefix_cycle side law vac (j+1)
+  have low (i : Nat) (hi : i≤j+1) : EventuallyP side p (i:Int) :=
+    ⟨2^(j+1+1),fun t ht => small t ht i hi⟩
+  have badRange : ∃ k,j≤k ∧ k≤D ∧ EventuallyWhite side (k:Int) := by
+    apply Classical.byContradiction
+    intro absent
+    have all (n : Nat) (le : j+n≤D) :
+        EventuallyP side p ((j+n:Nat):Int) ∧ EventuallyP side p ((j+n+1:Nat):Int) := by
+      induction n with
+      | zero => exact ⟨low _ (by omega),low _ (by omega)⟩
+      | succ n ih =>
+        obtain ⟨a,b⟩ := ih (by omega)
+        have more := period_advance_of_recurring_black side law
+          (j:=((j+n+1:Nat):Int)) (by simpa using a) b (fun e => absent ⟨_,by omega,by omega,e⟩)
+        exact ⟨by simpa [Nat.add_assoc] using b,by
+          rw [show ((j+(n+1)+1:Nat):Int)=((j+n+1:Nat):Int)+1 by omega];exact more⟩
+    have lowD : j≤D := Nat.le_trans (Nat.le_add_right j 2) (Nat.le_add_right _ _)
+    have ed : j+(D-j)=D := Nat.add_sub_of_le lowD
+    obtain ⟨⟨a,pa⟩,⟨b,pb⟩⟩ := all (D-j) (by rw [ed];omega)
+    rw [ed] at pa pb
+    have lim := periodic_pair_width_bound side law vac root D (max a b) p hp
+      (fun n hn => pa n (by omega)) (fun n hn => pb n (by omega))
+    have mono := Nat.pow_le_pow_right (by decide : 0<2) (Nat.add_le_add pbound pbound)
+    have bound : 2^(p+p)≤D := Nat.le_trans mono (Nat.le_add_left _ _)
+    exact Nat.not_lt_of_ge bound lim
+  obtain ⟨k,lo,hi,white⟩ := badRange
+  exact ⟨k,lo,hi,fun t ht => white_now side law vac k t
+    (Nat.le_trans (Nat.pow_le_pow_right (by decide) (by omega : k+1≤laneCap j+1)) ht) white⟩
+
+private def free (c : Trace) (s d : Nat) : Nat → Int → Bool
+  | 0,j => if j<0 then false else east c s ((d:Int)+j).toNat
+  | n+1,j => rule (free c s d n (j-2)) (free c s d n (j-1)) (free c s d n j)
+
+private theorem free_vac (c : Trace) (s d t : Nat) (j : Int) (hj : j<0) :
+    free c s d t j=false := by
+  induction t generalizing j with
+  | zero => simp [free,hj]
+  | succ t ih => rw [free,ih (j-2) (by omega),ih (j-1) (by omega),ih j hj];rfl
+
+private theorem free_mark (c : Trace) (s d : Nat) (hit : east c s d=true) (t : Nat) :
+    free c s d t 0=true := by
+  induction t with
+  | zero => simpa [free] using hit
+  | succ t ih => rw [free,free_vac _ _ _ _ _ (by decide),free_vac _ _ _ _ _ (by decide),ih];rfl
+
+/-- The actual white-clamped east and the normalized free front coincide
+until the disturbance of the wall can reach the indicated coordinate. -/
+private theorem compare_free (c : Trace) (s h d : Nat)
+    (wh : ∀ j,j<h → c (s+j)=false)
+    (clear : ∀ y,0<y → y<d → east c s y=false) :
+    ∀ i,i≤h → ∀ x,i<d+x → (0<x ∨ i<h) →
+      east c (s+i) x=free c s d i ((x:Int)+i-d) := by
+  intro i
+  induction i with
+  | zero =>
+    intro _ x _ visible
+    by_cases neg : (x:Int)-d<0
+    · rw [free_vac _ _ _ _ _ (by omega)]
+      cases x with
+      | zero => simpa [east0] using wh 0 (by rcases visible with a|a <;> omega)
+      | succ x => exact clear _ (by omega) (by omega)
+    · simp [free,show (d:Int)+((x:Int)-d)=x by omega] <;> omega
+  | succ i ih =>
+    intro lim x bound visible
+    cases x with
+    | zero =>
+      rw [east0,free_vac _ _ _ _ _ (by omega)]
+      apply wh;rcases visible with h|h <;> omega
+    | succ x =>
+      change rule (east c (s+i) x) (east c (s+i) (x+1)) (east c (s+i) (x+2))=_
+      rw [free,ih (by omega) x (by omega) (Or.inr (by omega)),
+        ih (by omega) (x+1) (by omega) (Or.inl (by omega)),
+        ih (by omega) (x+2) (by omega) (Or.inl (by omega))]
+      congr 1 <;> congr 1 <;> omega
+
+private theorem early_ready (c : Trace) (s h d : Nat) (pos : 0<d) (room : d+8≤h)
+    (wh : ∀ j,j<h → c (s+j)=false) (clear : ∀ y,0<y → y<d → east c s y=false)
+    (hit : east c s d=true) : Ready c (s+h) := by
+  have arrive := compare_free c s h d wh clear (d-1) (by omega) 1 (by omega) (Or.inl (by omega))
+  rw [show ((1:Nat):Int)+(d-1:Nat)-d=0 by omega,free_mark c s d hit] at arrive
+  have high (i : Nat) (lo : d-1≤i) (hi : i≤h) : east c (s+i) 1=true := by
+    have held := head_hold c (s+(d-1)) (i-(d-1)) arrive (fun j hj => by
+      rw [show s+(d-1)+j=s+(d-1+j) by omega];exact wh _ (by omega))
+    rwa [show s+(d-1)+(i-(d-1))=s+i by omega] at held
+  have lock := black_pair c 1 (s+h-9) (fun i hi => by
+    rw [show s+h-9+i=s+(h-9+i) by omega];exact high _ (by omega) (by omega))
+  rw [show s+h-9+9=s+h by omega] at lock
+  exact ⟨high h (by omega) (by omega),lock⟩
+
+private theorem white_triangle (c : Trace) (s h w : Nat)
+    (wh : ∀ j,j<h → c (s+j)=false)
+    (clear : ∀ i,0<i → i≤w → east c s i=false) :
+    ∀ k,k≤h → ∀ i,0<i → i+k≤w → east c (s+k) i=false := by
+  intro k
+  induction k with
+  | zero => intro hk i ip ls;exact clear i ip (by omega)
+  | succ k ih =>
+    intro hk i ip ls
+    obtain ⟨n,rfl⟩ := Nat.exists_eq_succ_of_ne_zero (show i≠0 by omega)
+    have low : east c (s+k) n=false := by
+      cases n with
+      | zero => rw [east0,wh k (by omega)]
+      | succ n => exact ih (by omega) _ (by omega) (by omega)
+    change rule (east c (s+k) n) (east c (s+k) (n+1)) (east c (s+k) (n+2))=false
+    rw [low,ih (by omega) (n+1) (by omega) (by omega),ih (by omega) (n+2) (by omega) (by omega)]
+    rfl
+
+/-- A black wall and an old zero at x cannot be followed by x+1
+strict eastern zeros. The proof backs the last 00 up to the wall. -/
+private theorem next_hit (c : Trace) (t x : Nat) (black : c t=true) (zero : east c t x=false) :
+    ∃ y,0<y ∧ y≤x+1 ∧ east c (t+1) y=true := by
+  induction x with
+  | zero => rw [east0,black] at zero;contradiction
+  | succ x ih =>
+    by_cases near : east c (t+1) (x+1)=true
+    · exact ⟨_,by omega,by omega,near⟩
+    by_cases far : east c (t+1) (x+2)=true
+    · exact ⟨_,by omega,by omega,far⟩
+    have p : east c t x=false := by
+      change ¬rule (east c t x) _ _=true at near
+      change ¬rule (east c t (x+1)) _ _=true at far
+      cases a : east c t x <;> cases b : east c t (x+2) <;> simp_all [rule]
+    obtain ⟨y,pos,le,e⟩ := ih p
+    exact ⟨y,pos,by omega,e⟩
+
+private theorem first_in (c : Trace) (s w : Nat)
+    (any : ∃ k,0<k ∧ k≤w ∧ east c s k=true) :
+    ∃ d,0<d ∧ d≤w ∧ east c s d=true ∧ ∀ k,0<k → k<d → east c s k=false := by
+  induction w with
+  | zero => obtain ⟨_,_,_,_⟩ := any;omega
+  | succ w ih =>
+    by_cases earlier : ∃ k,0<k ∧ k≤w ∧ east c s k=true
+    · obtain ⟨d,p,b,o,v⟩ := ih earlier;exact ⟨d,p,by omega,o,v⟩
+    · obtain ⟨k,p,b,o⟩ := any
+      exact ⟨k,p,b,o,fun i pi lo => by
+        cases z : east c s i
+        · rfl
+        · exact False.elim (earlier ⟨i,pi,by omega,z⟩)⟩
+
+/-- Lengths finite but not tuned to a simulated front. -/
+private def settle (J : Nat) := 2^(laneCap J+1)+laneCap J+20
+
+theorem bounded_after_pulse (J : Nat) (margin : 24≤J) (c : Trace) (s h : Nat) (long : settle J≤h)
+    (wh : ∀ j,j<h → c (s+j)=false) (black : c (s+h)=true) :
+    ∃ y,0<y ∧ y≤laneCap J+3 ∧ east c (s+h+1) y=true := by
+  by_cases any : ∃ k,0<k ∧ k≤h+2 ∧ east c s k=true
+  · obtain ⟨d,pos,le,hit,clear⟩ := first_in c s (h+2) any
+    by_cases early : d+8≤h
+    · obtain ⟨a,b,g⟩ := early_ready c s h d pos early wh clear hit
+      refine ⟨3,by omega,by omega,?_⟩
+      change rule (east c (s+h) 2) _ _=true
+      rw [b,g];rfl
+    · obtain ⟨j,lo,hi,stable⟩ := vacant_lane (free c s d) (fun _ _ => rfl)
+        (free_vac c s d) (free_mark c s d hit) J
+      have z := stable h (Nat.le_trans (Nat.le_trans (Nat.le_add_right _ _) (Nat.le_add_right _ _)) long)
+      let x := j+d-h
+      have cmp := compare_free c s h d wh clear h (by omega) x
+        (by dsimp [x];omega) (Or.inl (by dsimp [x];omega))
+      rw [show ((x:Int)+h-d)=(j:Int) by dsimp [x];omega,z] at cmp
+      obtain ⟨y,p,b,e⟩ := next_hit c (s+h) x black cmp
+      exact ⟨y,p,by dsimp [x] at b;omega,e⟩
+  · have empty (i : Nat) (pi : 0<i) (le : i≤h+2) : east c s i=false := by
+      cases z : east c s i
+      · rfl
+      · exact False.elim (any ⟨i,pi,le,z⟩)
+    have tri := white_triangle c s h (h+2) wh empty h (by omega)
+    refine ⟨1,by omega,by omega,?_⟩
+    change rule (east c (s+h) 0) _ _=true
+    rw [east0,black,tri 1 (by omega) (by omega),tri 2 (by omega) (by omega)]
+    rfl
+
+/-- This condition mentions only the clock. It needs no eastern
+admission certificate, no common future of two differing right tapes,
+and no assumption about the part of the history preceding f(0). -/
+def SparsePulseClock (c : Trace) : Prop :=
+  ∃ f : Nat → Nat, ∀ k,c (f k)=true ∧ f k+settle 24+1≤f (k+1) ∧
+    ∀ i,f k<i → i<f (k+1) → c i=false
+
+private theorem enter_sparse (J : Nat) (margin : 24≤J) (c : Trace) (f : Nat → Nat)
+    (seq : ∀ k,c (f k)=true ∧ f k+settle J+1≤f (k+1) ∧
+        ∀ i,f k<i → i<f (k+1) → c i=false) : PulseBasin c := by
+  have room : laneCap J+11≤settle J :=
+    Nat.add_le_add (Nat.le_add_left (laneCap J) _) (by decide : 11≤20)
+  have gap (k : Nat) : f k+12≤f (k+1) := by have := (seq k).2.1;omega
+  let h (k : Nat) := f (k+1)-(f k+1)
+  have ends (k : Nat) : f k+1+h k=f (k+1) := by dsimp [h];have := gap k;omega
+  have long (k : Nat) : settle J≤h k := by dsimp [h];have := (seq k).2.1;omega
+  have held (k i : Nat) (ls : i<h k) : c (f k+1+i)=false :=
+    (seq k).2.2 _ (by omega) (by have := ends k;omega)
+  have blk (k : Nat) : c (f k+1+h k)=true := by rw [ends];exact (seq _).1
+  obtain ⟨x,xp,xb,occ⟩ := bounded_after_pulse J margin c _ _ (long 0) (held 0) (blk 0)
+  rw [ends] at occ
+  obtain ⟨d,dp,db,hit,empty⟩ := first_in c (f 1+1) x ⟨x,xp,by omega,occ⟩
+  have rd := early_ready c (f 1+1) (h 1) d dp (by have := long 1;omega) (held 1) empty hit
+  rw [ends] at rd
+  refine ⟨fun k => f (2+k),by simpa using rd,?_⟩
+  intro k
+  exact ⟨(seq _).1,gap _,(seq _).2.2⟩
+
+theorem excludes_sparse (c : Trace) (ep : EventuallyPeriodic c) (mark : c 0=true)
+    (black : BlackLock c) (join : Joined c) : ¬SparsePulseClock c := by
+  rintro ⟨f,z⟩
+  exact excludes_pulse_basin _ mark ep black join (enter_sparse 24 (Nat.le_refl _) c f z)
+
+end RenewalFront
+
 /-- L1: at least ONE arm of an actual marked collision challenges the
 inverse predictor on a capable label. This does not require either
 recurrence of the endpoint word or coincidence of the two endpoint words. -/
 theorem L1 (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
     (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
-    (past : Prefix c T) (black : BlackLock c) (outside : ¬PulseBasin c) (starts : ResetStarts c T P) :
+    (past : Prefix c T) (black : BlackLock c) (outside : ¬PulseBasin c ∧ ¬RenewalFront.SparsePulseClock c) (starts : ResetStarts c T P) :
     ∀ N d h, ∃ t v,N≤t ∧ Arm c T P d h t v ∧ capable (seven c (t+2))=true ∧
       need c (t+1)≠guess (seven c (t+2)) := by
   sorry
@@ -1143,7 +1577,7 @@ from sufficiently deep matched reset starts. It says nothing about
 unmatched cuts, bounded source collars, or any other phase or word. -/
 theorem L2 (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
     (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
-    (past : Prefix c T) (black : BlackLock c) (outside : ¬PulseBasin c) :
+    (past : Prefix c T) (black : BlackLock c) (outside : ¬PulseBasin c ∧ ¬RenewalFront.SparsePulseClock c) :
     ∃ n, ∀ t v,n≤t → Arm c T P n n t v → c t=true → c (t+1)=false → east c t 1=false →
       let w := seven c (t+2)
       (code w=67 ∨ code w=91) → BlackCut c t w → Bracket c P t w →
@@ -1160,7 +1594,8 @@ private theorem stays_high (c : Trace) (t : Nat) (white : c t=false) (old : east
 theorem collision (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
     (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
     (past : Prefix c T) (black : BlackLock c) (join : Joined c) : False := by
-  have outside := excludes_pulse_basin c mark ⟨T,P,hp,period⟩ black join
+  have outside := And.intro (excludes_pulse_basin c mark ⟨T,P,hp,period⟩ black join)
+    (RenewalFront.excludes_sparse c ⟨T,P,hp,period⟩ mark black join)
   obtain ⟨n,stop⟩ := L2 c T P hp mark period mixed past black outside
   obtain ⟨t,v,late,arm,cap,bad⟩ := L1 c T P hp mark period mixed past black outside
     (reset_starts c T P hp mark period black join) (n+T+P+6) n n
@@ -1253,6 +1688,7 @@ theorem close_step4 (hcenter : EventuallyPeriodic center) : False := by
 end OpenProblem.AncestryBlueprint
 #print axioms OpenProblem.AncestryBlueprint.decoder_bound
 #print axioms OpenProblem.AncestryBlueprint.reset_starts
+#print axioms OpenProblem.AncestryBlueprint.RenewalFront.excludes_sparse
 #print axioms OpenProblem.AncestryBlueprint.excludes_pulse_basin
 #print axioms OpenProblem.AncestryBlueprint.west_rich
 #print axioms OpenProblem.AncestryBlueprint.close_step4
