@@ -26,7 +26,7 @@
   "ancestry_ultra/__pycache__/p2_east_suffix_erasure.cpython-312.pyc": "b6c1041aea31cb5b84e7259307266da791fc62ac",
   "ancestry_ultra/p2_east_strobe_sections.py": "1e7898603f873b7bc324f9c3dc32c7bc5ff4834d",
   "ancestry_ultra/general_characteristic_d4.py": "e751efdfbca6504bab5dff28fe366730eb2b2ef2",
-  "ancestry_ultra/general_characteristic_d4.md": "cbbf1d8ebf0e9c5b0e48976f06ab716a74009862",
+  "ancestry_ultra/general_characteristic_d4.md": "97898cc5c6b88aa11becbd3f7afb9136fa64eea3",
   "ancestry_ultra/__pycache__/p2_east_periodic_caps.cpython-312.pyc": "f8814f969e46216d2423a31e73d4636fe1425ee8",
   "ancestry_ultra/p2_east_periodic_caps.py": "88bdd87c7ce692d8f02bfc144ae1409e228bdfe3",
   "ancestry_ultra/general_characteristic_periods.py": "f4e62ebc641bfefa71d8946dc5adc443986f1ecc",
@@ -42,5 +42,6 @@
   "ancestry_ultra/general_neighbor_predictor.py": "060099c4e29f91b4ad9a1e804c782ec99d6afba5",
   "runtime-evidence/r30a_neighbor_predictor.txt": "e25c07ffca8212389a13ee9bb91644e9f82e1629",
   "ancestry_ultra/general_checker_conjugacy.py": "249b03229ce496c32ac156a9b7bd06096b4bf0ce",
-  "ancestry_ultra/general_mixed_return_certificate.py": "425306edebf98c02a81775ab130317efaab05f6c"
+  "ancestry_ultra/general_mixed_return_certificate.py": "425306edebf98c02a81775ab130317efaab05f6c",
+  "ancestry_ultra/general_active_seam.py": "70466110dce593191ccd944a5ec5f9e9377ffab0"
 }
