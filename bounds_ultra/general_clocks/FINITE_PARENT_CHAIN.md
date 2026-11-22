@@ -682,3 +682,90 @@ select different surviving children in identical current gates. The
 missing step is to rule out the fresh true-right read or this future
 branch selection on a marked bounded path; the c=0 clamp example shows
 why the selector cannot be inferred from the overlapping west alone.
+
+**True eastern supply of the fresh read.** Put R=X(1), E=X(2),
+F=X(3). While c is black the pair (R,E)=01 locks. Until lock R
+alternates: 00 goes to 10 or 11, 11 goes to 00, 10 goes to 00 or
+01. Thus when two copies with the same drive are both unlocked in
+opposite R phases, their hidden material D stays at x=1. If one is
+locked and the other remains unlocked, that carrier goes 2->1->2
+in each unlocked 00->1*->00 cycle. At the first edge its only active
+OR input is x=2; on the second the two ORs at x=2 coincide at 1,
+so the old x=1 is the material parent. A first visible difference on
+the white following k black ticks, after a common high at the previous
+white, requires k even, one locked copy, and the other still alternating.
+A white mismatch following another matched white instead requires the
+earlier R to be common zero and E to differ.
+
+Bounded physical P-spine width M precludes M+P consecutive ticks on
+which *all* white reads are zero, and precludes such an interval on
+which all are one: h then has the P-clock on the first M comparisons,
+so the initial M actual western sites all agree. Consequently every
+long past of matched masked reads from a cofinal fork contains common
+white highs with gaps <=M+P. Go back to the first high within each
+common white run reaching 1. If it follows a black then the preceding
+(R,E) is 00 in both copies (black NOR); if it rises from white zero
+then the preceding pair is 01. These simultaneous two-cell agreement
+rows occur with bounded gaps (allow one clock period for the run start)
+through the interior of the matched past. The physical eastern material
+ancestry of the first release must sit at x>=3 at every such row; it
+cannot cross the synchronized center.
+
+For every drive with no consecutive blacks the interior strengthens to
+agreement of the FULL x=1 column, not solely on white ticks. For a 010
+center window with black at b,
+    R_b = R_(b-1) OR NOT R_(b+2).
+Indeed the previous white high sets R_b=1. After previous white zero
+the black-entry pair is (e,e OR f), hence 00,01,11. After black and
+white, R_(b+2) is respectively 1,1,0. Iterating by +2 determines
+every hidden black bit from later whites unless the drive remains
+alternating and their earlier white readings remain zero. The bounded
+P-spine excludes an arbitrarily long such string by the preceding
+M+P bound. Matching a long masked past therefore gives matching raw
+R throughout its interior with bounded terminal loss.
+
+Lock reset cannot simply be iterated as irreversible loss of the east
+source. In site order x=1..6 take the two finite strict-east rows
+010001 and 100001, zeros beyond, and the common periodic drive 101000.
+At tick 0 A has the black lock and B enters it; both pairs at tick 1
+are 01. The old x=2 discrepancy has the material path
+2->3->3->3->2->1 at ticks 0..5. At tick 1 the two x=3 bits are
+1/0, and x=4,5 common 0,1. At tick 2 the x=3,4 pairs are respectively
+00 and 11, giving the next x=3 difference; the following common 00
+at x=1,2 permits its retreat to the observed white head. All earlier
+white observations match. These are real finite right histories with
+the same mixed drive, not two shifted ages of the single marked source.
+They show why repeated source charges must retain that true shift.
+
+The productive-column conclusion extends to all mixed clocks with black
+runs of length at most TWO. On a double black b,b+1 bracketed by white,
+    R_b = R_(b-1) OR R_(b+2).
+After previous white zero the three possible black-entry states 00,01,11
+give respectively 0,0,1 at the following white: before a lock the R-bit
+alternates, and the 11 entry goes 11 -> 00 -> 1*. Previous white high
+immediately fixes R_b=1. This recovers every first black bit, jointly
+with the isolated-black +2 rule (if its unknown target is black, it is
+the first black in a run). In a matched-past interior the *second*
+black may still differ. But then the entry was common R=0, the two
+entry pairs were 00 versus 01, and both reach R=0 at the following
+white. The 01 copy stays locked, so has E=1 there. At the next tick
+R is common, because this tick is either white or a first black. Therefore
+the other copy must also have E=1 at the white after the doublet. The
+disagreeing individual at x=1 on its second black has NO child: the
+next center and x=1,2 all match. No physical eastern parent path feeding
+the first fresh white release can touch x=1 in the matched interior.
+This covers 01,011,0011,00101 and all larger periods in that class.
+
+This inference may be applied at another column with its actual driver;
+periodicity of the driver was not used, apart from the bound on unresolved
++2 chains along a perfectly alternating segment with no high observations.
+For an alternating center, the full agreed x=1 column R has 1-runs of
+length at most two (a high cannot survive a black center). It has bounded
+alternating segments, since on such a segment it is 2-periodic and the
+bounded west P=2 path forbids this across M+2 ticks. Whenever R=0,
+the observed x=2 value is known as R_(t+1) XOR c_t. Apply the same
+productive double-black classification with driver R to conclude that
+the actual eastern source of a first fresh fork bit avoids x=1 AND x=2
+through the matched-past interior (discard a bounded cap at either end).
+This is a conditional depth result for the marked lag, not P=2 closure
+or an induction across arbitrary successive drivers.
