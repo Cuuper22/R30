@@ -1,6 +1,6 @@
 {
   "ancestry_ultra/p2_b_recur_host.py": "60223c13972620fa6847418da7e425a5fa1474ca",
-  "ancestry_ultra/p2_observable_transfer.md": "d0ffd71b2343f477cff2318caf36d897980d03be",
+  "ancestry_ultra/p2_observable_transfer.md": "48f03ef8b7f134d0da7e5868def596f43ccc4785",
   "ancestry_ultra/__pycache__/p2_dominant_relay.cpython-312.pyc": "f7558af1c977a6939e85a8b65ed21ae60e9d45b8",
   "ancestry_ultra/__pycache__/p2_b_recur_host.cpython-312.pyc": "cedabf444240dc0cfb4cd3eecd894bb67880df94",
   "ancestry_ultra/p2_b_dyadic_replica.py": "becd3ad2343ac2c6428f36757ccd1c7cb1c6407e",
@@ -21,5 +21,7 @@
   "ancestry_ultra/p2_east_suffix_cut.py": "95089be822bdd6e1ff8480378292cea2f9b0a9b9",
   "ancestry_ultra/__pycache__/p2_east_host_rails.cpython-312.pyc": "e9c1cdf583c3f6415bf39b065176b2ee2054fa42",
   "ancestry_ultra/__pycache__/p2_b_marked_group.cpython-312.pyc": "ca30f7f15ee14c335e1026bea536aab9472ee5b4",
-  "ancestry_ultra/__pycache__/p2_b_paired_nojump.cpython-312.pyc": "d94185eb28c9c8203b1a0f4e1045fb324edc1883"
+  "ancestry_ultra/__pycache__/p2_b_paired_nojump.cpython-312.pyc": "d94185eb28c9c8203b1a0f4e1045fb324edc1883",
+  "ancestry_ultra/p2_east_suffix_erasure.py": "c9870dc02bfa00449f006165fa85d55ae0eb9e7d",
+  "ancestry_ultra/__pycache__/p2_east_suffix_erasure.cpython-312.pyc": "b6c1041aea31cb5b84e7259307266da791fc62ac"
 }
