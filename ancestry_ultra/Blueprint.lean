@@ -337,104 +337,121 @@ private theorem next_reset_of_dead (c : Trace) (t : Nat) (nr : noreset c t=true)
   · have edge := r8local c t nr next
     exact False.elim (dead ((edge.2 (Nat.le_antisymm edge.1 (by omega))).2.2))
 
-private theorem zero_only (s : Nat) (fixed : r8turn s=s) (hi : 10≤r8rank s) : s=0 := by
-  by_cases a : s=57 <;> try (subst s;contradiction)
-  by_cases b : s=206 <;> try (subst s;contradiction)
-  by_cases d : s=115 <;> try (subst s;contradiction)
-  by_cases e : s=156 <;> try (subst s;contradiction)
-  by_cases f : s=231 <;> try (subst s;contradiction)
-  have next : r8next s=0 := by unfold r8next; split <;> simp_all
-  simpa [r8turn,next,r8next] using fixed.symm
+private def next8 (v a b d e f g h z k : Bool) :=
+  r8code (rule v a b) (rule a b d) (rule b d e) (rule d e f)
+    (rule e f g) (rule f g h) (rule g h z) (rule h z k)
 
-private theorem rank_le_range (c : Trace) (a t : Nat)
-    (all : ∀i,a≤i → i≤t → noreset c i=true) (i j : Nat) (ai : a≤i) (ij : i≤j) (jt : j≤t) :
-    r8rank (r8state c j)≤r8rank (r8state c i) := by
-  obtain ⟨k,rfl⟩ := Nat.exists_eq_add_of_le ij
-  induction k with
-  | zero => exact Nat.le_refl _
-  | succ k ih => exact Nat.le_trans (r8local c (i+k) (all _ (by omega) (by omega))
-      (all _ (by omega) (by omega))).1 (ih (by omega) (by omega))
+set_option maxRecDepth 5000 in
+private theorem zero_pre_cert : ∀ v a b d e f g h z k : Bool,
+    let old := r8code a b d e f g h z
+    let new := next8 v a b d e f g h z k
+    (new=0 → (v=false → old=0) ∧ (v=true → old=127 ∨ old=255)) ∧
+      ((new=127 ∨ new=255) → r8bad a b d e f g h z=false) := by decide
 
-/-- A nonreset path ending in old east8=0 cannot idle anywhere
-except zero (the competing 5-cycle lies below rank ten). At most five
-strict decreases fit above rank ten. A black drive P ticks earlier
-then forces escape from zero, which cannot return on this path. -/
-private theorem prior_zero_reset (c : Trace) (T P t : Nat) (hp : 0<P)
-    (period : ∀i,T≤i → c (i+P)=c i) (late : T+P+6≤t)
-    (black : c t=true) (zero : r8state c t=0) :
-    ∃ i,i≤t ∧ t≤i+P+6 ∧ noreset c i=false := by
-  classical
-  apply Classical.byContradiction
-  intro none
-  let a := t-(P+6)
-  let b := t-P
-  have ab : a+6=b := by dsimp [a,b];omega
-  have final : b+P=t := by dsimp [b];omega
-  have all (i : Nat) (ai : a≤i) (it : i≤t) : noreset c i=true := by
-    cases atI : noreset c i
-    · exact False.elim (none ⟨i,it,by dsimp [a] at ai;omega,atI⟩)
-    · rfl
-  let R i := r8rank (r8state c i)
-  have bottom : R t=10 := by dsimp [R];rw [zero];decide
-  have low (i : Nat) (ai : a≤i) (it : i≤t) : 10≤R i := by
-    rw [←bottom];exact rank_le_range c a t all i t ai it (Nat.le_refl _)
-  have pers (i : Nat) (ai : a≤i) (it : i≤t) (z : r8state c i=0)
-      (j : Nat) (ij : i≤j) (jt : j≤t) : r8state c j=0 := by
-    obtain ⟨k,rfl⟩ := Nat.exists_eq_add_of_le ij
-    induction k with
-    | zero => simpa using z
-    | succ k ih =>
-      have old := ih (by omega) (by omega)
-      have r : R (i+k)=10 := by dsimp [R];rw [old];decide
-      have e := r8local c (i+k) (all _ (by omega) (by omega)) (all _ (by omega) jt)
-      have lo := low (i+k+1) (by omega) jt
-      have eq : R (i+k+1)=R (i+k) := Nat.le_antisymm e.1 (by omega)
-      rw [←Nat.add_assoc,(e.2 eq).1,old];rfl
-  have zb : r8state c b=0 := by
-    apply Classical.byContradiction
-    intro nz
-    have strict (i : Nat) (ai : a≤i) (ib : i<b) : R (i+1)<R i := by
-      have endle : i+1≤t := by omega
-      have e := r8local c i (all _ ai (by omega)) (all _ (by omega) endle)
-      by_cases eq : R (i+1)=R i
-      · have z := zero_only _ ((e.2 eq).2.2) (low i ai (by omega))
-        exact False.elim (nz (pers i ai (by omega) z b (by omega) (by omega)))
-      · exact Nat.lt_of_le_of_ne e.1 eq
-    have drops (k : Nat) (kb : k≤6) : R (a+k)+k≤R a := by
-      induction k with
-      | zero => simp
-      | succ k ih =>
-        have := ih (by omega)
-        have s := strict (a+k) (by omega) (by omega)
-        rw [show a+(k+1)=a+k+1 by omega];omega
-    have upper : R a<16 := Nat.mod_lt _ (by decide)
-    have limit := drops 6 (by decide)
-    rw [ab] at limit
-    have lo := low b (by omega) (by omega)
-    omega
-  have zn := pers b (by omega) (by omega) zb (b+1) (by omega) (by omega)
-  have bt : c b=true := by rw [←period b (by dsimp [b];omega),final,black]
-  have raise : ∀ a b d e f g h z : Bool,
-      r8code a b d e f g h z=0 → rule true a b=true := by decide
-  have one : east c (b+1) 1=true := by
-    change rule (east c b 0) (east c b 1) (east c b 2)=true
-    rw [east0,bt]
-    exact raise _ _ _ _ _ _ _ _ zb
-  have clear : ∀ a b d e f g h z : Bool,r8code a b d e f g h z=0 → a=false := by decide
-  have zz : east c (b+1) 1=false := clear _ _ _ _ _ _ _ _ zn
-  rw [one] at zz
-  contradiction
+private theorem zero_pre (c : Trace) (i : Nat) :
+    (r8state c (i+1)=0 → (c i=false → r8state c i=0) ∧
+      (c i=true → r8state c i=127 ∨ r8state c i=255)) ∧
+    ((r8state c (i+1)=127 ∨ r8state c (i+1)=255) → noreset c i=false) := by
+  have h := zero_pre_cert (east c i 0) (east c i 1) (east c i 2) (east c i 3)
+    (east c i 4) (east c i 5) (east c i 6) (east c i 7) (east c i 8) (east c i 9)
+  simpa only [r8state,r8code,next8,r8bad,noreset,seven,east,east0] using h
+
+private def WestFront (c : Trace) (i L : Nat) :=
+  (∀d,d<L → west c i d=false) ∧ west c i L=true
+
+/-- Unfold an entire incoming western pulse, not an independent
+bit test at the final black. Both halves fix the initial head. -/
+private theorem inverse_front (c : Trace) (i L : Nat)
+    (head : west c i 1=xor (c (i+1)) (c i)) (front : WestFront c (i+1) L) :
+    (∀ d,d≤L → west c i d=c i) ∧ west c i (L+1)= !c i := by
+  have ribbon (d : Nat) (dl : d≤L) : west c i d=c i ∧
+      west c i (d+1)=xor (west c (i+1) d) (c i) := by
+    induction d with
+    | zero => exact ⟨west0 c i,by rwa [west0]⟩
+    | succ d ih =>
+      obtain ⟨ls,rs⟩ := ih (by omega)
+      rw [front.1 d (by omega)] at rs
+      simp only [Bool.false_xor] at rs
+      have inv : west c i (d+2)=xor (west c (i+1) (d+1)) (west c i (d+1) || west c i d) :=
+        (left_inv _ _ _).symm
+      exact ⟨rs,by rw [inv,rs,ls,Bool.or_self]⟩
+  refine ⟨fun d dl => (ribbon d dl).1,?_⟩
+  rw [(ribbon L (Nat.le_refl _)).2,front.2]
+  cases c i <;> rfl
+
+/-- 67 must be a complete reset-to-reset episode. At its earlier black
+j the true western black run has EXACT length L+1 including the wall,
+while its eastern seven cells are all black. After j, the strict east
+eight remain completely white throughout the whole intervening run. -/
+def ClockCut67 (c : Trace) (P t : Nat) : Prop :=
+  ∃ j L,j+1+L=t ∧ t≤j+P ∧ c j=true ∧ (∀i,j<i → i<t → c i=false) ∧
+    noreset c (j-1)=false ∧ (r8state c j=127 ∨ r8state c j=255) ∧
+    (∀ i,j<i → i≤t → r8state c i=0) ∧
+    (∀d,d≤L → west c j d=true) ∧ west c j (L+1)=false
+
+private theorem full_zero_run (c : Trace) (T P t : Nat) (hp : 0<P)
+    (period : ∀i,T≤i → c (i+P)=c i) (late : T+P+1≤t)
+    (black : BlackLock c) (join : Joined c) (bt : c t=true) (zero : r8state c t=0) : ClockCut67 c P t := by
+  let a:=t-P
+  have atA : c a=true := by rw [←period a (by dsimp [a];omega),show a+P=t by dsimp [a];omega,bt]
+  have last (n : Nat) : ∃j,a≤j ∧ j≤a+n ∧ c j=true ∧ ∀i,j<i → i≤a+n → c i=false := by
+    induction n with
+    | zero => exact ⟨a,Nat.le_refl _,by omega,atA,fun _ _ _ => by omega⟩
+    | succ n ih =>
+      cases h : c (a+n+1)
+      · obtain ⟨j,aj,jb,cj,clear⟩ := ih
+        exact ⟨j,aj,by omega,cj,fun i ji ib => by
+          by_cases e : i=a+n+1
+          · rwa [e]
+          · exact clear i ji (by omega)⟩
+      · exact ⟨a+n+1,by omega,by omega,h,fun _ _ _ => by omega⟩
+  obtain ⟨j,aj,jt,bj,all⟩ := last (P-1)
+  have jb : j<t := by dsimp [a] at jt;omega
+  have whites (i : Nat) (ji : j<i) (it : i<t) : c i=false := all i ji (by dsimp [a];omega)
+  have back (n : Nat) (lt : j+n<t) : r8state c (t-n)=0 := by
+    induction n with
+    | zero => simpa using zero
+    | succ n ih =>
+      let i := t-(n+1)
+      have next : r8state c (i+1)=0 := by rw [show i+1=t-n by dsimp [i];omega];exact ih (by omega)
+      exact ((zero_pre c i).1 next).1 (whites i (by dsimp [i];omega) (by dsimp [i];omega))
+  have clear (i : Nat) (ji : j<i) (it : i≤t) : r8state c i=0 := by
+    simpa only [show t-(t-i)=i by omega] using back (t-i) (by omega)
+  have atJ := ((zero_pre c j).1 (clear (j+1) (by omega) (by omega))).2 bj
+  have prior := (zero_pre c (j-1)).2 (by rwa [show j-1+1=j by dsimp [a] at aj;omega])
+  let L := t-j-1
+  have eq : j+1+L=t := by dsimp [L];omega
+  have wf (n : Nat) (lim : n≤L) : WestFront c (t-n) n := by
+    induction n with
+    | zero => exact ⟨fun _ h => by omega,by simpa only [Nat.sub_zero,west0] using bt⟩
+    | succ n ih =>
+      let i:=t-(n+1)
+      have ix : j<i := by dsimp [i,L] at *;omega
+      have it : i<t := by dsimp [i];omega
+      have wi := whites i ix it
+      have high (a b d e f g h z : Bool) : r8code a b d e f g h z=0 → a=false := by
+        revert a b d e f g h z;decide
+      have e0 : east c i 1=false := high _ _ _ _ _ _ _ _ (clear i ix (by omega))
+      have head := join i wi
+      have H : west c i 1=xor (c (i+1)) (c i) := by
+        cases x : west c i 1 <;> cases y : c (i+1) <;> simp_all [need]
+      have step := inverse_front c i n H (by rw [show i+1=t-n by dsimp [i];omega];exact ih (by omega))
+      exact ⟨fun d dl => (step.1 d (by omega)).trans wi,by rw [step.2,wi];rfl⟩
+  have before := inverse_front c j L (by rw [black j bj,bj];cases c (j+1) <;> rfl)
+    (by simpa only [show t-L=j+1 by omega] using wf L (Nat.le_refl _))
+  exact ⟨j,L,eq,by dsimp [a] at aj;omega,bj,whites,prior,atJ,clear,
+    fun d dl => (before.1 d dl).trans bj,by rw [before.2,bj];rfl⟩
 
 /-- The two possible wrong arms occupy short gaps BETWEEN actual
 resets, with an exact post-reset one tick after their exceptional
 eight-bit state. For 91 the prior reset is at one of two named ticks. -/
 def Bracket (c : Trace) (P t : Nat) (w : Seven) : Prop :=
   noreset c (t+3)=false ∧
-    (code w=67 → ∃ i,i≤t ∧ t≤i+P+6 ∧ noreset c i=false) ∧
+    (code w=67 → ClockCut67 c P t) ∧
     (code w=91 → noreset c t=false ∨ noreset c (t+1)=false)
 
 private theorem actual_bracket (c : Trace) (T P t : Nat) (hp : 0<P)
-    (period : ∀i,T≤i → c (i+P)=c i) (late : T+P+6≤t) (black : c t=true)
+    (period : ∀i,T≤i → c (i+P)=c i) (late : T+P+1≤t) (locks : BlackLock c) (join : Joined c) (black : c t=true)
     (w : Seven) (word : seven c (t+2)=w) (cut : BlackCut c t w)
     (bit : east c (t+2) 8=true) (unsync : reset w (east c (t+2) 8)=false) : Bracket c P t w := by
   have nr : noreset c (t+2)=true := by simp only [noreset,word,unsync,Bool.not_false]
@@ -443,7 +460,7 @@ private theorem actual_bracket (c : Trace) (T P t : Nat) (hp : 0<P)
   · rw [id] at st
     have after := next_reset_of_dead c (t+2) nr (by rw [st];decide) (by rw [st];decide)
     have zero : r8state c t=0 := by simp [r8state,old,old8]
-    exact ⟨after,fun _ => prior_zero_reset c T P t hp period late black zero,fun h => by omega⟩
+    exact ⟨after,fun _ => full_zero_run c T P t hp period late locks join black zero,fun h => by omega⟩
   · rw [id] at st
     have after := next_reset_of_dead c (t+2) nr (by rw [st];decide) (by rw [st];decide)
     refine ⟨after,fun h => by omega,fun _ => ?_⟩
@@ -957,7 +974,7 @@ theorem collision (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
   · have bw : c t=true := congrArg Prod.snd back
     have zero : east c t 1=false := congrArg Prod.fst back
     have cut := physical_cut c t _ rfl white words wrong back
-    have br := actual_bracket c T P t hp period (by omega) bw _ rfl cut bit unsync
+    have br := actual_bracket c T P t hp period (by omega) black join bw _ rfl cut bit unsync
     exact wrong (stop t v (by omega) arm bw white zero words cut br (mirrored c t bw white zero join) bit unsync)
 
 private theorem halves_actual (t d : Nat) :
