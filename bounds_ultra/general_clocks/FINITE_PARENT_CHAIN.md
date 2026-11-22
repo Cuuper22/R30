@@ -1001,3 +1001,39 @@ which at every center black contains just its one odd. Thus the varying
 later eastern gates have no independent material founder; this need not
 mean a counterfactual removal of the earlier eastern stock leaves all
 subsequent cancellations unchanged.
+
+For a fork at a variable white run (w>=3) in that persistent branch, let
+b be its following black and u indicate a two-high rather than one-high
+suffix. At b-3 both odd neighbors and the center are raw zero, and the
+two outer even cells at -2,+2 have the SAME raw value u. For -2 this is
+h OR next h; for +2 use the zero R and its next value u. At u=1 the
+actual central resident consequently sends both odd children and keeps
+its even child. At u=0 the two genuine even vacancies veto those odd
+children together. The western veto parcel's entire subtree from (b-3,-2)
+is gone by b-1. Indeed X(-3) is the time derivative of X(-2), since
+X(-2)>=h. At b-3 the -3,-2,-1 raw triple is 000, changing at b-2 to
+100. The veto's only children at b-2 are odd -3 and even -2. At b-1 the
+even site is not vacant, so the odd has no child; the even has no bounce
+through the occupied old odd, no stay, and its eastern child cancels.
+The eastern veto has just its +3 odd child: at b-3 its right odd is black
+(to force N=1 at b-2), the +1 child cancels and the +2 stay is blocked.
+Thus a real west lineage disappears while a real eastern lineage exits
+outward in the late-rise fork, against bilateral release of a single
+marked center individual in the early-rise fork. This treats actual
+individuals and does not assert that their earlier source families die.
+
+The original western launch also gives a finite, nonrepeating physical
+trace word for every perennial checker resident in a western box. Choose
+a black of its even column after the resident is established (that raw
+column is nonconstant under EP center for another western site; for the
+center use its mixed clock). The resident is the unique box occupant at
+that time. Record (clock phase,h) from its original initial source's d-2
+launch age to that time, extending the right endpoint by the fixed box
+distance so west reconstruction covers the whole material past. Any later
+same-phase occurrence shifted by Q>=2 would again terminate on the same
+perennial individual lineage, but would require a different original
+source at the translated launch. Hence no such occurrence exists. If the
+joint (phase,h) tail is recurrent from age U, all perennial western box
+residents must have d-2<U. Infinitely many such boxes would give unique
+source words at arbitrarily late true ages. No recurrence of the original
+one-sided head sequence is assumed in the overall implication.
