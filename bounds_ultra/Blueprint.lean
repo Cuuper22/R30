@@ -1,5 +1,6 @@
 import Statement
 import OutgoingClock
+import MaskedRightRigidity
 
 /-! Route A. Laurent coefficients are represented by their integer exponent.
 Multiplication by z + z⁻¹ is the linear Rule 90 propagator. Rule 30 injects
@@ -449,17 +450,6 @@ theorem shellRead_eq (k n : Nat) (pos : 0<n) : core k n 0=shellRead k n := by
 
 def shellAge (k b : Nat) : Nat := b*2^(k+1)-1
 
-/-- Hard arithmetic link: an equal-parity pair of fresh, genuinely evolved
-endpoint triangles in one residue class. One multiplier is a pure power of
-two, the other has nontrivial odd part. Either can come first, with no
-lower bound on their relative separation. Both excised collars grow. -/
-theorem L1 (P N : Nat) (hP : 0<P) :
-    ∃ k a v d : Nat, 0<d ∧ N<2^(k+1) ∧
-      let A := shellAge k (2^a)
-      let B := shellAge k ((2*d+1)*2^v)
-      A%P=B%P ∧ shellRead k A=shellRead k B := by
-  sorry
-
 private theorem repeat_add {f : Nat → Bool} {T P : Nat}
     (h : ∀ t, T ≤ t → f (t+P)=f t) (t : Nat) (ht : T≤t) (m : Nat) :
     f (t + P*m) = f t := by
@@ -475,13 +465,129 @@ private theorem repeat_mod {f : Nat→Bool} {P T A B : Nat} (h : ∀ t,T≤t →
   have eq : A+P*(B/P)=B+P*(A/P) := by omega
   exact (repeat_add h A a (B/P)).symm.trans ((congrArg f eq).trans (repeat_add h B b (A/P)))
 
+/-- One actual retained nonlinear source, directly west of center. -/
+def pulse (k t : Nat) : Bool := coreSource k t (-1)
+
+private theorem pulse_mask (k t : Nat) (ht : k≤t) :
+    MaskedRightRigidity.maskedRight t =
+      xor (pulse k t) (!(center t) && center (t+1)) := by
+  have raw (a b c : Bool) :
+      (c && !b) = xor (a && !b) (!b && rule a b c) := by
+    cases a <;> cases b <;> cases c <;> rfl
+  have neq : (-1:Int)≠(t:Int) := by omega
+  have inside : (k:Int)<(t:Int)-(-1) := by omega
+  simpa [pulse,coreSource,interiorSource,MaskedRightRigidity.maskedRight,center,cell,neq,show (k:Int)<(t:Int)+1 by omega] using
+    raw (cell t (-1)) (cell t 0) (cell t 1)
+
+theorem pulse_nonperiodic (hc : EventuallyPeriodic center) (k : Nat) :
+    ¬EventuallyPeriodic (pulse k) := by
+  intro bad
+  obtain ⟨U,q,hq,pu⟩ := bad
+  obtain ⟨V,p,hp,cv⟩ := hc
+  apply MaskedRightRigidity.claim_of_periodic_mask _ ⟨V,p,hp,cv⟩
+  refine ⟨k+U+V,p*q,Nat.mul_pos hp hq,?_⟩
+  intro t ht
+  have a := repeat_add cv t (by omega) q
+  have b := repeat_add cv (t+1) (by omega) q
+  have c := repeat_add pu t (by omega) p
+  rw [Nat.mul_comm q p] at c
+  rw [pulse_mask k _ (by omega),pulse_mask k t (by omega),
+    show t+p*q+1=t+1+p*q by omega,a,b,c]
+
+/-- The retained physical source has no nonzero finite shift filter even
+modulo eventually periodic sequences. This uses the genuine finite west. -/
+def IrregularPulse : Prop := ∀ (k : Nat) (v : List Bool),
+  ¬ EventuallyPeriodic (fun t =>
+    xor (pulse k (t+v.length))
+      (FiniteWindowRecurrence.dot v (FiniteWindowRecurrence.window (pulse k) v.length t)))
+
+theorem pulse_filters (hc : EventuallyPeriodic center) : IrregularPulse := by
+  intro k coeff hh
+  exact pulse_nonperiodic hc k
+    (FiniteWindowRecurrence.eventuallyPeriodic_of_xor_polynomial (pulse k) coeff hh)
+
+/-- Explicit transfer from the one marked source. The oldest pulse has
+kernel weight wave r (x+1); the remaining terms use later epochs. -/
+def taps (k : Nat) : Nat → Nat → Int → Bool
+  | _, 0, _ => false
+  | s, r+1, x => xor (wave r (x+1) && pulse k s) (taps k (s+1) r x)
+
+private theorem taps_snoc (k s r : Nat) (x : Int) :
+    taps k s (r+1) x = xor (xor (taps k s r (x-1)) (taps k s r (x+1)))
+      (decide (x=(-1:Int)) && pulse k (s+r)) := by
+  induction r generalizing s x with
+  | zero =>
+    change xor (decide (x+1=0) && pulse k s) false =
+      xor (xor false false) (decide (x=-1) && pulse k (s+0))
+    simp [show (x+1=0) ↔ (x=-1) by omega]
+  | succ r ih =>
+    conv => lhs; rw [taps,ih]
+    conv => rhs; rw [taps,taps]
+    rw [show s+1+r=s+(r+1) by omega]
+    change _ = _
+    simp only [wave]
+    rw [show x+1-1=x by omega, show x-1+1=x by omega]
+    generalize wave r x=a;generalize wave r (x+1+1)=b
+    generalize pulse k s=c;generalize taps k (s+1) r (x-1)=d
+    generalize taps k (s+1) r (x+1)=e
+    generalize (decide (x=-1) && pulse k (s+(r+1)))=f
+    cases a <;> cases b <;> cases c <;> cases d <;> cases e <;> cases f <;> rfl
+
+/-- The same genuine finite cone with the one known-irregular source removed. -/
+def off (k s : Nat) : Nat → Int → Bool
+  | 0, _ => false
+  | r+1, x => xor (xor (off k s r (x-1)) (off k s r (x+1)))
+      (decide (x≠(-1:Int)) && coreSource k (s+r) x)
+
+private theorem fresh_seam (k s r : Nat) (x : Int) :
+    fresh k s r ((s:Int)+(r:Int)-x) = xor (taps k s r x) (off k s r x) := by
+  induction r generalizing x with
+  | zero => rfl
+  | succ r ih =>
+    rw [fresh, taps_snoc, off]
+    have d : (s:Int)+((r+1:Nat):Int)-x = (s:Int)+(r:Int)-(x-1) := by omega
+    have e : (s:Int)+((r+1:Nat):Int)-x-2 = (s:Int)+(r:Int)-(x+1) := by omega
+    have f : (s:Int)+(r:Int)+1-((s:Int)+((r+1:Nat):Int)-x) = x := by omega
+    rw [e,f,d,ih,ih]
+    have src : coreSource k (s+r) x =
+        xor (decide (x=-1) && pulse k (s+r)) (decide (x≠-1) && coreSource k (s+r) x) := by
+      by_cases hx : x=(-1:Int)
+      · subst x; simp [pulse]
+      · simp [hx]
+    conv => lhs; rw [src]
+    generalize taps k s r (x-1)=a;generalize taps k s r (x+1)=b
+    generalize off k s r (x-1)=c;generalize off k s r (x+1)=d
+    generalize (decide (x=-1) && pulse k (s+r))=e
+    generalize (decide (x≠-1) && coreSource k (s+r) x)=f
+    cases a <;> cases b <;> cases c <;> cases d <;> cases e <;> cases f <;> rfl
+
+def shellTap (k n : Nat) : Bool := taps k (n-2^n.log2) (2^n.log2) 0
+def shellOff (k n : Nat) : Bool := off k (n-2^n.log2) (2^n.log2) 0
+
+theorem shell_seam (k n : Nat) (pos : 0<n) :
+    shellRead k n=xor (shellTap k n) (shellOff k n) := by
+  have le := Nat.log2_self_le (Nat.ne_of_gt pos)
+  have e := fresh_seam k (n-2^n.log2) (2^n.log2) 0
+  have idx : ((n-2^n.log2:Nat):Int)+((2^n.log2:Nat):Int)-0=n := by omega
+  rwa [idx] at e
+
+/-- The hard collision: the difference of the other genuine lanes agrees
+with the finite transfer from the known-irregular lane at one mixed pair.
+There is no independence assumption between any two pulses or cones. -/
+theorem L1 (P N : Nat) (hP : 0<P) (marked : IrregularPulse) :
+    ∃ k a v d : Nat, 0<d ∧ N<2^(k+1) ∧
+      let A := shellAge k (2^a)
+      let B := shellAge k ((2*d+1)*2^v)
+      A%P=B%P ∧ xor (shellOff k A) (shellOff k B) = xor (shellTap k A) (shellTap k B) := by
+  sorry
+
 theorem close_step4 (hcenter : EventuallyPeriodic center) : False := by
   obtain ⟨T,P,hP,period⟩ := hcenter
-  obtain ⟨k,a,v,d,hd,ht,hs,he⟩ := L1 P T hP
+  obtain ⟨k,a,v,d,hd,ht,hs,he⟩ := L1 P T hP (pulse_filters ⟨T,P,hP,period⟩)
   let A := shellAge k (2^a)
   let B := shellAge k ((2*d+1)*2^v)
   change A%P=B%P at hs
-  change shellRead k A=shellRead k B at he
+  change xor (shellOff k A) (shellOff k B) = xor (shellTap k A) (shellTap k B) at he
   have va : 0<2^a := Nat.pow_pos (by decide)
   have vb : 0<(2*d+1)*2^v := Nat.mul_pos (by omega) (Nat.pow_pos (by decide))
   have hv : 1<2^(k+1) := Nat.one_lt_two_pow (by omega)
@@ -502,10 +608,15 @@ theorem close_step4 (hcenter : EventuallyPeriodic center) : False := by
     exact (L2 (v+(k+1)) d hd).2
   have ca : interior A 0=core k A 0 := shell_cut k _ va
   have cb : interior B 0=core k B 0 := shell_cut k _ vb
+  have same : shellRead k A = shellRead k B := by
+    rw [shell_seam k A (by omega),shell_seam k B (by omega)]
+    generalize shellOff k A=u at *;generalize shellOff k B=w at *
+    generalize shellTap k A=z at *;generalize shellTap k B=y at *
+    cases u <;> cases w <;> cases z <;> cases y <;> first | rfl | contradiction
   have hpair : center A=center B := repeat_mod period (by omega) (by omega) hs
   unfold center at hpair
   rw [row_split A 0,row_split B 0,fa,fb,ca,cb,shellRead_eq k A (by omega),
-      shellRead_eq k B (by omega),←he] at hpair
+      shellRead_eq k B (by omega),←same] at hpair
   cases hh : shellRead k A <;> simp [hh] at hpair
 
 end OpenProblem.BoundsBlueprint
