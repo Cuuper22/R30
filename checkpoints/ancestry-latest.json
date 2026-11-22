@@ -26,7 +26,7 @@
   "ancestry_ultra/__pycache__/p2_east_suffix_erasure.cpython-312.pyc": "b6c1041aea31cb5b84e7259307266da791fc62ac",
   "ancestry_ultra/p2_east_strobe_sections.py": "1e7898603f873b7bc324f9c3dc32c7bc5ff4834d",
   "ancestry_ultra/general_characteristic_d4.py": "e751efdfbca6504bab5dff28fe366730eb2b2ef2",
-  "ancestry_ultra/general_characteristic_d4.md": "f8141f07dbfa82d88c7744e69802739a40de8417",
+  "ancestry_ultra/general_characteristic_d4.md": "65cf2b412656b1a320a0132056875910d20d907a",
   "ancestry_ultra/__pycache__/p2_east_periodic_caps.cpython-312.pyc": "f8814f969e46216d2423a31e73d4636fe1425ee8",
   "ancestry_ultra/p2_east_periodic_caps.py": "88bdd87c7ce692d8f02bfc144ae1409e228bdfe3",
   "ancestry_ultra/general_characteristic_periods.py": "f4e62ebc641bfefa71d8946dc5adc443986f1ecc",
@@ -49,5 +49,6 @@
   "ancestry_ultra/__pycache__/general_checker_conjugacy.cpython-312.pyc": "5b1e0decbeb0c632fff2514cb9d43a3212b7e486",
   "ancestry_ultra/general_minimal_seam_dynamics.py": "ab68d0db6b2d7b3f0db85ac31a99f799c2fa0b90",
   "ancestry_ultra/__pycache__/general_active_seam.cpython-312.pyc": "d184eaa414d3e671cc46a621a04d0dd90322a3ee",
-  "ancestry_ultra/general_checker_interface.py": "6e189a41a27dc25c8aaf73f225db75c97078d085"
+  "ancestry_ultra/general_checker_interface.py": "6e189a41a27dc25c8aaf73f225db75c97078d085",
+  "ancestry_ultra/general_sparse_carry.py": "e8b2af6c99ae27e86199532cce9839a9244f6836"
 }
