@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 31216)
+Total output lines: 2604
+
 import Statement
 import MaskedRightRigidity
 import QuantifiedSplit
@@ -1262,117 +1265,7 @@ private theorem periodic_pair_width_bound (m A p : Nat) (hp : 0<p)
 
 
 include law vac in
-open FiniteWindowRecurrence QuantifiedSplit in
-private theorem prefix_cycle (d : Nat) :
-    ∃ p,0<p ∧ p≤2^(d+1) ∧ ∀ t,2^(d+1)≤t → ∀ k, k≤d →
-      side (t+p) (k:Int)=side t (k:Int) := by
-  let w t := window (fun i : Nat => side t (i:Int)) (d+1) 0
-  obtain ⟨a,b,ab,bc,eq⟩ := repeat_le (2^(d+1)) (fun t => encode (w t))
-    (fun t _ => by simpa [w,window_len] using encode_bound (w t))
-  have rows := same_encode_eq (by simp [w,window_len]) eq
-  have matchAt (n : Nat) : ∀ i : Int,i≤(d:Int) → side (a+n) i=side (b+n) i := by
-    induction n with
-    | zero =>
-      intro i hi
-      by_cases neg : i<0
-      · rw [vac _ _ neg,vac _ _ neg]
-      · have low : i.toNat < d+1 := by omega
-        have h := congrArg (fun xs : List Bool => xs[i.toNat]?) rows
-        have take (v : Nat) : (w v)[i.toNat]?=some (side v i) := by
-          change (List.ofFn (fun j : Fin (d+1) => side v ((0+j.val:Nat):Int)))[i.toNat]?=_
-          rw [List.getElem?_ofFn]; simp [low,Int.toNat_of_nonneg (by omega : 0≤i)]
-        rw [take,take] at h; exact Option.some.inj h
-    | succ n ih =>
-      intro i hi
-      rw [show a+(n+1)=a+n+1 by omega,show b+(n+1)=b+n+1 by omega,
-        law,law,ih (i-2) (by omega),ih (i-1) (by omega),ih i hi]
-  refine ⟨b-a,by omega,by omega,?_⟩
-  intro t ht k hk
-  have h := matchAt (t-a) (k:Int) (by omega)
-  rw [show a+(t-a)=t by omega,show b+(t-a)=t+(b-a) by omega] at h
-  exact h.symm
-private def EventuallyP (p : Nat) (j : Int) : Prop :=
-  ∃ A, ∀ t≥A, side (t+p) j=side t j
-
-private def EventuallyWhite (j : Int) : Prop :=
-  ∃ A, ∀ t≥A, side t j=false
-
-include law in
-private theorem period_advance_of_recurring_black {p : Nat} {j : Int}
-    (lo : EventuallyP side p (j-1)) (hi : EventuallyP side p j)
-    (recurs : ¬ EventuallyWhite side j) :
-    EventuallyP side p (j+1) := by
-  obtain ⟨A,lo⟩ := lo
-  obtain ⟨B,hi⟩ := hi
-  obtain ⟨s,late,hit⟩ : ∃ s, max A B≤s ∧ side s j=true := by
-    apply Classical.byContradiction
-    intro misses
-    apply recurs
-    refine ⟨max A B,?_⟩
-    intro t ht
-    cases e : side t j
-    · rfl
-    · exact False.elim (misses ⟨t,ht,e⟩)
-  have start : side (s+1+p) (j+1)=side (s+1) (j+1) := by
-    rw [show s+1+p=s+p+1 by omega,law,law,
-      show j+1-1=j by omega,show j+1-2=j-1 by omega,
-      lo _ (by omega),hi _ (by omega),hit]
-    cases side s (j-1) <;> cases side (s+p) (j+1) <;>
-      cases side s (j+1) <;> rfl
-  have stable (r : Nat) : side (s+1+r+p) (j+1)=side (s+1+r) (j+1) := by
-    induction r with
-    | zero => exact start
-    | succ r prev =>
-      rw [show s+1+(r+1)+p=s+1+r+p+1 by omega,
-        show s+1+(r+1)=s+1+r+1 by omega,law,law,
-        show j+1-1=j by omega,show j+1-2=j-1 by omega,
-        lo _ (by omega),hi _ (by omega),prev]
-  refine ⟨s+1,?_⟩
-  intro t ht
-  have e : t=s+1+(t-(s+1)) := by omega
-  rw [e]
-  exact stable _
-
-
-include law vac in
-/-- A bounded normalized prefix is already on a cycle by a bound
-which depends only on its width. If a deep zero exists on every tick
-after some later date, it must already hold throughout this cycle. -/
-private theorem white_now (j t : Nat) (late : 2^(j+1)≤t)
-    (white : EventuallyWhite side (j:Int)) : side t (j:Int)=false := by
-  obtain ⟨p,hp,_,clock⟩ := prefix_cycle side law vac j
-  obtain ⟨a,white⟩ := white
-  have repeated := period_mul (fun s => side s (j:Int)) _ p
-    (fun s hs => clock s hs j (by omega)) a t late
-  have growth : a≤p*a := by simpa using Nat.mul_le_mul_right a hp
-  exact repeated.symm.trans (white _ (by omega))
-
-def laneCap (j : Nat) : Nat := j+2+2^(2^(j+2)+2^(j+2))
-
-include law vac root in
-/-- Uniform in all possible initial eastern tails, including the time
-before which the lane could be transient. The growing bound is used
-symbolically and is never enumerated. -/
-theorem vacant_lane (j : Nat) :
-    ∃ k,j≤k ∧ k≤laneCap j ∧ ∀ t,2^(laneCap j+1)≤t → side t (k:Int)=false := by
-  let D := laneCap j
-  obtain ⟨p,hp,pbound,small⟩ := prefix_cycle side law vac (j+1)
-  have low (i : Nat) (hi : i≤j+1) : EventuallyP side p (i:Int) :=
-    ⟨2^(j+1+1),fun t ht => small t ht i hi⟩
-  have badRange : ∃ k,j≤k ∧ k≤D ∧ EventuallyWhite side (k:Int) := by
-    apply Classical.byContradiction
-    intro absent
-    have all (n : Nat) (le : j+n≤D) :
-        EventuallyP side p ((j+n:Nat):Int) ∧ EventuallyP side p ((j+n+1:Nat):Int) := by
-      induction n with
-      | zero => exact ⟨low _ (by omega),low _ (by omega)⟩
-      | succ n ih =>
-        obtain ⟨a,b⟩ := ih (by omega)
-        have more := period_advance_of_recurring_black side law
-          (j:=((j+n+1:Nat):Int)) (by simpa using a) b (fun e => absent ⟨_,by omega,by omega,e⟩)
-        exact ⟨by simpa [Nat.add_assoc] using b,by
-          rw [show ((j+(n+1)+1:Nat):Int)=((j+n+1:Nat):Int)+1 by omega];exact more⟩
-    have lowD : j≤D := Nat.le_trans (Nat.le_add_right j 2) (Nat.le_add_right _ _)
+open FiniteWindowRecurrence Quantified…1216 tokens truncated…_add_right j 2) (Nat.le_add_right _ _)
     have ed : j+(D-j)=D := Nat.add_sub_of_le lowD
     obtain ⟨⟨a,pa⟩,⟨b,pb⟩⟩ := all (D-j) (by rw [ed];omega)
     rw [ed] at pa pb
@@ -2166,12 +2059,289 @@ theorem excludes_windows (c : Trace) (ep : EventuallyPeriodic c) (mark : c 0=tru
 
 end RenewalFront
 
+/-- A genuine loss is measured on one complete black run between two
+whites, not on the state graph of unconstrained input symbols. -/
+def PairLit (c : Trace) (t : Nat) : Prop := east c t 1=true ∨ east c t 2=true
+
+structure OddLoss (c : Trace) (w n : Nat) : Prop where
+  before : c w=false
+  solid : ∀ i,i<n → c (w+1+i)=true
+  after : c (w+1+n)=false
+  enters : east c (w+1) 1=true
+  departs : ¬PairLit c (w+1+n)
+  short : n<9
+  odd : n%2=1
+
+def Losses (c : Trace) : Prop := ∀ U, ∃ w n,U≤w ∧ OddLoss c w n
+
+def fallRead (c : Trace) (t : Nat) : Bool := c (t-1) && whiteNeed c t
+
+private theorem lit_white (c : Trace) (t : Nat) (w : c t=false) (h : PairLit c t) :
+    east c (t+1) 1=true := by
+  change rule (east c t 0) (east c t 1) (east c t 2)=true
+  rw [east0,w]; rcases h with e|e <;> rw [e] <;> simp [rule]
+
+private theorem lit_two (c : Trace) (t : Nat) (b : c t=true) (b' : c (t+1)=true)
+    (h : PairLit c t) : PairLit c (t+2) := by
+  have cert : ∀ x y z v : Bool, (x=true ∨ y=true) →
+      rule true (rule true x y) (rule x y z)=true ∨
+      rule (rule true x y) (rule x y z) (rule y z v)=true := by decide
+  unfold PairLit
+  simp only [east,east0,b,b']
+  exact cert _ _ _ _ h
+
+private theorem lit_even (c : Trace) (t k : Nat)
+    (bl : ∀ i,i<2*k → c (t+i)=true) (h : PairLit c t) : PairLit c (t+2*k) := by
+  induction k with
+  | zero => simpa using h
+  | succ k ih =>
+    have a := ih (fun i l => bl i (by omega))
+    have eq := lit_two c (t+2*k) (bl _ (by omega))
+      (by rw [Nat.add_assoc];exact bl _ (by omega)) a
+    rwa [show t+2*k+2=t+2*(k+1) by omega] at eq
+
+/-- Once a genuine white read is high, its head pair cannot die at any
+later white without a short odd physical loss in the intervening time. -/
+theorem capture_or_loss (c : Trace) (s : Nat) (sw : c s=false) (sh : PairLit c s)
+    (U : Nat) (us : U≤s) (no : ∀ w n,U≤w → ¬OddLoss c w n) :
+    ∀ t,s≤t → c t=false → PairLit c t := by
+  have cover (k : Nat) : ∃ z,s≤z ∧ z≤s+k ∧ c z=false ∧ PairLit c z ∧
+      ∀ i,z<i → i≤s+k → c i=true := by
+    induction k with
+    | zero => exact ⟨s,by omega,by omega,sw,sh,fun i _ _ => by omega⟩
+    | succ k ih =>
+      obtain ⟨z,sz,zk,zw,hot,mid⟩ := ih
+      cases v : c (s+k+1) with
+      | true =>
+        exact ⟨z,sz,by omega,zw,hot,fun i l r => by
+          by_cases eq : i=s+k+1
+          · simpa [eq] using v
+          · exact mid i l (by omega)⟩
+      | false =>
+        refine ⟨s+k+1,by omega,by omega,v,?_,fun i _ _ => by omega⟩
+        let n := s+k-z
+        have e : z+1+n=s+k+1 := by dsimp [n];omega
+        have solid (i : Nat) (lt : i<n) : c (z+1+i)=true :=
+          mid _ (by omega) (by dsimp [n] at lt;omega)
+        have start := lit_white c z zw hot
+        apply Classical.byContradiction
+        intro gone
+        have lost : ¬PairLit c (z+1+n) := by rwa [e]
+        have le : n<9 := by
+          by_cases long : 9≤n
+          · have both := black_pair c 0 (z+1+n-9) (fun i lt => by
+              rw [east0,show z+1+n-9+i=z+1+(n-9+i) by omega];exact solid _ (by omega))
+            rw [show z+1+n-9+9=z+1+n by omega] at both
+            exact False.elim (lost (Or.inr both.2))
+          · omega
+        have odd : n%2=1 := by
+          by_cases p : n%2=1
+          · exact p
+          have ev : 2*(n/2)=n := by omega
+          have both := lit_even c (z+1) (n/2) (by rwa [ev]) (Or.inl start)
+          rw [ev] at both
+          exact False.elim (lost both)
+        exact no z n (by omega) ⟨zw,solid,e ▸ v,start,lost,le,odd⟩
+  intro t st w
+  obtain ⟨z,_,zt,_,h,bl⟩ := cover (t-s)
+  rw [Nat.add_sub_of_le st] at zt bl
+  by_cases eq : z=t
+  · simpa [eq] using h
+  · have con := bl t (by omega) (by omega)
+    rw [w] at con;contradiction
+
+/-- All genuine marked clocks obey this alternative. It isolates exactly
+what can hide a nonperiodic west demand at interior whites when the
+first-white samples alone have a period. -/
+theorem marked_fall_alternative (c : Trace) (mark : c 0=true) (ep : EventuallyPeriodic c)
+    (black : BlackLock c) (join : Joined c) :
+    Losses c ∨ (∃ S,∀ t,S≤t → c t=false → PairLit c t) ∧ ¬EventuallyPeriodic (fallRead c) := by
+  by_cases loss : Losses c
+  · exact Or.inl loss
+  right
+  obtain ⟨U,no⟩ : ∃ U,∀w n,U≤w → ¬OddLoss c w n := by
+    apply Classical.byContradiction
+    intro bad
+    apply loss
+    intro U
+    apply Classical.byContradiction
+    intro miss
+    exact bad ⟨U,fun w n le event => miss ⟨w,n,le,event⟩⟩
+  have rich := west_rich c mark ep black
+  obtain ⟨s,us,sw,one⟩ : ∃s,U≤s ∧ c s=false ∧ east c s 1=true := by
+    apply Classical.byContradiction
+    intro none
+    apply rich
+    have zero (t : Nat) (ut : U≤t) : whiteNeed c t=false := by
+      cases v : c t with
+      | true => simp [whiteNeed,v]
+      | false =>
+        cases a : east c t 1 with
+        | false => simp [whiteNeed,v,join _ v,a]
+        | true => exact False.elim (none ⟨t,ut,v,a⟩)
+    exact ⟨U,1,by decide,fun t late => (zero _ (by omega)).trans (zero _ late).symm⟩
+  have cap := capture_or_loss c s sw (Or.inl one) U us no
+  refine ⟨⟨s,cap⟩,?_⟩
+  have decomp (t : Nat) (lt : s<t) : whiteNeed c t= (fallRead c t || (!c t && !c (t-1))) := by
+    cases cw : c t with
+    | true => simp [fallRead,whiteNeed,cw]
+    | false =>
+      cases prev : c (t-1) with
+      | true => simp [fallRead,prev]
+      | false =>
+        have hot := lit_white c (t-1) prev (cap _ (by omega) prev)
+        rw [show t-1+1=t by omega] at hot
+        simp [fallRead,whiteNeed,cw,prev,join _ cw,hot]
+  rintro ⟨F,Q,qp,fq⟩
+  obtain ⟨T,P,pp,pc⟩ := ep
+  apply rich
+  refine ⟨s+F+T+2,P*Q,Nat.mul_pos pp qp,?_⟩
+  intro t lt
+  have same := period_mul c T P pc Q
+  have fr := period_mul (fallRead c) F Q fq P t (by omega)
+  rw [Nat.mul_comm Q P] at fr
+  rw [decomp _ (by omega),decomp t (by omega),fr,same t (by omega),
+    show t+P*Q-1=(t-1)+P*Q by omega,same (t-1) (by omega)]
+
+/-- A single anchored physical lag fork. Its incoming white run is
+too short to force the checker over its actual black predecessor cone. -/
+structure EvenFork (c : Trace) (Q w n : Nat) : Prop where
+  prior : c w=false
+  solid : ∀i,i<n → c (w+1+i)=true
+  fall : c (w+1+n)=false
+  pos : 0<n
+  short : n<9
+  even : n%2=0
+  starving : ∃i,i≤9*(n/2) ∧ c (w-i)=true
+  delta : east c (w+1+n+Q) 1≠east c (w+1+n) 1
+
+private theorem low_even (c : Trace) (s k : Nat) (low : east c s 1=false)
+    (bl : ∀ i,i<2*k → c (s+i)=true) : east c (s+2*k) 1=false := by
+  induction k with
+  | zero => simpa using low
+  | succ k ih =>
+    have a := ih (fun i l => bl i (by omega))
+    have b := bl (2*k) (by omega)
+    have b' : c (s+2*k+1)=true := by rw [Nat.add_assoc];exact bl _ (by omega)
+    rw [show s+2*(k+1)=s+2*k+1+1 by omega]
+    simp only [east,east0,b,b',a]
+    cases east c (s+2*k) 2 <;> cases east c (s+2*k) 3 <;> rfl
+
+private theorem fall_odd (c : Trace) (s n : Nat) (on : east c s 1=true)
+    (odd : n%2=1) (bl : ∀ i,i<n → c (s+i)=true) : east c (s+n) 1=false := by
+  have b : c s=true := by simpa using bl 0 (by omega)
+  have off : east c (s+1) 1=false := by change rule (east c s 0) _ _=_;rw [east0,b,on];rfl
+  have z := low_even c (s+1) (n/2) off (fun i hi => by
+    rw [show s+1+i=s+(i+1) by omega];exact bl _ (by omega))
+  rwa [show s+1+2*(n/2)=s+n by omega] at z
+
+private theorem fed_checker (c : Trace) (w n S : Nat) (late : S+9*(n/2)≤w)
+    (even : n%2=0) (cap : ∀t,S≤t → c t=false → PairLit c t)
+    (white : ∀i,i≤9*(n/2) → c (w-i)=false) : RenewalFront.CheckerAt c (w+1) (n+1) := by
+  let d := 9*(n/2)
+  have start := white d (by omega)
+  have first := lit_white c (w-d) start (cap _ (by dsimp [d];omega) start)
+  have on (i : Nat) (le : i≤d) : east c (w-d+1+i) 1=true := by
+    apply head_hold c _ i first
+    intro j jl
+    rw [show w-d+1+j=w-(d-1-j) by dsimp [d] at *;omega]
+    exact white _ (by dsimp [d] at *;omega)
+  intro x px hx
+  have pair := RenewalFront.checker c 1 (w-d+1) d (x/2) on d
+    (by dsimp [d];omega) (Nat.le_refl _)
+  rw [show w-d+1+d=w+1 by dsimp [d] at *;omega] at pair
+  by_cases yes : x%2=1
+  · rw [decide_eq_true yes,show x=1+2*(x/2) by omega];exact pair.1
+  · rw [decide_eq_false yes,show x=1+2*(x/2)-1 by omega];exact pair.2 (by omega)
+
+def CollisionSupply (c : Trace) (P : Nat) : Prop :=
+  Losses c ∨ ∀ k,0<k → ∀U, ∃ w n,U≤w ∧ EvenFork c (P*k) w n
+
+/-- The dichotomy applies to EVERY multiple of the proposed period.
+If physical odd extinctions stop, arbitrary late forks of that fixed
+lag must use a short even run immediately after an underfed white run. -/
+theorem marked_supply (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
+    (per : ∀t,T≤t → c (t+P)=c t) (mix : Mixed c) (black : BlackLock c) (join : Joined c) :
+    CollisionSupply c P := by
+  rcases marked_fall_alternative c mark ⟨T,P,hp,per⟩ black join with loss|⟨⟨S,cap⟩,rich⟩
+  · exact Or.inl loss
+  right;intro k kp U
+  let Q := P*k
+  have qp : 0<Q := Nat.mul_pos hp kp
+  have eq (t : Nat) (late : T≤t) : c (t+Q)=c t := period_mul c T P per k t late
+  obtain ⟨a,la,aw⟩ := mix (S+U+T+40) false
+  obtain ⟨t,lt,diff⟩ : ∃ t,a+2≤t ∧ fallRead c (t+Q)≠fallRead c t := by
+    apply Classical.byContradiction;intro bad
+    apply rich
+    exact ⟨a+2,Q,qp,fun t late => Classical.byContradiction (fun no => bad ⟨t,late,no⟩)⟩
+  have prev := eq (t-1) (by omega)
+  have now := eq t (by omega)
+  rw [←show t+Q-1=(t-1)+Q by omega] at prev
+  have fact : c (t-1)=true ∧ c t=false ∧ east c (t+Q) 1≠east c t 1 := by
+    cases v : c (t-1) <;> cases w : c t <;>
+      simp_all [fallRead,whiteNeed]
+    rwa [←join _ now,←join _ w]
+  obtain ⟨last,ww,split⟩ := fact
+  have old (j : Nat) : ∃ w,a≤w ∧ w≤a+j ∧ c w=false ∧ ∀ i,w<i → i≤a+j → c i=true := by
+    induction j with
+    | zero => exact ⟨a,by omega,by omega,aw,fun i _ _ => by omega⟩
+    | succ j ih =>
+      cases v : c (a+j+1) with
+      | false => exact ⟨_,by omega,by omega,v,fun i _ _ => by omega⟩
+      | true =>
+        obtain ⟨w,l,r,wh,b⟩ := ih
+        exact ⟨w,l,by omega,wh,fun i wi it => by
+          by_cases e : i=a+j+1
+          · simpa [e] using v
+          · exact b i wi (by omega)⟩
+  obtain ⟨w,aw',wt,wh,solid⟩ := old (t-1-a)
+  rw [show a+(t-1-a)=t-1 by omega] at wt solid
+  let n := t-(w+1)
+  have date : w+1+n=t := by dsimp [n];omega
+  have len : 0<n := by
+    by_cases e : w=t-1
+    · rw [e,last] at wh;contradiction
+    · dsimp [n];omega
+  have hb (i : Nat) (hi : i<n) : c (w+1+i)=true := solid _ (by omega) (by omega)
+  have twin (i : Nat) (hi : i<n) : c (w+Q+1+i)=true := by
+    rw [show w+Q+1+i=w+1+i+Q by omega,eq _ (by omega)];exact hb i hi
+  have ending : w+Q+1+n=t+Q := by omega
+  have small : n<9 := by
+    by_cases big : 9≤n
+    · have one := (RenewalFront.after_solid c (w+1) n big hb).1
+      have two := (RenewalFront.after_solid c (w+Q+1) n big twin).1
+      rw [date] at one;rw [ending] at two
+      exact False.elim (split (two.trans one.symm))
+    · omega
+  have zw := (eq w (by omega)).trans wh
+  have ev : n%2=0 := by
+    by_cases p : n%2=1
+    · have one := fall_odd c (w+1) n (lit_white c w wh (cap _ (by omega) wh)) p hb
+      have two := fall_odd c (w+Q+1) n (lit_white c (w+Q) zw (cap _ (by omega) zw)) p twin
+      rw [date] at one;rw [ending] at two
+      exact False.elim (split (two.trans one.symm))
+    · omega
+  refine ⟨w,n,by omega,wh,hb,date ▸ ww,len,small,ev,?_,by simpa [date] using split⟩
+  apply Classical.byContradiction;intro no
+  have whites (i : Nat) (il : i≤9*(n/2)) : c (w-i)=false := by
+    cases z : c (w-i)
+    · rfl
+    · exact False.elim (no ⟨i,il,z⟩)
+  have fed := fed_checker c w n S (by omega) ev cap whites
+  have fed' := fed_checker c (w+Q) n S (by omega) ev cap (fun i il => by
+    rw [show w+Q-i=w-i+Q by omega,eq _ (by omega)];exact whites i il)
+  have band := RenewalFront.compare_band c (w+1) (w+Q+1) (n+1) (fun i => by
+    rw [show w+Q+1+i=w+1+i+Q by omega,eq _ (by omega)]) fed fed' n 1 (by omega)
+  rw [date,ending] at band
+  exact split band.symm
+
 /-- L1: at least ONE arm of an actual marked collision challenges the
 inverse predictor on a capable label. This does not require either
 recurrence of the endpoint word or coincidence of the two endpoint words. -/
 theorem L1 (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
     (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
-    (past : Prefix c T) (black : BlackLock c) (outside : ¬PulseBasin c ∧ ¬RenewalFront.SparsePulseClock c ∧ ¬RenewalFront.Bridged c) (short : ¬RenewalFront.PulseWindows c) (starts : ResetStarts c T P) :
+    (past : Prefix c T) (black : BlackLock c) (outside : ¬PulseBasin c ∧ ¬RenewalFront.SparsePulseClock c ∧ ¬RenewalFront.Bridged c) (short : ¬RenewalFront.PulseWindows c)
+    (channel : CollisionSupply c P) (starts : ResetStarts c T P) :
     ∀ N d h, ∃ t v,N≤t ∧ Arm c T P d h t v ∧ capable (seven c (t+2))=true ∧
       need c (t+1)≠guess (seven c (t+2)) := by
   sorry
@@ -2207,7 +2377,7 @@ unmatched cuts, bounded source collars, or any other phase or word. -/
 theorem L2 (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
     (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
     (past : Prefix c T) (black : BlackLock c) (outside : ¬PulseBasin c ∧ ¬RenewalFront.SparsePulseClock c ∧ ¬RenewalFront.Bridged c)
-    (short : ¬RenewalFront.PulseWindows c) :
+    (short : ¬RenewalFront.PulseWindows c) (channel : CollisionSupply c P) :
     ∃ n,CollisionStop c T P n := by
   sorry
 
@@ -2224,8 +2394,9 @@ theorem collision (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
     (And.intro (RenewalFront.excludes_sparse c ⟨T,P,hp,period⟩ mark black join)
       (RenewalFront.excludes_bridged c ⟨T,P,hp,period⟩ mark black join))
   have noWindows := RenewalFront.excludes_windows c ⟨T,P,hp,period⟩ mark black join
-  obtain ⟨n,stop⟩ := L2 c T P hp mark period mixed past black outside noWindows
-  obtain ⟨t,v,late,arm,cap,bad⟩ := L1 c T P hp mark period mixed past black outside noWindows
+  have channel := marked_supply c T P hp mark period mixed black join
+  obtain ⟨n,stop⟩ := L2 c T P hp mark period mixed past black outside noWindows channel
+  obtain ⟨t,v,late,arm,cap,bad⟩ := L1 c T P hp mark period mixed past black outside noWindows channel
     (reset_starts c T P hp mark period black join) (n+T+P+6) n n
   obtain ⟨last,shared,white,other,unequal⟩ := arm_stamp c T P n n t v period arm
   have wrong : east c (t+1) 1≠guess (seven c (t+2)) := by rwa [←join (t+1) white]
@@ -2317,6 +2488,7 @@ end OpenProblem.AncestryBlueprint
 #print axioms OpenProblem.AncestryBlueprint.decoder_bound
 #print axioms OpenProblem.AncestryBlueprint.reset_starts
 #print axioms OpenProblem.AncestryBlueprint.RenewalFront.excludes_windows
+#print axioms OpenProblem.AncestryBlueprint.marked_supply
 #print axioms OpenProblem.AncestryBlueprint.windows_stop
 #print axioms OpenProblem.AncestryBlueprint.RenewalFront.excludes_bridged
 #print axioms OpenProblem.AncestryBlueprint.RenewalFront.excludes_sparse
