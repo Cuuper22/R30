@@ -1,6 +1,7 @@
 {
   "ancestry_ultra/p2_b_recur_host.py": "60223c13972620fa6847418da7e425a5fa1474ca",
-  "ancestry_ultra/p2_observable_transfer.md": "27d03b8d3c60675b4b2da6c487ca2fa815cc9534",
+  "ancestry_ultra/p2_observable_transfer.md": "2bfce111d13a514a314346c98bdd0ccd8ae2fe6c",
   "ancestry_ultra/__pycache__/p2_dominant_relay.cpython-312.pyc": "f7558af1c977a6939e85a8b65ed21ae60e9d45b8",
-  "ancestry_ultra/__pycache__/p2_b_recur_host.cpython-312.pyc": "cedabf444240dc0cfb4cd3eecd894bb67880df94"
+  "ancestry_ultra/__pycache__/p2_b_recur_host.cpython-312.pyc": "cedabf444240dc0cfb4cd3eecd894bb67880df94",
+  "ancestry_ultra/p2_b_dyadic_replica.py": "5a8f08c66e6a753d05efacf47a1a4da1dd735c85"
 }
