@@ -617,3 +617,36 @@ complements; if c_(t-1)=1 both agree pairwise). Thus any D at -2 at
 t has its material parent at -3; no path is confined forever to these
 first two cells. The fixed-Q bridge still requires a growing depth or a
 strict source loss; the free-geometry west countermodel does not provide it.
+
+The actual obstruction is to causal finite memory, not merely to
+periodic positions. If a bounded spine's next step at t were computed by
+a fixed finite-state reader of prior steps, clock phase, and finitely many
+h values through t+P-1, the same ray decoder would be finite and
+deterministic: in order to choose a real/virtual site on g, positions
+need be advanced no later than t=g-1 (p<0). Even that last step reads
+only through h_(g+P-2). Increasing g then determines the new h bit and
+the joint bounded decoder state. All sufficiently late equal finite
+input/memory states would have the same future, forcing eventual
+periodicity. The west-only detour construction needs the fresh bit
+across this cutoff, consistent with its aperiodic output.
+
+For an isolated black exit c_(t-1),c_t,c_(t+1)=0,1,0, the genuine
+east forces one more old OR to agree: the depth-two discrepancy at t
+copies depth three at t-1 and depth four at t-2. Write y_s=X_s(-2),
+z_s=X_s(-3). If c_(t-2)=1, h_(t-2)=1 and y_(t-2)=1-h_(t-1);
+then z_(t-2)=1-y_(t-2), so its OR with y is 1. If c_(t-2)=0, let
+r0,r1 be the actual east heads at t-2,t-1. They are nondecreasing.
+For (r0,r1)=00,01,11 respectively, the pairs (y,z) at t-2 are
+(1,1),(0,1),(1,0); all ORs are 1. No common OR at the next diagonal
+step is implied by even a genuine finite eastern initial ray. For two
+repeats of the clock 0001 followed by 00, take initial strict east
+all white. Its first and second white runs have R respectively all
+zero and all one; the first nine demanded west heads are 001111010.
+Decode them on a finite initial west (zero-extend). The full Rule 30
+evolution then realizes this center segment. At ages 0 and 4 the raw
+pairs (x=-4,-3) are (0,1) and (0,0): the depth-four discrepancy at
+age 1 takes the age-zero depth-three parent, reversing the diagonal.
+The physical path feeding the head has depths 3,4,3,2,1 at ages 0..4.
+This finite marked-west control does not start from the singleton and
+does not give an infinite return. The next step must control distinct
+exit episodes by the common origin, rather than prolong this diagonal.
