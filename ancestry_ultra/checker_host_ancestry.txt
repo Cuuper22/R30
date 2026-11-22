@@ -1,0 +1,14 @@
+01 existing terminal horizon 126 m(k) inverse finite count 0 distinct west residues 1400
+remaining finite width<=H with exact marked-west high depth 8 45
+remaining finite width<=H with exact marked-west high depth 16 0
+011 existing terminal horizon 126 m(k) inverse finite count 0 distinct west residues 78897
+remaining finite width<=H with exact marked-west high depth 8 1218
+remaining finite width<=H with exact marked-west high depth 16 5
+remaining finite width<=H with exact marked-west high depth 24 0
+0011 existing terminal horizon 124 m(k) inverse finite count 0 distinct west residues 18479
+remaining finite width<=H with exact marked-west high depth 8 258
+remaining finite width<=H with exact marked-west high depth 16 0
+00101 existing terminal horizon 125 m(k) inverse finite count 0 distinct west residues 536067
+remaining finite width<=H with exact marked-west high depth 8 8433
+remaining finite width<=H with exact marked-west high depth 16 116
+remaining finite width<=H with exact marked-west high depth 24 0
