@@ -615,17 +615,171 @@ private theorem pull_east (c : Trace) (s u n j : Nat)
       · obtain ⟨y,a,eq,raw,path⟩ := ih (j+2) d
         exact ⟨y,a,by omega,raw,.inward path left x z⟩
 
+private theorem joined_grid (c : Trace) (mark : c 0=true) (black : BlackLock c) (join : Joined c)
+    (t d : Nat) : east c t d=cell t (d:Int) ∧ west c t d=cell t (-(d:Int)) := by
+  have wall (i : Nat) : c (i+1)=rule (west c i 1) (c i) (east c i 1) := by
+    cases co : c i
+    · have w := join i co
+      cases l : west c i 1 <;> cases r : east c i 1 <;> cases v : c (i+1) <;> simp_all [need,rule]
+    · rw [black i co];cases c (i+1) <;> rfl
+  induction t generalizing d with
+  | zero =>
+    cases d with
+    | zero => exact ⟨mark,mark⟩
+    | succ d => simp [east,west,cell];omega
+  | succ t ih =>
+    cases d with
+    | zero =>
+      have h := wall t
+      rw [(ih 1).2,(ih 1).1,←east0 c t,(ih 0).1] at h
+      exact ⟨h,h⟩
+    | succ d =>
+      constructor
+      · simp only [east,(ih d).1,(ih (d+1)).1,(ih (d+2)).1,cell]
+        congr 1 <;> congr 1 <;> omega
+      · simp only [west,(ih d).2,(ih (d+1)).2,(ih (d+2)).2,cell]
+        congr 1 <;> congr 1 <;> omega
+
+/-- Parent in the real lag-Q spacetime comparison. This map is ordered
+also at common sites, so two genuine western/eastern donors can be
+traced together all the way to ONE shared initial comparison. -/
+private def parentOf (Q i : Nat) (x : Int) : Int :=
+  if cell i (x-1)≠cell (Q+i) (x-1) then x-1
+  else if cell i x≠cell (Q+i) x then x else x+1
+
+private def original (Q : Nat) : Nat → Int → Int
+  | 0,x => x
+  | i+1,x => original Q i (parentOf Q i x)
+
+private theorem parent_bounded (Q i : Nat) (x : Int) :
+    x-1≤parentOf Q i x ∧ parentOf Q i x≤x+1 := by
+  by_cases l : cell i (x-1)≠cell (Q+i) (x-1) <;> by_cases m : cell i x≠cell (Q+i) x <;> simp_all [parentOf] <;> omega
+
+private theorem parent_order (Q i : Nat) (x y : Int) (le : x≤y) :
+    parentOf Q i x≤parentOf Q i y := by
+  have xb := parent_bounded Q i x
+  have yb := parent_bounded Q i y
+  by_cases apart : x+2≤y
+  · omega
+  by_cases eq : x=y
+  · rw [eq];exact Int.le_refl _
+  have adj : y-1=x := by omega
+  by_cases l : cell i (x-1)≠cell (Q+i) (x-1) <;> by_cases m : cell i x≠cell (Q+i) x <;>
+    by_cases r : cell i y≠cell (Q+i) y <;> simp_all [parentOf] <;> omega
+
+private theorem original_order (Q n : Nat) (x y : Int) (le : x≤y) :
+    original Q n x≤original Q n y := by
+  induction n generalizing x y with
+  | zero => exact le
+  | succ n ih => exact ih _ _ (parent_order Q n x y le)
+
+private theorem original_bounds (Q n : Nat) (x : Int) :
+    x-(n:Int)≤original Q n x ∧ original Q n x≤x+(n:Int) := by
+  induction n generalizing x with
+  | zero => simp [original]
+  | succ n ih =>
+    have b := ih (parentOf Q n x)
+    have d := parent_bounded Q n x
+    unfold original;omega
+
+private theorem parent_live (Q n : Nat) (x : Int) (live : cell (n+1) x≠cell (Q+(n+1)) x) :
+    cell n (parentOf Q n x)≠cell (Q+n) (parentOf Q n x) := by
+  rw [show Q+(n+1)=Q+n+1 by omega] at live
+  unfold parentOf
+  split
+  · assumption
+  · next left =>
+    split
+    · assumption
+    · next mid =>
+      intro right
+      apply live
+      change rule _ _ _=rule _ _ _
+      rw [Classical.byContradiction left,Classical.byContradiction mid,right]
+
+private theorem original_live (Q n : Nat) (x : Int) (live : cell n x≠cell (Q+n) x) :
+    cell 0 (original Q n x)≠cell Q (original Q n x) := by
+  induction n generalizing x with
+  | zero => simpa only [original,Nat.add_zero] using live
+  | succ n ih => exact ih _ (parent_live _ _ _ live)
+
+/-- No material edge can cross an aligned mature wall. Its two
+sectors retain the same ordered separator at the ORIGINAL comparison
+for the entire mature tail, even for unbounded lag. -/
+private theorem seam_side (Q T s : Nat) (x : Int) (ts : T≤s)
+    (wall : ∀i,T≤i → cell (Q+i) 0=cell i 0) (live : cell s x≠cell (Q+s) x) :
+    (x<0 → original Q s x≤original Q T 0) ∧ (0<x → original Q T 0≤original Q s x) := by
+  obtain ⟨n,rfl⟩ := Nat.exists_eq_add_of_le ts
+  induction n generalizing x with
+  | zero => exact ⟨fun l => original_order _ _ _ _ (by omega),fun r => original_order _ _ _ _ (by omega)⟩
+  | succ n ih =>
+    rw [show T+(n+1)=T+n+1 by omega] at live ⊢
+    have past := parent_live Q (T+n) x live
+    have nz : parentOf Q (T+n) x≠0 := by
+      intro zero
+      rw [zero] at past
+      exact past (wall (T+n) (by omega)).symm
+    have b := parent_bounded Q (T+n) x
+    have was := ih (parentOf Q (T+n) x) (by omega) past
+    exact ⟨fun l => was.1 (by omega),fun r => was.2 (by omega)⟩
+
+private theorem aligned_lag (T P s u : Nat) (ts : T≤s) (su : s<u)
+    (phase : (s-T)%P=(u-T)%P) : ∃ m,u-s=P*m := by
+  have S := Nat.mod_add_div (s-T) P
+  have U := Nat.mod_add_div (u-T) P
+  have le : (s-T)/P≤(u-T)/P := Nat.div_le_div_right (by omega)
+  refine ⟨(u-T)/P-(s-T)/P,?_⟩
+  rw [Nat.mul_sub]
+  omega
+
+private theorem empty_outer (t : Nat) (x : Int) (out : x< -(t:Int) ∨ (t:Int)<x) : cell t x=false := by
+  induction t generalizing x with
+  | zero => simp [cell];omega
+  | succ t ih =>
+    change rule (cell t (x-1)) (cell t x) (cell t (x+1))=false
+    rw [ih _ (by omega),ih _ (by omega),ih _ (by omega)];rfl
+
+private def MarkedOrigin (Q : Nat) (x : Int) :=
+  -(Q:Int)≤x ∧ x≤(Q:Int) ∧ ((x=0 ∧ center Q=false) ∨ (x≠0 ∧ cell Q x=true))
+
+private theorem root_sign (Q n : Nat) (x : Int) (live : cell n x≠cell (Q+n) x) :
+    MarkedOrigin Q (original Q n x) := by
+  let j := original Q n x
+  have seed : cell 0 j≠cell Q j := original_live Q n x live
+  by_cases z : j=0
+  · have a : cell 0 j=true := by simp [cell,z]
+    have b : center Q=false := by cases k : center Q <;> simp_all [center]
+    exact ⟨by omega,by omega,Or.inl ⟨z,b⟩⟩
+  · have a : cell 0 j=false := by simp [cell,z]
+    have b : cell Q j=true := by cases k : cell Q j <;> simp_all
+    have valid : ¬(j< -(Q:Int) ∨ (Q:Int)<j) := fun outer => by
+      have no := empty_outer Q j outer;rw [b] at no;contradiction
+    exact ⟨by omega,by omega,Or.inr ⟨z,b⟩⟩
+
+/-- Both founders are placed in the same row-0/row-Q comparison.
+Only the original marked site can supply a negative root. Equal roots
+are permitted only when their single light cone spans both founders. -/
+def OriginalPair (T s u k y : Nat) : Prop :=
+  let Q:=u-s
+  let w:=original Q s (-((k+1:Nat):Int))
+  let e:=original Q s (y:Int)
+  let seam:=original Q T 0
+  MarkedOrigin Q w ∧ MarkedOrigin Q e ∧ w≤seam ∧ seam≤e ∧
+    -(T:Int)≤seam ∧ seam≤(T:Int) ∧
+    (k+1+y : Nat) ≤ 2*s+(e-w).toNat
+
 /-- Both sources must fit inside the same genuine finite cone. If
 the east founder lies beyond the older mark, its sign is prescribed.
 The western founder is exactly y plus the accumulated eastern charge. -/
-def EastFounder (c : Trace) (h s u k : Nat) : Prop :=
+def EastFounder (c : Trace) (T h s u k : Nat) : Prop :=
   ∃ y a,h+8<y ∧ y≤u ∧ y+a=k+1 ∧
-    (s<y → east c s y=false ∧ east c u y=true) ∧ EastRoute c s u y k 1 a
+    (s<y → east c s y=false ∧ east c u y=true) ∧ EastRoute c s u y k 1 a ∧ OriginalPair T s u k y
 
-private theorem joint_founder (c : Trace) (h s u k : Nat) (su : s<u)
-    (clk : ∀i,c (s+i)=c (u+i)) (join : Joined c)
-    (same : ∀i,i≤h+8 → east c s i=east c u i)
-    (split : whiteNeed c (s+k)≠whiteNeed c (u+k)) : EastFounder c h s u k := by
+private theorem joint_founder (c : Trace) (T h s u k : Nat) (ts : T≤s) (su : s<u)
+    (locked : ∀i,T≤i → c (u-s+i)=c i)
+    (clk : ∀i,c (s+i)=c (u+i)) (mark : c 0=true) (black : BlackLock c) (join : Joined c)
+    (westLive : west c s (k+1)≠west c u (k+1)) (same : ∀i,i≤h+8 → east c s i=east c u i)
+    (split : whiteNeed c (s+k)≠whiteNeed c (u+k)) : EastFounder c T h s u k := by
   have wh : c (u+k)=false := by
     cases z : c (u+k)
     · rfl
@@ -639,9 +793,24 @@ private theorem joint_founder (c : Trace) (h s u k : Nat) (su : s<u)
     by_cases outside : u<y
     · exact False.elim (raw ((east_vacuum c s y (by omega)).trans (east_vacuum c u y outside).symm))
     · omega
+  have day : u-s+s=u := by omega
+  have lw : cell s (-((k+1:Nat):Int))≠cell (u-s+s) (-((k+1:Nat):Int)) := by
+    rwa [day,←(joined_grid c mark black join s (k+1)).2,←(joined_grid c mark black join u (k+1)).2]
+  have le : cell s (y:Int)≠cell (u-s+s) (y:Int) := by
+    rwa [day,←(joined_grid c mark black join s y).1,←(joined_grid c mark black join u y).1]
+  have roots : OriginalPair T s u k y := by
+    have order := original_order (u-s) s (-((k+1:Nat):Int)) y (by omega)
+    have W := original_bounds (u-s) s (-((k+1:Nat):Int))
+    have E := original_bounds (u-s) s (y:Int)
+    have actual (i : Nat) : c i=cell i 0 := by simpa [east0] using (joined_grid c mark black join i 0).1
+    have lock (i : Nat) (ti : T≤i) : cell (u-s+i) 0=cell i 0 := by rw [←actual,←actual,locked i ti]
+    have wl := (seam_side (u-s) T s _ ts lock lw).1 (by omega)
+    have el := (seam_side (u-s) T s _ ts lock le).2 (by omega)
+    have belt := original_bounds (u-s) T 0
+    exact ⟨root_sign _ _ _ lw,root_sign _ _ _ le,wl,el,by omega,by omega,by omega⟩
   exact ⟨y,a,out,within,eq,fun farther => by
     have old := east_vacuum c s y farther
-    exact ⟨old,by cases bit : east c u y <;> simp_all⟩,path⟩
+    exact ⟨old,by cases bit : east c u y <;> simp_all⟩,path,roots⟩
 
 /-- A paired reset REALIZED by two distinct ages of these same
 initialized halves, and its nearest later western collision. -/
@@ -658,7 +827,7 @@ structure Matched (c : Trace) (T P d h s u k : Nat) : Prop where
   founder : west c s (k+1)≠west c u (k+1)
   common : ∀ j,j<k → whiteNeed c (s+j)=whiteNeed c (u+j)
   split : whiteNeed c (s+k)≠whiteNeed c (u+k)
-  eastSource : EastFounder c h s u k
+  eastSource : EastFounder c T h s u k
 
 /-- The common collars can be required arbitrarily wide independently. -/
 def ResetStarts (c : Trace) (T P : Nat) : Prop :=
@@ -703,9 +872,12 @@ theorem reset_starts (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
   obtain ⟨k,rfl⟩ := Nat.exists_eq_succ_of_ne_zero (show y≠0 by omega)
   have clk := same_clock c T P per s u (by omega) (by omega) (ps.trans pu.symm)
   have startE (i : Nat) (hi : i≤h+8) : east c s i=east c u i := same_window (es.trans eu.symm) i (by omega)
+  obtain ⟨mult,lm⟩ := aligned_lag T P s u (by omega) (by omega) (ps.trans pu.symm)
+  have locked (i : Nat) (late : T≤i) : c (u-s+i)=c i := by
+    rw [lm,Nat.add_comm];exact period_mul c T P per mult i late
   have hit := ballistic c black k s u clk near ne
   exact ⟨s,u,k,by omega,by omega,by omega,ps.trans pu.symm,rs,ru,startE,by omega,by omega,
-    fun i hi => near i (by omega),ne,hit.1,hit.2,joint_founder c h s u k (by omega) clk join startE hit.2⟩
+    fun i hi => near i (by omega),ne,hit.1,hit.2,joint_founder c T h s u k (by omega) (by omega) locked clk mark black join ne startE hit.2⟩
 
 /-- Orient one selected arm of the actual split. The other arm is
 present in the claim but its eastern label is unrestricted. -/
