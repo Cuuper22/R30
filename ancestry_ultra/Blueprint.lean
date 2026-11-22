@@ -261,18 +261,234 @@ def WesternFork (c : Trace) (P p : Nat) (w : Seven) (stamp : Mem) : Prop :=
   ∀ N (b : Bool), ∃ t, N≤t ∧ Visit c P p w (t+1) ∧
     (c t,whiteNeed c t)=stamp ∧ need c (t+1)=b
 
-/-- The western marked tip forces arbitrarily late fresh demand forks
-on a common clock phase, before any eastern word has been selected. -/
-private theorem untagged_forks (c : Trace) (T P : Nat) (hp : 0<P)
-    (rich : ¬EventuallyPeriodic (whiteNeed c)) :
-    ∀ N, ∃ t u, N≤t ∧ N≤u ∧ t%P=u%P ∧ whiteNeed c t=whiteNeed c u ∧
-      whiteNeed c (t+1)≠whiteNeed c (u+1) := by
+-- The condensation-rank certificate from the shared Step 4, now
+-- applied to the actual initialized eastern half of an imposed clock.
+private def r8bad (a b c d e f g h : Bool) := !reset ⟨a,b,c,d,e,f,g⟩ h
+private def r8code (a b c d e f g h : Bool) := code ⟨a,b,c,d,e,f,g⟩ + 128*h.toNat
+def noreset (c : Trace) (t : Nat) := !reset (seven c t) (east c t 8)
+private def emask (c : Trace) (t : Nat) := east c t 1 && !c t
+private def r8state (c : Trace) (t : Nat) := code (seven c t) + 128*(east c t 8).toNat
+private def r8rank (s : Nat) : Nat := (0xb201001100001111000000005100012200000000000000003501000000000728a200001100006412000000000000000032050011000000000000000000000189b201000000005412000000006100017300000000000000000000000000000000980000520000111100000000000000000000000000000000000000000000012a >>> (4*s)) % 16
+private def r8next : Nat → Nat
+  | 57 => 206 | 206 => 115 | 115 => 156 | 156 => 231 | 231 => 57 | _ => 0
+private def r8read (s : Nat) : Bool := decide (s = 231)
+private def r8turn (s : Nat) : Nat := r8next (r8next (r8next (r8next (r8next s))))
+private abbrev r8edge (x y : Nat) (q : Bool) : Prop :=
+  r8rank y ≤ r8rank x ∧ (r8rank y = r8rank x →
+    y = r8next x ∧ q = r8read x ∧ r8turn x = x)
+set_option maxRecDepth 10000 in
+set_option maxHeartbeats 4000000 in
+private theorem r8cert : ∀ a b c d e f g h k v : Bool,
+    r8bad a b c d e f g h = true → r8bad (rule v a b) (rule a b c) (rule b c d) (rule c d e) (rule d e f) (rule e f g) (rule f g h) (rule g h k) = true →
+    r8edge (r8code a b c d e f g h) (r8code (rule v a b) (rule a b c) (rule b c d) (rule c d e) (rule d e f) (rule e f g) (rule f g h) (rule g h k)) (a && !v) := by decide
+private theorem r8local (c : Trace) (t : Nat) (a : noreset c t = true) (b : noreset c (t+1) = true) :
+    r8edge (r8state c t) (r8state c (t+1)) (emask c t) := by
+  have cert := r8cert (east c t 1) (east c t 2) (east c t 3) (east c t 4)
+    (east c t 5) (east c t 6) (east c t 7) (east c t 8) (east c t 9) (east c t 0)
+  simpa only [emask,r8state,r8code,seven,east,east0] using cert a b
+private theorem r8steady (f : Nat → Nat) (T : Nat)
+    (mono : ∀ t, T ≤ t → f (t+1) ≤ f t) :
+    ∃ s, T ≤ s ∧ ∀ t, s ≤ t → f (t+1) = f t := by
+  have later (a b : Nat) (ha : T ≤ a) (hab : a ≤ b) : f b ≤ f a := by
+    obtain ⟨d,rfl⟩ := Nat.exists_eq_add_of_le hab
+    induction d with
+    | zero => exact Nat.le_refl _
+    | succ d ih => exact Nat.le_trans (mono (a+d) (by omega)) (ih (by omega))
+  have down (m : Nat) : ∀ a, T ≤ a → f a = m →
+      ∃ s, T ≤ s ∧ ∀ t, s ≤ t → f (t+1) = f t := by
+    induction m using Nat.strongRecOn with
+    | ind m ih =>
+      intro a ha val
+      by_cases drop : ∃ b, a ≤ b ∧ f (b+1) < f b
+      · obtain ⟨b,hb,hv⟩ := drop
+        have le := later a b ha hb
+        exact ih (f (b+1)) (by omega) (b+1) (by omega) rfl
+      · refine ⟨a,ha,?_⟩
+        intro b hb
+        have no : ¬ f (b+1) < f b := fun y => drop ⟨b,hb,y⟩
+        have low := mono b (by omega)
+        omega
+  exact down (f T) T (Nat.le_refl _) rfl
+private theorem r8maskPeriod (c : Trace) (T : Nat) (h : ∀ t, T ≤ t → noreset c t = true) :
+    EventuallyPeriodic (emask c) := by
+  have path (t : Nat) (ht : T ≤ t) := r8local c t (h t ht) (h (t+1) (by omega))
+  obtain ⟨s,hs,eq⟩ := r8steady (fun t => r8rank (r8state c t)) T
+    (fun t ht => (path t ht).1)
+  have step (t : Nat) (ht : s ≤ t) := (path t (by omega)).2 (eq t ht)
+  refine ⟨s,5,by decide,?_⟩
+  intro t ht
+  have e0 := step t ht
+  have e1 := step (t+1) (by omega)
+  have e2 := step (t+2) (by omega)
+  have e3 := step (t+3) (by omega)
+  have e4 := step (t+4) (by omega)
+  have e5 := step (t+5) (by omega)
+  have ret : r8state c (t+5) = r8state c t := by
+    calc r8state c (t+5) = r8next (r8state c (t+4)) := e4.1
+         _ = r8next (r8next (r8state c (t+3))) := by rw [e3.1]
+         _ = r8next (r8next (r8next (r8state c (t+2)))) := by rw [e2.1]
+         _ = r8next (r8next (r8next (r8next (r8state c (t+1))))) := by rw [e1.1]
+         _ = r8turn (r8state c t) := by rw [e0.1]; rfl
+         _ = r8state c t := e0.2.2
+  rw [e5.2.1,ret,← e0.2.1]
+
+private theorem cofinal_resets (c : Trace) (rich : ¬EventuallyPeriodic (whiteNeed c))
+    (join : Joined c) : ∀ N, ∃ t, N≤t ∧ noreset c t=false := by
+  have hmask : whiteNeed c=emask c := by
+    funext t
+    cases ht : c t
+    · simpa only [whiteNeed,emask,ht,Bool.not_false,Bool.true_and,Bool.and_true] using join t ht
+    · simp [whiteNeed,emask,ht]
   intro N
-  obtain ⟨t,u,lt,lu,ph,word,diff⟩ := FiniteWindowRecurrence.same_phase_branch
-    (whiteNeed c) rich P hp 1 (N+T)
-  have bit := congrArg (fun w : List Bool => w[0]?) word
-  simp [FiniteWindowRecurrence.window] at bit
-  exact ⟨t,u,by omega,by omega,ph,bit,diff⟩
+  apply Classical.byContradiction
+  intro no
+  apply rich
+  rw [hmask]
+  apply r8maskPeriod c N
+  intro t ht
+  cases h : noreset c t
+  · exact False.elim (no ⟨t,ht,h⟩)
+  · rfl
+
+/-- Recurrence is used only to select genuine reset-start rows. No
+recurrence of an endpoint or age-length prefix is postulated. -/
+private theorem color_cofinal (S : Nat → Prop) (recur : ∀ N, ∃ t,N≤t ∧ S t)
+    (f : Nat → Nat) (b : Nat) (bounded : ∀ t,f t<b) :
+    ∃ v, ∀ N, ∃ t,N≤t ∧ S t ∧ f t=v := by
+  classical
+  apply Classical.byContradiction
+  intro none
+  have excludeColor (v : Nat) : ∃ n,∀ t,n≤t → S t → f t≠v := by
+    by_cases h : ∃ n,∀ t,n≤t → S t → f t≠v
+    · exact h
+    · apply False.elim
+      apply none
+      refine ⟨v,fun n => ?_⟩
+      apply Classical.byContradiction
+      intro no
+      exact h ⟨n,fun t ht st eq => no ⟨t,ht,st,eq⟩⟩
+  have tail (k : Nat) : ∃ n,∀ t,n≤t → S t → k≤f t := by
+    induction k with
+    | zero => exact ⟨0,fun _ _ _ => Nat.zero_le _⟩
+    | succ k ih =>
+      obtain ⟨n,hn⟩ := ih
+      obtain ⟨m,hm⟩ := excludeColor k
+      exact ⟨n+m,fun t h st => by have := hn t (by omega) st;have := hm t (by omega) st;omega⟩
+  obtain ⟨n,hn⟩ := tail b
+  obtain ⟨t,late,st⟩ := recur n
+  exact (Nat.not_lt_of_ge (hn t late st)) (bounded t)
+
+private theorem same_clock (c : Trace) (T P : Nat) (per : ∀t,T≤t → c (t+P)=c t)
+    (s u : Nat) (old : T≤s) (newer : T≤u) (ph : (s-T)%P=(u-T)%P) :
+    ∀ i,c (s+i)=c (u+i) := by
+  intro i
+  let j := (s-T)%P
+  have S := Nat.mod_add_div (s-T) P
+  have U := Nat.mod_add_div (u-T) P
+  have hS : T+j+i+P*((s-T)/P)=s+i := by dsimp [j];omega
+  have hU : T+j+i+P*((u-T)/P)=u+i := by dsimp [j];omega
+  rw [←hS,←hU,period_mul c T P per _ _ (by omega),period_mul c T P per _ _ (by omega)]
+
+private theorem west_read (c : Trace) (black : BlackLock c) (t : Nat) :
+    west c t 1=xor (c (t+1)) (c t || whiteNeed c t) := by
+  cases ct : c t with
+  | false => cases a : west c t 1 <;> cases b : c (t+1) <;> simp_all [whiteNeed,need]
+  | true => rw [black t ct];cases c (t+1) <;> rfl
+
+/-- If k is the innermost nonmatching western cell at a reset
+pair, the true discrepancy moves inward at exactly one cell per tick.
+It arrives at the first mismatching white request exactly k−1 ticks
+later. This induction uses the signed actual differences, not a speed
+bound on an arbitrary disturbance. -/
+private theorem ballistic (c : Trace) (black : BlackLock c) (k s u : Nat)
+    (clk : ∀ i,c (s+i)=c (u+i))
+    (near : ∀ i,i<k+1 → west c s i=west c u i)
+    (edge : west c s (k+1)≠west c u (k+1)) :
+    (∀ j,j<k → whiteNeed c (s+j)=whiteNeed c (u+j)) ∧
+      whiteNeed c (s+k)≠whiteNeed c (u+k) := by
+  have eq_iff (x y : Nat) (h : c x=c y) (hn : c (x+1)=c (y+1)) :
+      whiteNeed c x=whiteNeed c y ↔ west c x 1=west c y 1 := by
+    constructor
+    · intro eq;rw [west_read c black x,west_read c black y,h,hn,eq]
+    · intro eq;unfold whiteNeed need;rw [h,hn,eq]
+  induction k generalizing s u with
+  | zero =>
+    simp only [Nat.add_zero] at *
+    exact ⟨fun _ h => by omega,fun eq => edge ((eq_iff s u (clk 0) (clk 1)).mp eq)⟩
+  | succ k ih =>
+    have ns (i : Nat) (hi : i<k+1) : west c (s+1) i=west c (u+1) i := by
+      cases i with
+      | zero => simpa only [west0] using clk 1
+      | succ i => change rule _ _ _=rule _ _ _; rw [near (i+2) (by omega),near (i+1) (by omega),near i (by omega)]
+    have ne : west c (s+1) (k+1)≠west c (u+1) (k+1) := by
+      intro eq
+      have h := congrArg (fun b => xor b (west c s (k+1) || west c s k)) eq
+      change xor (rule _ _ _) _=xor (rule _ _ _) _ at h
+      rw [left_inv,near (k+1) (by omega),near k (by omega),left_inv] at h
+      exact edge h
+    have step := ih (s+1) (u+1) (fun i => by simpa only [Nat.add_right_comm s 1 i,Nat.add_right_comm u 1 i,Nat.add_assoc] using clk (i+1)) ns ne
+    constructor
+    · intro j hj
+      cases j with
+      | zero => simpa only [Nat.add_zero] using (eq_iff s u (clk 0) (clk 1)).mpr (near 1 (by omega))
+      | succ j => simpa [Nat.add_assoc,Nat.add_comm 1 j] using step.1 j (by omega)
+    · simpa [Nat.add_assoc,Nat.add_comm 1 k] using step.2
+
+open FiniteWindowRecurrence in
+/-- Two initialized cuts with the same eight-cell reset (indeed same
+arbitrarily large eastern prefix) and same clock. The finite western
+mark supplies an explicit nearest source and deadline at the newer age.
+Both initial collars may be required arbitrarily large independently. -/
+def ResetStarts (c : Trace) (T P : Nat) : Prop :=
+  ∀ N d h, ∃ s u k,N≤s ∧ T≤s ∧ s<u ∧ (s-T)%P=(u-T)%P ∧
+    noreset c s=false ∧ noreset c u=false ∧
+    (∀ i,i≤h+8 → east c s i=east c u i) ∧
+    d≤k ∧ k<u ∧ (∀ i,i≤k → west c s i=west c u i) ∧
+    west c s (k+1)≠west c u (k+1) ∧
+    (∀ j,j<k → whiteNeed c (s+j)=whiteNeed c (u+j)) ∧
+    whiteNeed c (s+k)≠whiteNeed c (u+k)
+
+open FiniteWindowRecurrence in
+theorem reset_starts (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
+    (per : ∀t,T≤t → c (t+P)=c t) (black : BlackLock c) (join : Joined c) : ResetStarts c T P := by
+  intro N d h
+  have recurrent := cofinal_resets c (west_rich c mark ⟨T,P,hp,per⟩ black) join
+  let ph t := (t-T)%P
+  let ew t := window (east c t) (h+9) 0
+  let ww t := window (west c t) (d+1) 0
+  obtain ⟨p,hp'⟩ := color_cofinal _ recurrent ph P (fun _ => Nat.mod_lt _ hp)
+  obtain ⟨a,ha⟩ := color_cofinal _ hp' (fun t => encode (ew t)) (2^(h+9))
+    (fun t => by simpa only [ew,window_len] using encode_bound (ew t))
+  obtain ⟨b,hb⟩ := color_cofinal _ ha (fun t => encode (ww t)) (2^(d+1))
+    (fun t => by simpa only [ww,window_len] using encode_bound (ww t))
+  obtain ⟨s,ls,⟨⟨rs,ps⟩,es⟩,ws⟩ := hb (N+T)
+  obtain ⟨u,lu,⟨⟨ru,pu⟩,eu⟩,wu⟩ := hb (s+1)
+  have same_window {f : Nat → Nat → Bool} {n : Nat}
+      (e : encode (window (f s) n 0)=encode (window (f u) n 0))
+      (i : Nat) (il : i<n) : f s i=f u i := by
+    have eq := same_encode_eq (by rw [window_len,window_len]) e
+    have atI := congrArg (fun w : List Bool => w[i]?) eq
+    simpa [window,il] using atI
+  have far : west c s u≠west c u u := by rw [tip c mark,vacuum c s u (by omega)];decide
+  have first (x : Nat) (hx : west c s x≠west c u x) :
+      ∃ y,y≤x ∧ west c s y≠west c u y ∧ ∀i,i<y → west c s i=west c u i := by
+    induction x using Nat.strongRecOn with
+    | ind x ih =>
+      by_cases prior : ∃ i,i<x ∧ west c s i≠west c u i
+      · obtain ⟨i,lt,ne⟩ := prior
+        obtain ⟨y,ly,ey,sy⟩ := ih i lt ne
+        exact ⟨y,by omega,ey,sy⟩
+      · exact ⟨x,Nat.le_refl _,hx,fun i hi => Classical.byContradiction (fun ne => prior ⟨i,hi,ne⟩)⟩
+  obtain ⟨y,yu,ne,near⟩ := first u far
+  have dy : d<y := by
+    by_cases yes : y≤d
+    · exact False.elim (ne (same_window (ws.trans wu.symm) y (by omega)))
+    · omega
+  obtain ⟨k,rfl⟩ := Nat.exists_eq_succ_of_ne_zero (show y≠0 by omega)
+  have clk := same_clock c T P per s u (by omega) (by omega) (ps.trans pu.symm)
+  exact ⟨s,u,k,by omega,by omega,by omega,ps.trans pu.symm,rs,ru,
+    fun i hi => same_window (es.trans eu.symm) i (by omega),by omega,by omega,
+    fun i hi => near i (by omega),ne,ballistic c black k s u clk near ne⟩
 
 /-- L1 selects one of the western fresh forks on a reset-capable
 seven-word actually reached by the independently initialized east half.
@@ -280,8 +496,7 @@ It requires neither actual eighth extension to reset. -/
 theorem L1 (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
     (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
     (past : Prefix c T) (black : BlackLock c)
-    (fresh : ∀ N, ∃ t u, N≤t ∧ N≤u ∧ t%P=u%P ∧ whiteNeed c t=whiteNeed c u ∧
-      whiteNeed c (t+1)≠whiteNeed c (u+1)) :
+    (starts : ResetStarts c T P) :
     ∃ p w stamp, p<P ∧ capable w=true ∧ WesternFork c P p w stamp := by
   sorry
 
@@ -305,9 +520,8 @@ private theorem stays_high (c : Trace) (t : Nat) (white : c t=false) (old : east
 theorem collision (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
     (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
     (past : Prefix c T) (black : BlackLock c) (join : Joined c) : False := by
-  have rich := west_rich c mark ⟨T,P,hp,period⟩ black
   obtain ⟨p,w,stamp,ph,cap,fork⟩ := L1 c T P hp mark period mixed past black
-    (untagged_forks c T P hp rich)
+    (reset_starts c T P hp mark period black join)
   have escaped (N : Nat) : ∃ t, N≤t ∧ Visit c P p w (t+1) ∧
       stamp=(true,false) ∧ c t=true ∧ east c t 1=false ∧ (code w=67 ∨ code w=91) ∧
       east c (t+2) 8=true ∧ reset w (east c (t+2) 8)=false ∧ east c (t+1) 1≠guess w := by
@@ -410,5 +624,6 @@ theorem close_step4 (hcenter : EventuallyPeriodic center) : False := by
 
 end OpenProblem.AncestryBlueprint
 #print axioms OpenProblem.AncestryBlueprint.decoder_bound
+#print axioms OpenProblem.AncestryBlueprint.reset_starts
 #print axioms OpenProblem.AncestryBlueprint.west_rich
 #print axioms OpenProblem.AncestryBlueprint.close_step4
