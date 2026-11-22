@@ -1,0 +1,4 @@
+p 01 n 12 all words passing 2560 project graph mature count 986 returned SCC-state occurrences checked 841 R90 passed every word
+p 011 n 12 all words passing 2560 project graph mature count 732 returned SCC-state occurrences checked 489 R90 passed every word
+p 0011 n 12 all words passing 2560 project graph mature count 607 returned SCC-state occurrences checked 546 R90 passed every word
+p 00101 n 12 all words passing 2560 project graph mature count 860 returned SCC-state occurrences checked 860 R90 passed every word

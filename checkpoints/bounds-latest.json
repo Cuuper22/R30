@@ -113,5 +113,16 @@
   "bounds_ultra/general_clocks/minwest_00101.txt": "b86d2727594d50dfdba0a63f9afb21929b67d3ad",
   "bounds_ultra/general_clocks/inverse_block.txt": "cce6d85feb8e8458db606b1fc24b3d9fc5c19857",
   "bounds_ultra/general_clocks/envelope6.txt": "4a9a3b10b2fe063c886e3bd3bfdaea0610b03d2c",
-  "bounds_ultra/general_clocks/periodic_spatial.txt": "eef1991eca455090b9f6e191dc1642465fc572a3"
+  "bounds_ultra/general_clocks/periodic_spatial.txt": "eef1991eca455090b9f6e191dc1642465fc572a3",
+  "bounds_ultra/general_clocks/spatial_replay.txt": "bd54170f8e368d63ce820a39be61d36e7046c2eb",
+  "bounds_ultra/general_clocks/forced_words.txt": "a8d3c253dd1c3e5256e18fdfbf6ebfbc098b7c8d",
+  "bounds_ultra/general_clocks/actual_right.py": "c26db6abf6393a9aca302ff72d414e8fb61719bf",
+  "bounds_ultra/general_clocks/actual_right.txt": "13a23892e5cf45dd0115b0698eb4552d5bcc6726",
+  "bounds_ultra/general_clocks/spatial_replay.py": "48be4638d3fe4fc6c08ea0b1aa6fdac225af7571",
+  "bounds_ultra/general_clocks/forced_words.py": "a6fdcb54170edd6b57e94094e24154492b78e9bd",
+  "bounds_ultra/general_clocks/spatial_certificate.py": "a3bc261dc28212c44c216984ebf6cf0057bf317d",
+  "bounds_ultra/general_clocks/spatial_certificate.txt": "b2186779d3d9c104f4a4a3d5321393d6ea2e909f",
+  "bounds_ultra/general_clocks/SPATIAL_ENTROPY.md": "0657dccab6692a460f637795dd3e4aefcc55da81",
+  "bounds_ultra/general_clocks/__pycache__/controls.cpython-312.pyc": "7ce88564d49ca0df834a3bf2a8bfe2ad57d6fed3",
+  "bounds_ultra/general_clocks/__pycache__/spatial_certificate.cpython-312.pyc": "ea1df0e2cdb737c899230439c588708eb728932b"
 }

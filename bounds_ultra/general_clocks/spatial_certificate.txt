@@ -1,0 +1,7 @@
+rule 30 states [15, 11, 7, 9, 6, 10, 5, 0, 3] edges [[1, 2], [3, 4], [1, 2], [3, 4], [5, 6], [7, 7], [8, 8], [0], [3, 4]] rho 1.8911030202432046 h_spatial_upper 0.9192279580764593
+characteristic polynomial lambda**4*(lambda**5 - 2*lambda**4 + lambda**3 - 2*lambda**2 + 2*lambda - 2)
+universal M_n upper n=8,12,16,18,20,22,30,40,100 [200, 2560, 32744, 117100, 418784, 1497684, 244986148, 143315583288, 5743871422697972243051221824]
+rule 90 states [15] edges [[0, 0]] rho 2.0 h_spatial_upper 1.0
+characteristic polynomial lambda - 2
+universal M_n upper n=8,12,16,18,20,22,30,40,100 [256, 4096, 65536, 262144, 1048576, 4194304, 1073741824, 1099511627776, 1267650600228229401496703205376]
+all required 24 Rule30 width/pattern counts within bound, matched Rule90 full at each width
