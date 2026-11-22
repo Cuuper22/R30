@@ -1,0 +1,3 @@
+Superseded development trace: the first width-34 membership run used a
+32-bit host array. It is invalid. The unsigned-64-bit corrected CNF results
+with scalar replay are in symbolic_nonmerge_host_verified.txt.

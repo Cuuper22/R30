@@ -1,0 +1,2 @@
+30 real paired black launches (R90 permits noncentral later launch) 118 largest certified gap (L,old age,lag,later start,copy delay,center delay) (23, 0, 256, 0, 0, 79)
+90 real paired black launches (R90 permits noncentral later launch) 115 largest certified gap (L,old age,lag,later start,copy delay,center delay) (255, 0, 384, -128, 0, 127)

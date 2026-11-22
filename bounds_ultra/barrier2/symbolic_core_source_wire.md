@@ -328,3 +328,41 @@ g++ -O2 -std=c++17 symbolic_double_host.cpp -o /tmp/r30b_doublehost ;
 python symbolic_double_host.py. Rule90 also rejects the joint case
 *if* one externally imposes the R30-specific E25 target; hence this
 last comparison is not itself a rule-discriminating invariant.
+
+## Fixed old B, actual higher dyadic partners, and right rim
+
+Write G(z)=z XOR 2(z OR 2z) for the right-normalized update. Every
+finite prefix of G is a triangular permutation. For Q an odd multiple
+of 2^r, the first different right-normalized bit between ages u and u+Q
+is d_r=v2(G^(2^r)(1)−1), independently of u: triangularity preserves
+the first different bit, and an odd iterate retains a swap on a fixed
+prefix's children. Every finite synchronized-prefix order is dyadic,
+so d_r tends to infinity. At fixed old u with d_r>2u, all of its genuine
+row reappears at physical +Q in row u+Q. Reading west from that copy,
+there are d_r−2u−1 intervening white sites and then a black. The whole
+future center copy at physical +Q equals the true center through old
+age d_r−1 and fails at exactly old age d_r. The actual physical center
+at age Q+d_r need not fail. See symbolic_fixed_cut_rim.py.
+
+At matched black B's, launch real east packets from x=0 and its copied
+x=+Q on the new row. The latter sees the entire old finite right ray, so
+has exactly its fixed old waiting time to the right rim. For arbitrarily
+far partners at each sufficiently large dyadic order, the later center
+lies to the west of the displayed white gap. Its own arrival must take
+at least floor((d_r−2u−1)/2) ticks: an east packet cannot cross two
+consecutive whites without advancing the time, and the vacancy shrinks
+from its two sides by at most one each per tick. Thus equal finite hazard
+labels are compatible with unbounded differences in travel time in the
+hypothetical orbit. This geometric part works for R90 packets also;
+symbolic_copy_arrivals.py includes true singleton controls through 500.
+
+False shortcuts: real or projected recurrent host-82754 q words do not
+force an immediately unique previous finite center from a finite east
+collar. A whole finite target has one finite right predecessor; an
+incompatible past center can occur with an all-ones infinite east
+extension, corresponding to nonmerging backwards two-memory scans.
+Both possible finite preclock signs have physical 64-bit examples through
+15 clamped strobes in symbolic_nonmerge_host_verified.txt. The superseded
+32-bit development trace must not be used. A periodic-q tail extension
+does not give an interior short zero-run bound: the spatial cutoff may
+already lie beyond the period-length cone (symbolic_ether_extensions.py).

@@ -1,0 +1,16 @@
+host 315078 most B in-variable (36, '0xfc09152') launch-type/lag records
+(10, 17, 14) same/distinct tip-contact counts 0 16 most interior strict jump (24, '0x56d60cd63c571b00c02886b0e99c69598', 49, 63, 94, 102, 249)
+(10, 26, 10) same/distinct tip-contact counts 0 1 most interior strict jump (2, '0x70d09200e', 5, 15, 12, 26, 14)
+(17, 17, 14) same/distinct tip-contact counts 1545 10105 most interior strict jump (121, '0xfc09152', 243, 257, 304, 326, 249)
+(17, 26, 16) same/distinct tip-contact counts 0 3 most interior strict jump (11, '0x56d60cd63c571b00c02886b0e99c69598', 23, 39, 62, 78, 249)
+(26, 10, 10) same/distinct tip-contact counts 1 6 most interior strict jump (19, '0x56d60cd63c571b00c02886b0e99c69598', 39, 49, 78, 94, 249)
+(26, 26, 6) same/distinct tip-contact counts 1 2 most interior strict jump (4, '0x70d09200e', 15, 21, 26, 38, 14)
+host 264368 most B in-variable (4, '0x4d56720dca') launch-type/lag records
+(10, 10, 30) same/distinct tip-contact counts 0 3 most interior strict jump (8, '0x4d5a16666d99', 17, 47, 25, 67, 35)
+(10, 10, 50) same/distinct tip-contact counts 0 3 most interior strict jump (26, '0x6e4c2ee420', 77, 127, 104, 162, 89)
+(10, 10, 54) same/distinct tip-contact counts 0 2 most interior strict jump (2, '0x5db861e570', 7, 61, 12, 80, 32)
+(10, 10, 58) same/distinct tip-contact counts 0 1 most interior strict jump (9, '0x6e4c2ee420', 19, 77, 34, 104, 89)
+(10, 10, 62) same/distinct tip-contact counts 0 1 most interior strict jump (6, '0x867e509bedeb3dafcaa9c6973bc346fe134', 37, 99, 91, 167, 55)
+(10, 10, 66) same/distinct tip-contact counts 0 1 most interior strict jump (0, '0x38b606562cd8e4dca', 1, 67, 14, 98, 52)
+(10, 17, 14) same/distinct tip-contact counts 0 23 most interior strict jump (18, '0x3f5dfae570', 37, 51, 56, 68, 81)
+(17, 10, 30) same/distinct tip-contact counts 0 13 most interior strict jump (25, '0x3f5dfae570', 51, 81, 68, 102, 81)
