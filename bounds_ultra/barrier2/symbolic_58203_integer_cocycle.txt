@@ -1,0 +1,40 @@
+max inverse tail synchronization lengths by temporal phase [20, 25, 20, 25, 20, 25, 20, 25, 20, 25]
+periodic prepend 5 tiles 1 clock ticks 10 last ether discrepancy depth -1 integer correction sign 0
+periodic prepend 5 tiles 2 clock ticks 20 last ether discrepancy depth -1 integer correction sign 0
+periodic prepend 5 tiles 5 clock ticks 50 last ether discrepancy depth -1 integer correction sign 0
+periodic prepend 5 tiles 10 clock ticks 100 last ether discrepancy depth -1 integer correction sign 0
+periodic prepend 5 tiles 20 clock ticks 200 last ether discrepancy depth -1 integer correction sign 0
+periodic prepend 5 tiles 50 clock ticks 500 last ether discrepancy depth -1 integer correction sign 0
+periodic prepend 5 tiles 90 clock ticks 900 last ether discrepancy depth -1 integer correction sign 0
+periodic prepend 35 tiles 1 clock ticks 6 last ether discrepancy depth 5 integer correction sign 1
+periodic prepend 35 tiles 2 clock ticks 16 last ether discrepancy depth 66 integer correction sign -1
+periodic prepend 35 tiles 5 clock ticks 38 last ether discrepancy depth 208 integer correction sign -1
+periodic prepend 35 tiles 10 clock ticks 80 last ether discrepancy depth 386 integer correction sign -1
+periodic prepend 35 tiles 20 clock ticks 160 last ether discrepancy depth 728 integer correction sign 1
+periodic prepend 35 tiles 50 clock ticks 400 last ether discrepancy depth 1799 integer correction sign 1
+periodic prepend 35 tiles 90 clock ticks 720 last ether discrepancy depth 3262 integer correction sign 1
+periodic prepend 355 tiles 1 clock ticks 6 last ether discrepancy depth 5 integer correction sign 1
+periodic prepend 355 tiles 2 clock ticks 16 last ether discrepancy depth 66 integer correction sign -1
+periodic prepend 355 tiles 5 clock ticks 42 last ether discrepancy depth 222 integer correction sign -1
+periodic prepend 355 tiles 10 clock ticks 84 last ether discrepancy depth 408 integer correction sign -1
+periodic prepend 355 tiles 20 clock ticks 172 last ether discrepancy depth 757 integer correction sign -1
+periodic prepend 355 tiles 50 clock ticks 432 last ether discrepancy depth 2011 integer correction sign -1
+periodic prepend 355 tiles 90 clock ticks 780 last ether discrepancy depth 3641 integer correction sign -1
+periodic prepend 3555 tiles 1 clock ticks 6 last ether discrepancy depth 5 integer correction sign 1
+periodic prepend 3555 tiles 2 clock ticks 16 last ether discrepancy depth 66 integer correction sign -1
+periodic prepend 3555 tiles 5 clock ticks 42 last ether discrepancy depth 222 integer correction sign -1
+periodic prepend 3555 tiles 10 clock ticks 88 last ether discrepancy depth 416 integer correction sign -1
+periodic prepend 3555 tiles 20 clock ticks 180 last ether discrepancy depth 859 integer correction sign -1
+periodic prepend 3555 tiles 50 clock ticks 448 last ether discrepancy depth 2121 integer correction sign -1
+periodic prepend 3555 tiles 90 clock ticks 808 last ether discrepancy depth 3729 integer correction sign 1
+periodic prepend 35555 tiles 1 clock ticks 6 last ether discrepancy depth 5 integer correction sign 1
+periodic prepend 35555 tiles 2 clock ticks 16 last ether discrepancy depth 66 integer correction sign -1
+periodic prepend 35555 tiles 5 clock ticks 46 last ether discrepancy depth 230 integer correction sign -1
+periodic prepend 35555 tiles 10 clock ticks 92 last ether discrepancy depth 435 integer correction sign 1
+periodic prepend 35555 tiles 20 clock ticks 184 last ether discrepancy depth 873 integer correction sign -1
+periodic prepend 35555 tiles 50 clock ticks 460 last ether discrepancy depth 2184 integer correction sign 1
+periodic prepend 35555 tiles 90 clock ticks 828 last ether discrepancy depth 4035 integer correction sign -1
+singleton short/preceding long tiles 1 physical past 16 depth 66
+singleton short/preceding long tiles 10 physical past 106 depth 487
+singleton short/preceding long tiles 50 physical past 506 depth 2347
+singleton short/preceding long tiles 90 physical past 906 depth 4314

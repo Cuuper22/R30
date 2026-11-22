@@ -1,0 +1,2 @@
+max one-step growth 24 certified worst mean speed 31/4 potential spread 78 denominator 4
+last discrepancy after s ticks <= C*s + K 31/4 50 pure-five future length/age asymptotic upper 27/35 successive short-age ratio upper 62/35

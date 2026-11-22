@@ -4,7 +4,6 @@ finite known onset. Each next prescribed q exactly decides the central
 jump bit. If sparse-jump grammar paths exist, extract the cheapest words
 and their paired particle states for a proof or a discriminating witness."""
 from symbolic_fork_reflector import W
-from pydoc import locate
 def decode(q):
  n=len(q);cur=(1<<(2*n+1))-1
  for i,b in enumerate(q):cur^=int(b)<<(2*i+1)

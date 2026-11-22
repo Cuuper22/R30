@@ -1,0 +1,3 @@
+distinct mod5 phases: minimum/equal-shift count/max Hamming separation of complete 155 west digits 58 2 90
+width155 singleton left marked cap: preperiod,period 193 8
+R90 true marked P2 control B occurrences / black ticks 0 251

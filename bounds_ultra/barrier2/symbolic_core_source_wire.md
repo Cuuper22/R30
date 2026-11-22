@@ -366,3 +366,74 @@ Both possible finite preclock signs have physical 64-bit examples through
 32-bit development trace must not be used. A periodic-q tail extension
 does not give an interior short zero-run bound: the spatial cutoff may
 already lie beyond the period-length cone (symbolic_ether_extensions.py).
+
+## 58,203: the two rational comparators and a uniform exclusion
+
+The host's chronologically consecutive B-to-B words are 010 and 01000.
+Consecutive short words are forbidden. Write W as the 2-adic strict-west
+tape at a black B. The first h difference between two clocks is their
+first W difference in the same bit position (H is left permutive); one
+white q digit at strobe i first appears at west index 2i+1. The small
+reference -1218287007101/16383 is for 010000(10)^infinity. Relative to
+it, EVERY host B has exact valuation 9 if the first tile is short and
+17 if long, irrespective of the rest. It is not a limit point of this
+host. The actual pure-five reference E0 is instead the 155-periodic
+strict west for q=(01000)^infinity; s=10k+9 is the exact distance
+valuation from E0 when k consecutive long tiles precede the next short.
+symbolic_58203_annuli.py gives its reduced fraction and verifies the
+bit convention. The all-long infinite suffix cannot have finite W.
+
+E_a denotes its full physical temporal phase a modulo ten. E_(a+2)(j)
+=E_a(j+31) on the primitive period-155 word. Across any chosen older
+q history, irrespective of which tiles it uses, backward propagation
+from E0 always remains one of those ten tails plus a finite ordinary
+integer correction. In fact given old head h, the backward rule is
+x_(j+1)=y_j XOR (x_j OR x_(j-1)), x_(-1)=0,x_0=h.
+In the 155-cycle each of its four possible entering states merges to
+the genuine ether after at most 20/25 spatial bits at even/odd temporal
+phase; hence even an arbitrary preceding wall cannot alter the spatial
+period or far-west phase. A short followed backwards by ninety long
+tiles makes a finite correction reaching spatial index 4314 in just
+906 backward ticks, excluding a generic unit-speed defect bound.
+See symbolic_58203_integer_cocycle.py.
+
+A NEW UNIFORM LACUNARITY OBSTRUCTION. Let t be a late B under any
+finite-west candidate. If k consecutive long tiles precede the next
+short, then limsup 10k/t <= 27/35 as t increases. Here is the computable
+speed certificate that makes this stricter than 10k/t<=1. With the
+largest discrepancy at m in temporal phase a, the two incoming old
+bits at m-1,m give four possibilities. Feed through the last changed
+target bit at m and through the clean spatial ether until the old bits
+regain their periodic state. The new maximum is at least m-1 and at most
+m+24. Modulo (a+2,m)~(a,m+31) and m mod155 the resulting graph
+has 310 vertices. All its edge displacements delta satisfy
+4 delta <= 31+P(dst)-P(src), P integral with range 78; the complete
+table and verifying inequalities are reconstructed by
+symbolic_58203_front_speed.py. A fresh perturbation of the wall at
+position zero affects at most 25 sites when the old field is clean.
+Thus s inverse steps from pure E0 have all discrepancies below
+(31/4)s+51. This bounds the largest occupied intermediate boundary
+correction even when a prior one dies out and the wall emits another.
+
+At B age t rewind s=floor(4(t-51)/35), taking t large enough to keep
+the interval above the onset. The pure-five comparator with that past
+is already exact ether at or beyond the true old width t-s. No E_a has
+more than seven consecutive zeros, but the real old west is all zero
+there. Its first difference at that old cut is at most t-s+7; the
+left-permutive inverse makes it exactly s+10k+9. Hence 10k<=t-2s-2.
+The physical age of the next short relative to the previous one has
+limsup at most 62/35, so nonperiodic short schedules that exceed this
+bound cofinally are also excluded. This is not the end of the general
+58203 host. The genuine marked R90 alternating control attains no
+B=1101 in 251 black ticks through row500. No individually claimed
+geometric fact unused by the 58203 hypothesis closes P2.
+
+As complementary tests, symbolic_58203_capture.py exhausts 6765
+isolated-3 words of eighteen tiles: the paired B paths have at least
+48 iterations with one or more jumps, and the longest joint nojump
+run in that sample is six. This is not an induction over arbitrary
+tiles. The true normalized leftmost 155-bit cap has preperiod 193,
+period 8 (symbolic_58203_phase_split.py). Each ordered short, long
+pair returns to its identical true cap after 16 physical ticks while
+the spatial pure-five reference shifts by 16, with 74 differing bits
+out of 155 between the two reference windows.
