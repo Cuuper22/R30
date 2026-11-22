@@ -8,8 +8,10 @@ one unit at each right endpoint of a black run. Separate the unique outer
 endpoint from all interior endpoints, at EVERY genuine singleton row. -/
 namespace OpenProblem.BoundsBlueprint
 
+def westSatellite (t : Nat) (x : Int) : Bool := decide (2≤t ∧ x=1-(t:Int))
+
 def interiorSource (t : Nat) (x : Int) : Bool :=
-  (cell t x && !(cell t (x + 1))) && decide (x ≠ (t : Int))
+  ((cell t x && !(cell t (x + 1))) && decide (x ≠ (t : Int))) && !westSatellite t x
 
 /-- Parity of all paths from genuine interior black-run endpoints to (t,x). -/
 def interior : Nat → Int → Bool
@@ -41,13 +43,68 @@ private theorem rightMark (t : Nat) : cell t (t : Int) = true := by
       rightVac t _ (by omega), rightVac t _ (by omega)]
     rfl
 
+private theorem leftVac (t : Nat) (x : Int) (h : x < -(t:Int)) : cell t x=false := by
+  induction t generalizing x with
+  | zero => simp [cell];omega
+  | succ t ih =>
+    simp only [cell,rule]
+    rw [ih (x-1) (by omega),ih x (by omega),ih (x+1) (by omega)]
+    rfl
+
+private theorem leftMark (t : Nat) : cell t (-(t:Int))=true := by
+  induction t with
+  | zero => rfl
+  | succ t ih =>
+    simp only [cell,rule]
+    rw [show -((t+1:Nat):Int)+1= -(t:Int) by omega,ih,leftVac t _ (by omega),leftVac t _ (by omega)]
+    rfl
+
+private theorem leftOne (t : Nat) : cell (t+1) (-(t:Int))=true := by
+  simp [cell,rule,leftVac t _ (show -(t:Int)-1 < -(t:Int) by omega),leftMark]
+
+private theorem leftTwo (t : Nat) : cell (t+2) (-(t:Int))=false := by
+  simp only [cell,rule]
+  change rule (cell (t+1) (-(t:Int)-1)) (cell (t+1) (-(t:Int))) (cell (t+1) (-(t:Int)+1))=false
+  rw [show -(t:Int)-1= -((t+1:Nat):Int) by omega,leftMark,leftOne];rfl
+
 private theorem source_split (t : Nat) (x : Int) :
     (cell t x && !(cell t (x+1))) =
-      xor (decide (x=(t:Int))) (interiorSource t x) := by
-  by_cases h : x = (t:Int)
+      xor (xor (decide (x=(t:Int))) (westSatellite t x)) (interiorSource t x) := by
+  by_cases h : x=(t:Int)
   · subst x
-    simp [interiorSource, rightMark, rightVac t ((t:Int)+1) (by omega)]
-  · simp [interiorSource, h]
+    have n : ¬(2≤t ∧ (t:Int)=1-(t:Int)) := by omega
+    simp [interiorSource,westSatellite,n,rightMark,rightVac t ((t:Int)+1) (by omega)]
+  by_cases w : 2≤t ∧ x=1-(t:Int)
+  · obtain ⟨m,hm⟩ : ∃ m, t=m+2 := ⟨t-2,by omega⟩
+    have a : cell t x=true := by
+      rw [hm, show x= -((m+1:Nat):Int) by omega];exact leftOne (m+1)
+    have b : cell t (x+1)=false := by
+      rw [hm,show x+1= -(m:Int) by omega];exact leftTwo m
+    have marked : westSatellite t x=true := decide_eq_true w
+    simp [interiorSource,marked,h,a,b]
+  · simp [interiorSource,westSatellite,h,w]
+
+/-- Response of the true 10 at x=1-t, present at every t≥2. -/
+def westFringe (t : Nat) (x : Int) : Bool :=
+  if t<2 then false else xor (wave (t-2) (x+2)) (decide (x= -(t:Int)))
+
+private theorem westFringe_step (t : Nat) (x : Int) :
+    westFringe (t+1) x=xor (xor (westFringe t (x-1)) (westFringe t (x+1))) (westSatellite t x) := by
+  match t with
+  | 0 => simp [westFringe,westSatellite]
+  | 1 =>
+    have eq : (x+2=0) ↔ x=(-2:Int) := by omega
+    simp [westFringe,westSatellite,wave,eq]
+  | n+2 =>
+    have a : (x-1= -((n+2:Nat):Int)) ↔ x=1-((n+2:Nat):Int) := by omega
+    have b : (x+1= -((n+2:Nat):Int)) ↔ x= -((n+2+1:Nat):Int) := by omega
+    simp only [westFringe,westSatellite,show ¬n+2<2 by omega,show ¬n+2+1<2 by omega,
+      show 2≤n+2 by omega,ite_false,true_and,show n+2+1-2=n+1 by omega,
+      show n+2-2=n by omega,wave,a,b]
+    rw [show x+2-1=x-1+2 by omega,show x+2+1=x+1+2 by omega]
+    generalize wave n (x-1+2)=a; generalize wave n (x+1+2)=b
+    generalize decide (x= -((n+2+1:Nat):Int))=c;generalize decide (x=1-((n+2:Nat):Int))=d
+    cases a <;> cases b <;> cases c <;> cases d <;> rfl
 
 private theorem local_split (a b c : Bool) :
     rule a b c = xor (xor a c) (b && !c) := by
@@ -68,22 +125,23 @@ private theorem fringe_step (t : Nat) (x : Int) :
 
 /-- Exact whole-row Laurent decomposition, with no periodicity assumption. -/
 theorem row_split (t : Nat) (x : Int) :
-    cell t x = xor (fringe t x) (interior t x) := by
+    cell t x = xor (xor (fringe t x) (westFringe t x)) (interior t x) := by
   induction t generalizing x with
   | zero =>
-    simp only [cell, interior, fringe, wave, Bool.xor_false]
+    simp only [cell, interior, fringe, westFringe, show 0<2 by decide, ite_true, wave, Bool.xor_false]
     have h : (x-1=0) ↔ (x=(0:Nat)+1) := by omega
     simp only [h]
     generalize decide (x=0)=a
     generalize decide (x=(0:Nat)+1)=b
     cases a <;> cases b <;> rfl
   | succ t ih =>
-    simp only [cell, local_split, interior, fringe_step]
+    simp only [cell, local_split, interior, fringe_step,westFringe_step]
     rw [source_split, ih (x-1), ih (x+1)]
     generalize fringe t (x-1)=a; generalize fringe t (x+1)=b
     generalize interior t (x-1)=c; generalize interior t (x+1)=d
     generalize decide (x=(t:Int))=e; generalize interiorSource t x=f
-    cases a <;> cases b <;> cases c <;> cases d <;> cases e <;> cases f <;> rfl
+    generalize westFringe t (x-1)=g;generalize westFringe t (x+1)=h;generalize westSatellite t x=i
+    simp only [Bool.xor_left_comm,Bool.xor_comm]
 
 private theorem wave_two (t : Nat) (x : Int) :
     wave (t+2) x = xor (wave t (x-2)) (wave t (x+2)) := by
@@ -167,6 +225,33 @@ theorem L2 (k d : Nat) (hd : 0 < d) :
   · rw [strip_ones (2*d+1) k (by omega), show 2*d+1-1=2*d by omega]
     exact fringe_even d hd
 
+private theorem west_odd (m : Nat) : westFringe (2*m+1) 0=false := by
+  cases m with
+  | zero => rfl
+  | succ n =>
+    have a : wave (2*n) 1=false := (wave_double n 0).2
+    have b : wave (2*n) 3=false := by
+      have z := (wave_double n 1).2
+      rwa [show (2*(1:Int)+1)=3 by decide] at z
+    have non : ¬(0:Int)= -((2*(n+1)+1:Nat):Int) := by omega
+    simp only [westFringe,show ¬2*(n+1)+1<2 by omega,ite_false,non,decide_false,Bool.xor_false,
+      show 2*(n+1)+1-2=2*n+1 by omega]
+    change xor (wave (2*n) 1) (wave (2*n) 3)=false
+    rw [a,b];rfl
+
+private theorem west_even (m : Nat) (hm : 0<m) :
+    westFringe (2*(m+1)) 0 = fringe m 0 := by
+  have non : ¬(0:Int)= -((2*(m+1):Nat):Int) := by omega
+  simp only [westFringe,show ¬2*(m+1)<2 by omega,ite_false,non,decide_false,Bool.xor_false,
+    show 2*(m+1)-2=2*m by omega,central_fringe]
+  have db := (wave_double m 1).1
+  rw [show (2*(1:Int))=2 by decide] at db
+  change wave (2*m) 2 = xor (wave m 0) (wave m (-1))
+  rw [db,wave_reflect m 1]
+  have zero : wave m 0=false := by
+    obtain ⟨j,rfl⟩ := Nat.exists_eq_succ_of_ne_zero (Nat.ne_of_gt hm);exact wave_center j
+  simp [zero]
+
 /-- Right-normalized Laurent multiplication by (1+z²), repeated n times. -/
 private def walk : Nat → (Int → Bool) → Int → Bool
   | 0, f, x => f x
@@ -221,11 +306,11 @@ private theorem back_ones : OutgoingClock.step (fun _ => true) = OutgoingClock.s
 /-- At time t, an actual right endpoint at depth d in the dyadic collar
 1..k can only occur at depth STRICTLY below twice the next epoch's phase. -/
 theorem collar_support (t k d : Nat) (hd : 0<d) (hk : d≤k)
-    (he : interiorSource t ((t:Int)-d)=true) : d < 2*((t+1) % 2^k) := by
+    (he : interiorSource t ((t:Int)-d)=true) : d+1 < 2*((t+1) % 2^k) := by
   let D := 2^k
   let p := (t+1)%D
   let q := (t+1)/D
-  change d<2*p
+  change d+1<2*p
   have hsum : p+q*D=t+1 := by
     simpa [p,q,Nat.mul_comm,D] using Nat.mod_add_div (t+1) D
   have ident (i : Nat) : OutgoingClock.traj (fun _ => true) (t+1) i =
@@ -237,7 +322,8 @@ theorem collar_support (t k d : Nat) (hd : 0<d) (hk : d≤k)
       cell t ((t:Int)-i) = OutgoingClock.traj (fun _ => true) p i := by
     rw [←ident,←hsum]
     exact OutgoingClock.prefixPeriod_mul _ k q p i hi
-  obtain ⟨a,h⟩ := Bool.and_eq_true_iff.mp he
+  obtain ⟨e₀,_⟩ := Bool.and_eq_true_iff.mp he
+  obtain ⟨a,h⟩ := Bool.and_eq_true_iff.mp e₀
   obtain ⟨ha,hb⟩ := Bool.and_eq_true_iff.mp a
   by_cases hp : p=0
   · rw [show (t:Int)-d+1=(t:Int)-(d-1:Nat) by omega, folded (d-1) (by omega), hp] at hb
@@ -266,7 +352,7 @@ private def stripSource (k t : Nat) (d : Int) : Bool :=
   xor (interiorSource t ((t:Int)+1-d)) (coreSource k t ((t:Int)+1-d))
 
 private theorem strip_support (k t : Nat) (y : Int) (active : stripSource k t y=true) :
-    0≤y ∧ y≤2*((((t+1)%2^k):Nat):Int) := by
+    0<y ∧ y<2*((((t+1)%2^k):Nat):Int) := by
   unfold stripSource coreSource at active
   by_cases hy : y≤0
   · have hz : interiorSource t ((t:Int)+1-y)=false := by
@@ -332,7 +418,50 @@ private theorem source_hole (k t u : Nat) (m : Int) (hm : (t+1+u+1)%2^k=0) :
   calc
     _ = walk ((u/D)*D+r) (stripSource k t) (m*(2*((2^k:Nat):Int))-1) :=
       congrArg (fun n => walk n (stripSource k t) _) hu
-    _ = false := packet_hole k (u/D) r p m _ total (strip_support k t)
+    _ = false := packet_hole k (u/D) r p m _ total (fun y yv => ⟨Int.le_of_lt (strip_support k t y yv).1, Int.le_of_lt (strip_support k t y yv).2⟩)
+
+private theorem even_packet (k q r p : Nat) (m : Int) (f : Int→Bool)
+    (hx : p+r≤2^k) (hf : ∀ y, f y=true → 0<y ∧ y<2*(p:Int)) :
+    walk (q*2^k+r) f (m*(2*((2^k:Nat):Int)))=false := by
+  induction q generalizing m with
+  | zero =>
+    simp only [Nat.zero_mul,Nat.zero_add]
+    apply walk_cone
+    intro y hy hy'
+    cases e : f y with
+    | false => rfl
+    | true =>
+      obtain ⟨lo,hi⟩ := hf y e
+      have pos : 0 < ((2^k:Nat):Int) := by exact_mod_cast Nat.pow_pos (a:=2) (by decide)
+      by_cases hm : m≤0
+      · have le := Int.mul_le_mul_of_nonneg_right hm (show 0≤2*((2^k:Nat):Int) by omega)
+        simp only [Int.zero_mul] at le; omega
+      · have le := Int.mul_le_mul_of_nonneg_right (show 1≤m by omega)
+            (show 0≤2*((2^k:Nat):Int) by omega)
+        simp only [Int.one_mul] at le; omega
+  | succ q ih =>
+    rw [Nat.succ_mul,show q*2^k+2^k+r=q*2^k+r+2^k by omega,walk_pow,ih]
+    rw [show m*(2*((2^k:Nat):Int))-2*((2^k:Nat):Int)=(m-1)*(2*((2^k:Nat):Int)) by rw [Int.sub_mul,Int.one_mul],ih];rfl
+
+private theorem even_source_hole (k t u : Nat) (m : Int) (hm : (t+1+u)%2^k=0) :
+    walk u (stripSource k t) (m*(2*((2^k:Nat):Int)))=false := by
+  let D := 2^k
+  let p := (t+1)%D
+  let r := u%D
+  have hD : 0<D := Nat.pow_pos (by decide)
+  have hp : p<D := Nat.mod_lt _ hD
+  have hr : r<D := Nat.mod_lt _ hD
+  have he : (p+r)%D=0 := (Nat.add_mod _ _ _).symm.trans hm
+  have total : p+r≤D := by
+    by_cases sm : p+r<D
+    · omega
+    · rw [Nat.mod_eq_sub_mod (by omega),Nat.mod_eq_of_lt (show p+r-D<D by omega)] at he;omega
+  have hu : u=(u/D)*D+r := by
+    simpa [r,Nat.mul_comm,Nat.add_comm] using (Nat.mod_add_div u D).symm
+  calc
+    _ = walk ((u/D)*D+r) (stripSource k t) (m*(2*((2^k:Nat):Int))) :=
+      congrArg (fun n => walk n (stripSource k t) _) hu
+    _ = false := even_packet k (u/D) r p m _ total (strip_support k t)
 
 private def gap (k t : Nat) (d : Int) : Bool :=
   xor (interior t ((t:Int)-d)) (core k t ((t:Int)-d))
@@ -358,6 +487,27 @@ private theorem gap_after (k t u : Nat) (m : Int) (hm : (t+u+1)%2^k=0) :
     rw [step, walk_xor, walk_flip, ih (u+1) (by rwa [show t+(u+1)+1=t+1+u+1 by omega]),
       source_hole k t u m hm]; rfl
 
+private theorem even_gap_after (k t u : Nat) (m : Int) (hm : (t+u)%2^k=0) :
+    walk u (gap k t) (m*(2*((2^k:Nat):Int)))=false := by
+  induction t generalizing u with
+  | zero => apply walk_cone; intro y _ _; rfl
+  | succ t ih =>
+    have step : gap k (t+1) = fun d =>
+        xor (xor (gap k t d) (gap k t (d-2))) (stripSource k t d) := funext (gap_step k t)
+    rw [step, walk_xor, walk_flip, ih (u+1) (by rwa [show t+(u+1)=t+1+u by omega]),
+      even_source_hole k t u m hm];rfl
+
+theorem even_shell_cut (k b : Nat) :
+    interior (b*2^(k+1)) 0 = core k (b*2^(k+1)) 0 := by
+  let n := b*2^(k+1)
+  have eq : n=(b*2)*2^k := by dsimp [n];rw [Nat.pow_succ];ac_rfl
+  have mod0 : (n+0)%2^k=0 := by rw [Nat.add_zero,eq,Nat.mul_mod_left]
+  have h := even_gap_after k n 0 (b:Int) mod0
+  have idx : (b:Int)*(2*((2^k:Nat):Int))=n := by
+    rw [eq];push_cast;ac_rfl
+  change gap k n _=false at h
+  rw [idx] at h;simpa [gap] using h
+
 /-- Uniform moving-core deletion, for EVERY multiplier b: all right-endpoint
 sources at original depths 1 through k can be discarded exactly at every
 shell b·2^(k+1)−1. The width k grows with shell order. -/
@@ -377,14 +527,6 @@ theorem shell_cut (k b : Nat) (hb : 0<b) :
   change gap k n _=false at h
   rw [idx] at h
   simpa [gap] using h
-
-private theorem leftVac (t : Nat) (x : Int) (h : x < -(t:Int)) : cell t x=false := by
-  induction t generalizing x with
-  | zero => simp [cell];omega
-  | succ t ih =>
-    simp only [cell,rule]
-    rw [ih (x-1) (by omega),ih x (by omega),ih (x+1) (by omega)]
-    rfl
 
 private theorem core_vac (k t : Nat) (x : Int) (out : x < -(t:Int) ∨ (t:Int)<x) :
     core k t x=false := by
@@ -468,7 +610,7 @@ private theorem repeat_mod {f : Nat→Bool} {P T A B : Nat} (h : ∀ t,T≤t →
 /-- One actual retained nonlinear source, directly west of center. -/
 def pulse (k t : Nat) : Bool := coreSource k t (-1)
 
-private theorem pulse_mask (k t : Nat) (ht : k≤t) :
+private theorem pulse_mask (k t : Nat) (ht : k+3≤t) :
     MaskedRightRigidity.maskedRight t =
       xor (pulse k t) (!(center t) && center (t+1)) := by
   have raw (a b c : Bool) :
@@ -476,7 +618,7 @@ private theorem pulse_mask (k t : Nat) (ht : k≤t) :
     cases a <;> cases b <;> cases c <;> rfl
   have neq : (-1:Int)≠(t:Int) := by omega
   have inside : (k:Int)<(t:Int)-(-1) := by omega
-  simpa [pulse,coreSource,interiorSource,MaskedRightRigidity.maskedRight,center,cell,neq,show (k:Int)<(t:Int)+1 by omega] using
+  simpa [pulse,coreSource,interiorSource,MaskedRightRigidity.maskedRight,center,cell,neq,westSatellite,show ¬(2≤t ∧ (-1:Int)=1-(t:Int)) by omega,show (k:Int)<(t:Int)+1 by omega] using
     raw (cell t (-1)) (cell t 0) (cell t 1)
 
 theorem pulse_nonperiodic (hc : EventuallyPeriodic center) (k : Nat) :
@@ -485,7 +627,7 @@ theorem pulse_nonperiodic (hc : EventuallyPeriodic center) (k : Nat) :
   obtain ⟨U,q,hq,pu⟩ := bad
   obtain ⟨V,p,hp,cv⟩ := hc
   apply MaskedRightRigidity.claim_of_periodic_mask _ ⟨V,p,hp,cv⟩
-  refine ⟨k+U+V,p*q,Nat.mul_pos hp hq,?_⟩
+  refine ⟨k+U+V+3,p*q,Nat.mul_pos hp hq,?_⟩
   intro t ht
   have a := repeat_add cv t (by omega) q
   have b := repeat_add cv (t+1) (by omega) q
@@ -571,43 +713,80 @@ theorem shell_seam (k n : Nat) (pos : 0<n) :
   have idx : ((n-2^n.log2:Nat):Int)+((2^n.log2:Nat):Int)-0=n := by omega
   rwa [idx] at e
 
+/-- The false and true tags probe the adjacent odd and even ages. -/
+def tagAge (k b : Nat) (even : Bool) : Nat :=
+  if even then b*2^(k+1) else shellAge k b
+
+private theorem tag_cut (k b : Nat) (hb : 0<b) (ev : Bool) :
+    interior (tagAge k b ev) 0=core k (tagAge k b ev) 0 := by
+  cases ev with
+  | false => exact shell_cut k b hb
+  | true => exact even_shell_cut k b
+
+/-- The two genuine moving sources produce the same binary arithmetic
+classification on BOTH checkerboard parities: the true east mark gives
+the odd flag, the true west satellite gives the immediately following
+even flag. No other run endpoint was used to compute this pair. -/
+theorem two_marks (k b : Nat) (hk : 0<k) (hb : 0<b) (ev : Bool) :
+    xor (fringe (tagAge k b ev) 0) (westFringe (tagAge k b ev) 0) =
+    fringe (shellAge k b) 0 := by
+  let M := b*2^k
+  have z : b*2^(k+1)=2*M := by dsimp [M];rw [Nat.pow_succ];ac_rfl
+  have big : 1<M := by
+    have h := Nat.mul_le_mul_right (2^k) hb
+    simp only [Nat.one_mul] at h
+    have w := Nat.one_lt_two_pow (n:=k) (Nat.ne_of_gt hk)
+    dsimp [M];omega
+  cases ev with
+  | false =>
+    change xor (fringe _ 0) (westFringe (b*2^(k+1)-1) 0)=_
+    rw [z,show 2*M-1=2*(M-1)+1 by omega,west_odd,Bool.xor_false];rfl
+  | true =>
+    change xor (fringe (b*2^(k+1)) 0) (westFringe (b*2^(k+1)) 0) = _
+    rw [z,fringe_even M (by omega),Bool.false_xor,show 2*M=2*((M-1)+1) by omega,
+      west_even (M-1) (by omega)]
+    change fringe (b*2^k-1) 0=fringe (b*2^(k+1)-1) 0
+    rw [strip_ones b k hb,strip_ones b (k+1) hb]
+
 /-- The hard collision: the difference of the other genuine lanes agrees
 with the finite transfer from the known-irregular lane at one mixed pair.
 There is no independence assumption between any two pulses or cones. -/
 theorem L1 (P N : Nat) (hP : 0<P) (marked : IrregularPulse) :
-    ∃ k a v d : Nat, 0<d ∧ N<2^(k+1) ∧
-      let A := shellAge k (2^a)
-      let B := shellAge k ((2*d+1)*2^v)
+    ∃ (k a v d : Nat) (ev : Bool), 0<k ∧ 0<d ∧ N<2^(k+1) ∧
+      let A := tagAge k (2^a) ev
+      let B := tagAge k ((2*d+1)*2^v) ev
       A%P=B%P ∧ xor (shellOff k A) (shellOff k B) = xor (shellTap k A) (shellTap k B) := by
   sorry
 
 theorem close_step4 (hcenter : EventuallyPeriodic center) : False := by
   obtain ⟨T,P,hP,period⟩ := hcenter
-  obtain ⟨k,a,v,d,hd,ht,hs,he⟩ := L1 P T hP (pulse_filters ⟨T,P,hP,period⟩)
-  let A := shellAge k (2^a)
-  let B := shellAge k ((2*d+1)*2^v)
+  obtain ⟨k,a,v,d,ev,hk,hd,ht,hs,he⟩ := L1 P T hP (pulse_filters ⟨T,P,hP,period⟩)
+  let A := tagAge k (2^a) ev
+  let B := tagAge k ((2*d+1)*2^v) ev
   change A%P=B%P at hs
   change xor (shellOff k A) (shellOff k B) = xor (shellTap k A) (shellTap k B) at he
   have va : 0<2^a := Nat.pow_pos (by decide)
   have vb : 0<(2*d+1)*2^v := Nat.mul_pos (by omega) (Nat.pow_pos (by decide))
   have hv : 1<2^(k+1) := Nat.one_lt_two_pow (by omega)
-  have large (b : Nat) (hb : 0<b) : 2^(k+1)-1≤shellAge k b := by
+  have large (b : Nat) (hb : 0<b) : 2^(k+1)-1≤tagAge k b ev := by
     have le := Nat.mul_le_mul_right (2^(k+1)) hb
-    simp only [Nat.one_mul] at le;unfold shellAge;omega
+    simp only [Nat.one_mul] at le;cases ev <;> simp [tagAge,shellAge] <;> omega
   have al := large (2^a) va
   have bl := large ((2*d+1)*2^v) vb
   change 2^(k+1)-1≤A at al
   change 2^(k+1)-1≤B at bl
-  have fa : fringe A 0=true := by
+  have fa : xor (fringe A 0) (westFringe A 0)=true := by
+    rw [two_marks k (2^a) hk va ev]
     change fringe (2^a*2^(k+1)-1) 0=true
     rw [←Nat.pow_add]
     exact (L2 (a+(k+1)) 1 (by decide)).1
-  have fb : fringe B 0=false := by
+  have fb : xor (fringe B 0) (westFringe B 0)=false := by
+    rw [two_marks k ((2*d+1)*2^v) hk vb ev]
     change fringe ((2*d+1)*2^v*2^(k+1)-1) 0=false
     rw [Nat.mul_assoc,←Nat.pow_add]
     exact (L2 (v+(k+1)) d hd).2
-  have ca : interior A 0=core k A 0 := shell_cut k _ va
-  have cb : interior B 0=core k B 0 := shell_cut k _ vb
+  have ca : interior A 0=core k A 0 := tag_cut k _ va ev
+  have cb : interior B 0=core k B 0 := tag_cut k _ vb ev
   have same : shellRead k A = shellRead k B := by
     rw [shell_seam k A (by omega),shell_seam k B (by omega)]
     generalize shellOff k A=u at *;generalize shellOff k B=w at *
