@@ -1,0 +1,13 @@
+name = "openproblem"
+
+[[lean_lib]]
+name = "Statement"
+
+[[lean_lib]]
+name = "Solution"
+
+[[lean_lib]]
+name = "Audit"
+
+[[lean_lib]]
+name = "MaskIntervals"
