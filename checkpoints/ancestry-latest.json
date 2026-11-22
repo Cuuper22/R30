@@ -26,11 +26,16 @@
   "ancestry_ultra/__pycache__/p2_east_suffix_erasure.cpython-312.pyc": "b6c1041aea31cb5b84e7259307266da791fc62ac",
   "ancestry_ultra/p2_east_strobe_sections.py": "1e7898603f873b7bc324f9c3dc32c7bc5ff4834d",
   "ancestry_ultra/general_characteristic_d4.py": "e751efdfbca6504bab5dff28fe366730eb2b2ef2",
-  "ancestry_ultra/general_characteristic_d4.md": "101aca8e6f287efb68ba835a8fd84b4da98e62e3",
+  "ancestry_ultra/general_characteristic_d4.md": "b5f459256489cfea129dd1f1d2900d7289423c17",
   "ancestry_ultra/__pycache__/p2_east_periodic_caps.cpython-312.pyc": "f8814f969e46216d2423a31e73d4636fe1425ee8",
   "ancestry_ultra/p2_east_periodic_caps.py": "88bdd87c7ce692d8f02bfc144ae1409e228bdfe3",
   "ancestry_ultra/general_characteristic_periods.py": "f4e62ebc641bfefa71d8946dc5adc443986f1ecc",
   "ancestry_ultra/general_d4_inverse_product.py": "4ff797bf1de136a52df64c838a0345a868b1e8aa",
   "ancestry_ultra/general_west_affine.py": "b3f7e3f4a0aa82e4c427251745d94624e96d17c7",
-  "ancestry_ultra/__pycache__/general_characteristic_d4.cpython-312.pyc": "c026e4d25d3114281992584dfc885d3c1c720f01"
+  "ancestry_ultra/__pycache__/general_characteristic_d4.cpython-312.pyc": "c026e4d25d3114281992584dfc885d3c1c720f01",
+  "ancestry_ultra/general_marked_fiber.py": "964d27180dd3cebddf18fd273ed08043ac582114",
+  "ancestry_ultra/general_phase_decoder.py": "fad19493fc44d1d480777caa2f709de3e0cd8c56",
+  "ancestry_ultra/__pycache__/general_marked_fiber.cpython-312.pyc": "f05471394375aa23909fe5bb189f456a25694b9e",
+  "ancestry_ultra/__pycache__/general_d4_inverse_product.cpython-312.pyc": "39ef73b73d63aa7486deeb5a9a6154ba2efe5904",
+  "ancestry_ultra/__pycache__/general_characteristic_periods.cpython-312.pyc": "389aa4f3acc177d750d2fa1332df314175021d45"
 }
