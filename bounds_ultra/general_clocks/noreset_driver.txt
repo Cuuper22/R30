@@ -1,3 +1,8 @@
+free wall 4 30 SCCs [(13, 'branch', 34, None)]
+free wall 5 30 SCCs [(17, 'branch', 35, None)]
+free wall 6 30 SCCs [(19, 'branch', 33, None)]
+free wall 7 30 SCCs [(1, '0', '0', '0'), (17, 'branch', 23, None)]
+free wall 8 30 SCCs [(1, '0', '0', '0'), (5, '01011', '10110', '10101')]
 free wall 12 30 SCCs [(1, '0', '0', '0'), (5, '01011', '10101', '01101')]
 free wall 16 30 SCCs [(1, '0', '0', '0'), (5, '01011', '01101', '01011')]
 free wall 8 90 SCCs [(256, 'branch', 1024, None)]

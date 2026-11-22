@@ -32,5 +32,5 @@ def allclocks(n,r):
  # Every long noreset word spends all but bounded many steps in these cores.
  return A,es,D,cc
 if __name__=='__main__':
- for n in (12,16):allclocks(n,30)
+ for n in (4,5,6,7,8,12,16):allclocks(n,30)
  allclocks(8,90)
