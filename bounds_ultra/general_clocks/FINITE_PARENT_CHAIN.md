@@ -802,3 +802,69 @@ particle. Thus the two types of west move cannot both be charged as fresh
 admissions. A bounded path visiting at least three sites infinitely often
 crosses an intrabox edge west infinitely often; the exceptional two-site
 range across a box boundary requires the second, shared-donor accounting.
+
+### The two real suppliers and the directional reset on an outward excursion
+
+On the bounded western lag-P spine branch there are syndetic white q highs.
+A common high (C,R)=(0,1) at t makes the odd checker particle at t+1 a
+fresh center admission in each copy. At t+2 a live even vacancy has that
+odd as its parent (the west XOR term) and a live odd is another fresh input.
+All earlier head-box stock has left or died. At a first high after a white
+zero the true (R,N) states are successively 01,11,10: the shared entrant
+is paired with a common vacancy. The first later raw R split necessarily
+has a differing x=3 gate acting on a common vacancy, after this entry.
+At a first high after black, (R,N) at t-1 is 00, and the exact entry bit
+N(t+1)=NOT(X(t-1,3) OR X(t-1,4)) explains the other possibility: the
+homologous entrant can already face an unmatched even gate.
+
+Fix Q a multiple of P. At a late real white wall mismatch D_Q(t,1)=1
+as well as D_Q(t,-1)=1. The east-head ancestors at any fixed cutoff S>=T
+are nondecreasing in spatial order along these successive events: no D
+path can cross the common center, so a later event's lineage is at or east
+of the earlier +1 at that earlier time. The finite support stabilizes that
+cutoff's label. As on the west, the stabilized labels at all S give a single
+coherent true eastern path e(t)>=1 supplying arbitrarily late paired events.
+The two paths are correlated by using these same events. If the h orbit
+closure contains no periodic point, every fixed positive even checker box
+flushes with bounded gaps: arbitrary intervals with its G_y constantly zero
+would drive sites 1..y-1 by the periodic center and constant right G_y, so
+finite-state cycling supplies arbitrarily long h factors with a common
+bounded period, contrary to this case. It follows that occupants of each
+fixed positive prefix at any cutoff are gone from that prefix after a
+uniform number of ticks: concatenate the flush-gap bounds in directed
+box order (round the right edge up to a box end). This concerns checker
+material, not loss of alternative D_Q control through fresh cancellations.
+In the other case a periodic point in the h orbit closure gives arbitrarily
+long actual D_Q(t,-1)=0 intervals for one fixed multiple Q of P.
+
+Suppose the actual east-supplying path has Q-periodic geometry. Its
+boundary word b(t)=X_t(e(t)) is anti-Q, hence 2Q-periodic. Simulate the
+finite interior between the periodic center and this boundary. A stay or
+west step calls for no exterior input. During a maximal run of d east
+steps put e_k=e(t+k), b_k=X(t+k,e_k), o_k=X(t+k,e_k+1), and let u_k be
+the new interior value X(t+k+1,e_k). Let u_-1 be X(t,e_0-1). Then
+
+    u_k = u_(k-1) XOR (b_k OR o_k),
+    b_(k+1) = b_k XOR (o_k OR X(t+k,e_k+2)).
+
+At the next non-east step the previous site e_(d-1) has D_Q=0, since
+otherwise the path parent at e_d can take neither a stay nor a west step.
+Thus the final u_(d-1), at this fixed phase of the Q-periodic geometry,
+has ONE value common to every late cycle; use it as a fixed finite
+parameter in the strip simulation. At b_k=1 the interior OR is known; at
+b_k=b_(k+1)=0 it vanishes. For a rise b_k=0,b_(k+1)=1 the only unknown
+is o_k. If the next step in the excursion has b_(k+2)=1 as well, that
+step has both exterior bits zero; o_(k+1)=0 and the preceding exterior OR
+one force o_k=1 (if o_k=0 its next raw value is one). Thus only an isolated
+high 010, or an unguarded rise on the final edge, can supply an unknown
+input. The displayed u recurrence and final constant determine the parity
+of these unknowns. When at most one remains on EACH excursion and phase,
+solve it before simulating the excursion. This gives deterministic
+finite periodically driven dynamics for the actual interior, hence R and
+h become periodic against the true west mark (if boundary is 1 use b at
+that phase). In particular Q-periodic east geometry with at most two
+consecutive east steps is impossible, regardless of Q. A survivor of this
+periodic-geometry branch must contain at least two unresolved outward rises
+on a single excursion/2Q-phase, not an arbitrary stepwise exterior stream.
+The geometry or these residual parity-paired inputs may still be aperiodic
+in the remaining cases; no periodic geometry follows from boundedness.
