@@ -388,10 +388,44 @@ physical depth r+1, normalized lane e-1. Indeed it is the first differing
 west bit at s by the exact r common and next unequal heads, and propagates
 at full speed to the head with the west summand the sole active parent.
 Consequently even in this r<s case its ancestor at s-j is OUTSIDE the
-older mark, at depth >=r+j+1. The previous head's ancestor at that cut is
-still at depth <=j and inside, so this is an actual strict founder drop.
+older mark, at depth >=r+j+1. In fact its depth is exactly r+j+1: only
+r+j steps remain to the physical head, so the entire segment consists of
+eastward unit steps with equal old OR outputs in the two copies (individual
+input bits need not agree). The previous head's
+ancestor at that cut is still at depth <=j and inside, so this is an actual
+strict founder drop.
 The cyclic-core condition is on a genuine finite approximant, not on a
 limiting row on which the mark might have escaped. The remaining gap is
 to force such separations back to one fixed cutoff on a fixed lag, or to
 bound the supply of the outside founders with their legal east histories.
 Fixed-length repeats at arbitrarily late ages do neither.
+
+**Exact supply from the newer marked boundary.** Use the normalized spatial
+coordinate i=x+t+Q, so the newer true mark is lane 0. Write D_i(t) for the
+lag discrepancy there, and label the individuals at a fixed cutoff S by
+their ordered spatial positions. Every physical parent/child edge moves
+normalized lane by 0, 1, or 2. Remaining at lane i>0 means the child took
+the easternmost possible old spatial parent: the west XOR term must have
+vanished, and the westernmost differing member of the old OR must be the
+east member. Consequently D_(i-2)=D_(i-1)=0 on that tick. For i=1 this
+contradicts D_0=1. For i>=2, i-1 consecutive such ticks are impossible.
+Indeed two adjacent all-zero lag columns through n consecutive times give
+the column immediately west zero through n-1 of those times, by the
+normalized update B'_k=B_(k-2) XOR (B_(k-1) OR B_k). Iteration would give
+D_0=0. This works also in the overlap of the two source cones; it does not
+assume the older copy is blank at i-2 or i-1.
+
+Thus a lineage starting at any positive lane can remain in lanes 1..J
+for at most J+(J-2)(J-1)/2 elapsed edges (J>=2 suffices). After more
+time than this, every true D in 0..J has the single newer mark as its
+founder at S. This time bound is uniform in Q and in the initial ages;
+in particular no second stable founder at any fixed western normalized
+lane can refute the trench. At s-j the trench's outside ancestry belt
+has newer normalized depth at most J=u-r-2j-1. Therefore, if that cut
+is later than the displayed extinction bound from S, the next physical
+head has the outermost newer mark at S as its actual temporal founder.
+The ordered western heads then cannot later recover an intervening more
+easterly founder while the actual center never differs. This identifies
+the source exactly but does not bound repetitions by siblings of the
+same surviving mark. Neither does the square-root-width basin by itself
+reach the physically fixed wall, whose normalized lane grows linearly.
