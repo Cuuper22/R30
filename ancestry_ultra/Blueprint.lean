@@ -93,6 +93,149 @@ theorem east_mark (c : Trace) (hc : c 0 = true) (t : Nat) : east c t t = true :=
     rw [ih,east_outside _ _ _ (by omega),east_outside _ _ _ (by omega)]
     rfl
 
+/-- Glue the two constructions, not two snapshots: this is a full spacetime
+for any candidate sequence, including a candidate that fails the singleton test. -/
+def world (c : Trace) (t : Nat) : Int → Bool
+  | .ofNat j => east c t j
+  | .negSucc j => (pair c (j+1)).1 t
+
+theorem east_wall (c : Trace) (t : Nat) : east c t 0 = c t := by cases t <;> rfl
+
+theorem world_nonpos (c : Trace) (t j : Nat) :
+    world c t (-(j:Int)) = (pair c j).1 t := by
+  cases j with
+  | zero => exact east_wall c t
+  | succ j => rfl
+
+private theorem reapply (x y z : Bool) : rule (xor x (y || z)) y z = x := by
+  cases x <;> cases y <;> cases z <;> rfl
+
+theorem world_step (c : Trace) (t : Nat) (x : Int) :
+    world c (t+1) x = rule (world c t (x-1)) (world c t x) (world c t (x+1)) := by
+  cases x with
+  | ofNat j =>
+    cases j with
+    | zero =>
+      change east c (t+1) 0 = rule ((pair c 1).1 t) (east c t 0) (east c t 1)
+      rw [east_wall,east_wall]
+      exact (reapply _ _ _).symm
+    | succ j =>
+      change rule (east c t j) (east c t (j+1)) (east c t (j+2)) = _
+      rw [show ((Int.ofNat (j+1))-1) = Int.ofNat j by change (↑(j+1):Int)-1=↑j; omega,
+          show ((Int.ofNat (j+1))+1) = Int.ofNat (j+2) by change (↑(j+1):Int)+1=↑(j+2); omega]
+      rfl
+  | negSucc j =>
+    rw [show Int.negSucc j = -((j+1:Nat):Int) by omega,
+        show -((j+1:Nat):Int)-1 = -((j+2:Nat):Int) by omega,
+        show -((j+1:Nat):Int)+1 = -(j:Int) by omega,
+        world_nonpos,world_nonpos,world_nonpos,world_nonpos]
+    exact (reapply _ _ _).symm
+
+def ray (c : Trace) (j t : Nat) : Bool := world c t ((t:Int)-(j:Int))
+
+private theorem ray_zero (c : Trace) (t : Nat) : ray c 0 t = c 0 := by
+  induction t with
+  | zero => rfl
+  | succ t ih =>
+    unfold ray at *
+    simp only [Int.natCast_zero,Int.sub_zero] at *
+    rw [world_step,show ((↑(t+1):Int)-1)=(t:Int) by omega,ih]
+    change rule _ (east c t (t+1)) (east c t (t+2)) = _
+    rw [east_outside _ _ _ (by omega),east_outside _ _ _ (by omega)]
+    cases c 0 <;> rfl
+
+private theorem ray_one_step (c : Trace) (t : Nat) :
+    ray c 1 (t+1) = xor (ray c 1 t) (ray c 0 t) := by
+  unfold ray
+  simp only [Int.natCast_one,Int.natCast_zero,Int.sub_zero]
+  rw [show (↑(t+1):Int)-(1:Int)=(t:Int) by omega,world_step]
+  change rule _ _ (east c t (t+1)) = _
+  rw [east_outside _ _ _ (by omega)]
+  simp [rule]
+
+private theorem ray_step (c : Trace) (j t : Nat) :
+    ray c (j+2) (t+1) = xor (ray c (j+2) t) (ray c (j+1) t || ray c j t) := by
+  unfold ray
+  rw [world_step]
+  unfold rule
+  congr 1
+  · congr 1 <;> omega
+  · congr 1 <;> congr 1 <;> omega
+
+private theorem double_integral {f g : Trace} (p : Nat)
+    (law : ∀ t, f (t+1) = xor (f t) (g t))
+    (period : ∀ t, g (t+p) = g t) : ∀ t, f (t+2*p) = f t := by
+  have incr (t : Nat) : xor (f (t+p)) (f t) = xor (f p) (f 0) := by
+    induction t with
+    | zero => simp
+    | succ t ih =>
+      rw [show t+1+p = t+p+1 by omega, law (t+p),law t,period,bxCancel,ih]
+  intro t
+  have h := (incr (t+p)).trans (incr t).symm
+  rw [show t+p+p=t+2*p by omega] at h
+  generalize f (t+2*p)=a at *
+  generalize f (t+p)=b at *
+  generalize f t=z at *
+  cases a <;> cases b <;> cases z <;> simp_all
+
+theorem ray_period (c : Trace) (j t : Nat) : ray c j (t+2^j) = ray c j t := by
+  induction j using Nat.strongRecOn generalizing t with
+  | ind j ih =>
+    cases j with
+    | zero => rw [ray_zero,ray_zero]
+    | succ j =>
+      cases j with
+      | zero =>
+        exact double_integral 1 (ray_one_step c) (fun s => by rw [ray_zero,ray_zero]) t
+      | succ j =>
+        let p := 2^(j+1)
+        have lo (s : Nat) : ray c j (s+p) = ray c j s := by
+          have a := ih j (by omega) (s+2^j)
+          have b := ih j (by omega) s
+          rw [show s+p=s+2^j+2^j by dsimp [p]; rw [Nat.pow_succ]; omega,a,b]
+        have per (s : Nat) :
+            (ray c (j+1) (s+p) || ray c j (s+p)) = (ray c (j+1) s || ray c j s) := by
+          rw [lo,ih (j+1) (by omega)]
+        have h := double_integral p (ray_step c j) per t
+        simpa [p,Nat.pow_succ,Nat.mul_comm] using h
+
+/-- Exact reading of a WEST row-zero coefficient inside the independently
+initialized EAST cone. The strobe is derived, never a presumed row return. -/
+theorem origin_east_read (c : Trace) (j : Nat) :
+    origin c j = east c (2^j) (2^j-j) := by
+  have cap : j ≤ 2^j := Nat.le_of_lt Nat.lt_two_pow_self
+  have h := ray_period c j 0
+  simp only [Nat.zero_add] at h
+  unfold ray at h
+  rw [Int.ofNat_zero,Int.zero_sub,world_nonpos] at h
+  rw [show (↑(2^j:Nat):Int)-(j:Int)=((2^j-j:Nat):Int) by omega] at h
+  exact h.symm
+
+/-- Every depth through N can be read at the SAME positive multiple of 2^N.
+In particular the multiplier can be P, even when P has an odd factor. -/
+theorem common_strobe (c : Trace) (j N k : Nat) (hj : j ≤ N) (hk : 0 < k) :
+    east c (2^N*k) (2^N*k-j) = origin c j := by
+  have rep (m t : Nat) : ray c j (t+2^j*m) = ray c j t := by
+    induction m with
+    | zero => simp
+    | succ m ih =>
+      rw [Nat.mul_succ,←Nat.add_assoc,ray_period,ih]
+  have dt : 2^N*k=2^j*(2^(N-j)*k) := by
+    rw [←Nat.mul_assoc,←Nat.pow_add]
+    congr 2
+    omega
+  have cap : j ≤ 2^N*k := by
+    have h := Nat.lt_two_pow_self (n:=N)
+    have hm := Nat.mul_le_mul_left (2^N) (show 1≤k by omega)
+    simp only [Nat.mul_one] at hm
+    omega
+  have h := rep (2^(N-j)*k) 0
+  rw [Nat.zero_add,←dt] at h
+  unfold ray at h
+  rw [Int.natCast_zero,Int.zero_sub,world_nonpos,
+      show (↑(2^N*k:Nat):Int)-(j:Int)=((2^N*k-j:Nat):Int) by omega] at h
+  exact h
+
 /-- Every putative periodic wall can be specified by a finite onset/period word.
 This is a sequence on TIME, never a spatial periodicization of a genuine age row. -/
 def repeatWord (c : Trace) (T P i : Nat) : Bool :=
@@ -101,10 +244,21 @@ def repeatWord (c : Trace) (T P i : Nat) : Bool :=
 theorem L1 (c : Trace) (hmark : c 0 = true) (T P : Nat) (hp : 0 < P)
     (seedPrefix : ∀ j, 0 < j → j < T+P → origin (repeatWord c T P) j = false) :
     ∃ j, T+P ≤ j ∧ origin (repeatWord c T P) j = true := by
-  -- Finite power obstruction: once one full word passed the exact blank-west
-  -- prefix test, a later finite power must create a WEST mark at row zero.
-  -- No return of either half-row or of the sideways map's sections is assumed.
-  sorry
+  let w := repeatWord c T P
+  -- One full right-hand snapshot at wall phase zero, all prospective depths
+  -- at once. Its tip is already marked. Show there is a SECOND black in a
+  -- growing outer collar; no agreement/return of full rows is assumed.
+  have hit : ∃ N j, 0 < j ∧ j ≤ N ∧ east w (2^N*P) (2^N*P-j) = true := by
+    sorry
+  obtain ⟨N,j,pos,hj,one⟩ := hit
+  rw [common_strobe w j N P hj hp] at one
+  refine ⟨j,?_,one⟩
+  by_cases small : j < T+P
+  · have zero := seedPrefix j pos small
+    change origin w j = false at zero
+    rw [zero] at one
+    contradiction
+  · omega
 
 theorem east_actual (t j : Nat) : east center t j = cell t (j:Int) := by
   induction t generalizing j with
