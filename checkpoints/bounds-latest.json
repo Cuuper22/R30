@@ -182,5 +182,5 @@
   "bounds_ultra/general_clocks/checker_erosion.txt": "a0d94debcab4b1c92e2df99fd4e16b12e9b05750",
   "bounds_ultra/general_clocks/__pycache__/finite_tail_merger_sat.cpython-312.pyc": "49772c5aae7389972ce92582bd0dcce79825b38f",
   "bounds_ultra/general_clocks/FINITE_PARENT_CHAIN.md": "bf71e3ed1e1e7aca4a59a1eb46771c1f6f3660ed",
-  "bounds_ultra/Blueprint.lean": "34f45633d43e86faba2126c213510816283e4484"
+  "bounds_ultra/Blueprint.lean": "eb2694f415bd6f96e4461e91c949879973e35aad"
 }

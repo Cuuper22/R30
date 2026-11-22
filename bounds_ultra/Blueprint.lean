@@ -727,16 +727,16 @@ private theorem tag_cut (k b : Nat) (hb : 0<b) (ev : Bool) :
 classification on BOTH checkerboard parities: the true east mark gives
 the odd flag, the true west satellite gives the immediately following
 even flag. No other run endpoint was used to compute this pair. -/
-theorem two_marks (k b : Nat) (hk : 0<k) (hb : 0<b) (ev : Bool) :
+theorem two_marks (k b : Nat) (big0 : 1<b*2^k) (ev : Bool) :
     xor (fringe (tagAge k b ev) 0) (westFringe (tagAge k b ev) 0) =
     fringe (shellAge k b) 0 := by
   let M := b*2^k
   have z : b*2^(k+1)=2*M := by dsimp [M];rw [Nat.pow_succ];ac_rfl
-  have big : 1<M := by
-    have h := Nat.mul_le_mul_right (2^k) hb
-    simp only [Nat.one_mul] at h
-    have w := Nat.one_lt_two_pow (n:=k) (Nat.ne_of_gt hk)
-    dsimp [M];omega
+  have big : 1<M := big0
+  have hb : 0<b := by
+    cases b with
+    | zero => simp at big0
+    | succ b => omega
   cases ev with
   | false =>
     change xor (fringe _ 0) (westFringe (b*2^(k+1)-1) 0)=_
@@ -750,43 +750,42 @@ theorem two_marks (k b : Nat) (hk : 0<k) (hb : 0<b) (ev : Bool) :
 
 /-- The hard collision: the difference of the other genuine lanes agrees
 with the finite transfer from the known-irregular lane at one mixed pair.
-There is no independence assumption between any two pulses or cones. -/
+The targets may choose their checkerboard tags separately. k=0 is legal:
+all sufficiently late noncritical ages are then available; higher k retains
+the exact growing-collar deletion when it helps. There is no independence
+assumption between pulses or cones. -/
 theorem L1 (P N : Nat) (hP : 0<P) (marked : IrregularPulse) :
-    ∃ (k a v d : Nat) (ev : Bool), 0<k ∧ 0<d ∧ N<2^(k+1) ∧
-      let A := tagAge k (2^a) ev
-      let B := tagAge k ((2*d+1)*2^v) ev
-      A%P=B%P ∧ xor (shellOff k A) (shellOff k B) = xor (shellTap k A) (shellTap k B) := by
+    ∃ (k a v d : Nat) (evA evB : Bool), 0<d ∧
+      let A := tagAge k (2^a) evA
+      let B := tagAge k ((2*d+1)*2^v) evB
+      N+4≤A ∧ N+4≤B ∧ A%P=B%P ∧ xor (shellOff k A) (shellOff k B) = xor (shellTap k A) (shellTap k B) := by
   sorry
 
 theorem close_step4 (hcenter : EventuallyPeriodic center) : False := by
   obtain ⟨T,P,hP,period⟩ := hcenter
-  obtain ⟨k,a,v,d,ev,hk,hd,ht,hs,he⟩ := L1 P T hP (pulse_filters ⟨T,P,hP,period⟩)
-  let A := tagAge k (2^a) ev
-  let B := tagAge k ((2*d+1)*2^v) ev
+  obtain ⟨k,a,v,d,evA,evB,hd,earlyA,earlyB,hs,he⟩ := L1 P T hP (pulse_filters ⟨T,P,hP,period⟩)
+  let A := tagAge k (2^a) evA
+  let B := tagAge k ((2*d+1)*2^v) evB
   change A%P=B%P at hs
   change xor (shellOff k A) (shellOff k B) = xor (shellTap k A) (shellTap k B) at he
+  change T+4≤A at earlyA;change T+4≤B at earlyB
   have va : 0<2^a := Nat.pow_pos (by decide)
   have vb : 0<(2*d+1)*2^v := Nat.mul_pos (by omega) (Nat.pow_pos (by decide))
-  have hv : 1<2^(k+1) := Nat.one_lt_two_pow (by omega)
-  have large (b : Nat) (hb : 0<b) : 2^(k+1)-1≤tagAge k b ev := by
-    have le := Nat.mul_le_mul_right (2^(k+1)) hb
-    simp only [Nat.one_mul] at le;cases ev <;> simp [tagAge,shellAge] <;> omega
-  have al := large (2^a) va
-  have bl := large ((2*d+1)*2^v) vb
-  change 2^(k+1)-1≤A at al
-  change 2^(k+1)-1≤B at bl
+  have big (b : Nat) (ev : Bool) (late : T+4≤tagAge k b ev) : 1<b*2^k := by
+    have cap : tagAge k b ev≤b*2^(k+1) := by cases ev <;> simp [tagAge,shellAge]
+    rw [Nat.pow_succ,←Nat.mul_assoc] at cap;omega
   have fa : xor (fringe A 0) (westFringe A 0)=true := by
-    rw [two_marks k (2^a) hk va ev]
+    rw [two_marks k (2^a) (big _ _ earlyA) evA]
     change fringe (2^a*2^(k+1)-1) 0=true
     rw [←Nat.pow_add]
     exact (L2 (a+(k+1)) 1 (by decide)).1
   have fb : xor (fringe B 0) (westFringe B 0)=false := by
-    rw [two_marks k ((2*d+1)*2^v) hk vb ev]
+    rw [two_marks k ((2*d+1)*2^v) (big _ _ earlyB) evB]
     change fringe ((2*d+1)*2^v*2^(k+1)-1) 0=false
     rw [Nat.mul_assoc,←Nat.pow_add]
     exact (L2 (v+(k+1)) d hd).2
-  have ca : interior A 0=core k A 0 := tag_cut k _ va ev
-  have cb : interior B 0=core k B 0 := tag_cut k _ vb ev
+  have ca : interior A 0=core k A 0 := tag_cut k _ va evA
+  have cb : interior B 0=core k B 0 := tag_cut k _ vb evB
   have same : shellRead k A = shellRead k B := by
     rw [shell_seam k A (by omega),shell_seam k B (by omega)]
     generalize shellOff k A=u at *;generalize shellOff k B=w at *
