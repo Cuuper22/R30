@@ -458,3 +458,28 @@ actual periodic center (in particular Q=P), together with its coupled
 physical pedigree and eastern past, forces such growing widths or an
 equivalent loss of the persistent founder. No recurrence of clipped
 physical observations establishes that implication.
+
+**The fixed-Q head-supplying path.** For Q=P (or any fixed positive
+multiple), the true west has infinitely many mismatch heads: otherwise the
+masked read would eventually have period Q. At each fixed cutoff S>=T,
+let p(S) be the stabilized founder of its rightmost western discrepancy
+in sufficiently late rows. Taking a single sufficiently late head for
+cutoffs S and S+1 simultaneously shows p(S) is the temporal parent of
+p(S+1). Thus these founders form one genuine infinite western path. It
+either follows the outermost newer mark at every cutoff, or at some S0
+it occupies a positive newer normalized lane and can never return to 0.
+In the latter case every sufficiently late head has a nonmark founder at
+S0. At a late cut s, if the next r heads agree and the next differs, the
+rightmost western D at s, of depth r+1, supplies the head at s+r at full
+speed. Its newer normalized lane is J=s+Q-r-1. Therefore outside the
+mark-backbone case the quantitative mark-basin result requires
+
+    s-S0 <= J+(J-2)(J-1)/2   (for J>=2)
+
+at every sufficiently late s; bounded J=0,1 are already excluded by the
+same basin. This gives a square-root lower bound on the return deficit
+in that branch with no cofinite-rewind or embedded-rim hypothesis. In
+the mark-backbone case the head-supplying launch ages tend to infinity:
+for every fixed S, all sufficiently late heads descend from the specific
+outer mark at S. Different generations of that true mark can supply
+different head bursts. No periodicity of their arrival times follows.
