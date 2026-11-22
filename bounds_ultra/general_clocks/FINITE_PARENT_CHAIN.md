@@ -339,3 +339,59 @@ divides both counts by 2^m. The obstruction threshold from the first fork
 cannot be crossed by adding an all-head collar theorem. What is required
 is an additional *legal eastern* history inside the sparse finite-parent
 fiber, on top of the one true history already known.
+
+**The first nonfinite rewind separates actual physical founders.** Compare
+true ages s and u=s+Q inside the same period. Suppose the masked reads
+differ at s-1, agree the next r ticks starting at s, then differ at s+r;
+use s as the time coordinate of the older copy. Let b be the first
+nonfinite inverse of its W_s using the newer copy's preceding centers and
+heads. At s-j for each 1<=j<b with s-j>=max(1,T), the two finite donors
+(the true older W and the synthetic rewind) both have width s-j, while
+the true newer donor agrees with the synthetic on its first r+j bits.
+In particular, whenever r+j>=s-j, both actual copies are black at the
+older mark of physical depth s-j and are white throughout the trench of
+physical depths s-j+1,...,r+j, wherever that interval is nonempty.
+
+For r>=s, use the ordered genuine discrepancy pedigree (TRUE_LAG_CHAIN):
+the dying head at s-1 has a discrepancy ancestor at s-j at depth at most
+j. It must be on the inside of the common mark, thus has depth at most
+min(j,s-j-1). Every western discrepancy after the gap descends from the
+outside: at s the first r depths are clear, and moving a discrepancy at
+most one cell per tick cannot overtake the older mark to the west. An
+inside ancestor of depth <s-j can never reach depth >=r+1 at s. Hence
+every such surviving ancestor at s-j has depth at least r+j+1. The black
+slab one tick before the earliest positive finite island has no children
+in its strict interior, since the two old triples there are uniform black
+versus uniform white. If the dying and surviving heads descend from one
+stabilized western founder, their common ancestor must be no later than
+s-j-ceil((r+j+1-min(j,s-j-1))/2). This improves the elementary bound
+at the terminal head itself by the finite rewind corridor. The two
+sources at s-j are strictly ordered, irrespective of stabilization.
+
+There is a genuine extension below r=s. Put e=s-r>0, and let H(e) be
+the maximum transient of the finite left-mark-normalized Rule 30 map on
+lanes 0,...,e-1 with lane zero marked. If some integer j satisfies
+
+    1<=j<=s-T,   2j>=e,   j+H(e)<=min(b-1,s-e),
+
+then the two finite donors at s-j necessarily agree on those e rim
+lanes: at s-j-H(e) they each had positive width at least e, so at s-j
+each e-prefix is cyclic. Both prefixes evolve to the identical original
+W_s in j steps, and a finite map is injective on its cyclic core. Since
+r+j>=s-j, the actual later orbit shares this entire rim collar and the
+trench at s-j. Every inside discrepancy now has normalized older lane
+at least e. This coordinate cannot decrease along any physical temporal
+parent/child line: the older mark advances west exactly one cell per
+tick, while the child moves at most one cell west. But the next head
+mismatch at s+r has as its ancestor at s precisely the discrepancy of
+physical depth r+1, normalized lane e-1. Indeed it is the first differing
+west bit at s by the exact r common and next unequal heads, and propagates
+at full speed to the head with the west summand the sole active parent.
+Consequently even in this r<s case its ancestor at s-j is OUTSIDE the
+older mark, at depth >=r+j+1. The previous head's ancestor at that cut is
+still at depth <=j and inside, so this is an actual strict founder drop.
+The cyclic-core condition is on a genuine finite approximant, not on a
+limiting row on which the mark might have escaped. The remaining gap is
+to force such separations back to one fixed cutoff on a fixed lag, or to
+bound the supply of the outside founders with their legal east histories.
+Fixed-length repeats at arbitrarily late ages do neither.
