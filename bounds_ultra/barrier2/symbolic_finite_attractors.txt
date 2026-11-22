@@ -1,0 +1,10 @@
+scc 116 q-variable False missing full physical exits 0
+scc 315078 q-variable True missing full physical exits 8552
+scc 102 q-variable False missing full physical exits 75
+0x1727 ticks 7999 E31 host transitions [(0, 0), (3, 315078), (181, 0)] [(3, 315078), (181, 0), (187, 116)] q last700 period 7
+0x5a0e ticks 7999 E31 host transitions [(0, 0), (2, 315078), (180, 0)] [(2, 315078), (180, 0), (186, 116)] q last700 period 7
+0x1388 ticks 756 E31 host transitions [(0, 0), (4, 315078), (750, 0)] [(4, 315078), (750, 0), (756, -1)] q last700 period None
+0xa07 ticks 275 E31 host transitions [(0, 0), (5, 315078), (259, 0)] [(5, 315078), (259, 0), (275, -1)] q last700 period None
+0xc48 ticks 131 E31 host transitions [(0, 0), (3, 315078), (114, 0)] [(3, 315078), (114, 0), (131, -1)] q last700 period None
+0x400e ticks 0 E31 host transitions [(0, -1)] [(0, -1)] q last700 period None
+0xfba7 ticks 0 E31 host transitions [(0, -1)] [(0, -1)] q last700 period None

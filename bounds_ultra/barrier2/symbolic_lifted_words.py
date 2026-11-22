@@ -25,6 +25,6 @@ def words(S,n):
   assert not V
  return dirs
 def run(n,s):
- S=np.load('/tmp/r30b_%d_%d.npy'%(n,s));ans=words(S,n)
+ S=gethost(n,s);ans=words(S,n)
  for k,v in sorted(ans.items()):print(k, sorted(map(len,v)),flush=True)
 if __name__=='__main__':run(int(sys.argv[1]),int(sys.argv[2]))

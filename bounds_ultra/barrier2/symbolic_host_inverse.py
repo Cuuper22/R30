@@ -13,7 +13,7 @@ def pre(S,n):
  return np.min(F,axis=0),np.max(F,axis=0)
 def run(n,d):
  from p2_past_head_invert import js
- S=np.load('/tmp/r30a_bhost_%d_%d.npy'%(n,d))
+ S=gethost(n,d)
  for p,X in [(0,S),(1,js(S,0,n))]:
   for depth in(8,14,n):
    V=np.unique(X&((1<<depth)-1));mn,mx=pre(V,depth);amb=mn!=mx

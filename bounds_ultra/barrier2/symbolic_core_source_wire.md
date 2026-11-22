@@ -297,3 +297,34 @@ repeat after that temporal period, whereas its leftmost black is at
 periodic on a common tail with one cutoff, not cutoffs increasing
 with spatial depth: left reconstruction uses future ticks only.
 See symbolic_q221_lift.py and its .txt output. Other components survive.
+
+For the nonabsorbing E25 host of 24,899 states, its one q-variable
+successive lift has 38,337, 59,251, 91,029, 131,265, 203,375 and
+315,078 states through E31. At E31 it sheds a 116-state SCC: all 464
+outer-bit choices stay inside and its q has period 7. The two positive
+finite right seeds 0x1727 and 0x5a0e permanently join it at strobes
+187 and 186. All 24,899 finite zero extensions from E25 have their
+coarse fate settled by strobe 1,992: 23,305 leave E25 host 24,899 and
+1,594 enter that E31 periodic trap. An arbitrary higher original finite
+suffix is not classified. The E31 variable SCC can shadow q7 for
+arbitrarily many ticks. The other 82,754-state E34 host loses all
+82,754 of its zero extensions by strobe 151, but has a 264,368-state
+q-variable successor at E39. See symbolic_finite_host_traps.py,
+symbolic_finite_attractors.py, symbolic_finite_host_escape.py and
+symbolic_host_plateau.py. Host arrays used by these scripts are optional
+caches: symbolic_q221_lift.gethost recomputes their exact genuine
+components from the published 14-cell input and the physical R30 update.
+
+The earlier same-source 362/368 counterfixture is not in an eventual
+q-variable host before either B: its incoming whites 361 and 367 lie
+outside all four. Its white 369 is in the absorbing 58,203 host.
+At fixed T120 a genuine rooted history can put the NEW 126 hazard
+alone in a surviving q-variable host at white 125
+(east=0x2b98929b70f38a522d407a5df3dff4873bb912, E25=0x1b10bda);
+the old 120 event is incompatible with its 119 host under the requested
+clock and subtype 26. This finite obstruction is present at one endpoint,
+so is not a new two-time contradiction. Reproduce the finite cone by
+g++ -O2 -std=c++17 symbolic_double_host.cpp -o /tmp/r30b_doublehost ;
+python symbolic_double_host.py. Rule90 also rejects the joint case
+*if* one externally imposes the R30-specific E25 target; hence this
+last comparison is not itself a rule-discriminating invariant.
