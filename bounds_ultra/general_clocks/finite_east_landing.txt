@@ -1,0 +1,14 @@
+reset right-to-left 00100 r 30 final pair mask 8
+reset right-to-left 00101 r 30 final pair mask 4
+reset right-to-left 00100 r 90 final pair mask 15
+reset right-to-left 00101 r 90 final pair mask 15
+finite true east singleton r 30 ages resolved through x1 494 / 499 largest observed right-rim resolving depth 39 unresolved ages [2, 3, 5, 7, 13]
+finite true east singleton r 90 ages resolved through x1 0 / 499 largest observed right-rim resolving depth None unresolved ages [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+finite true east 01 r 30 ages resolved through x1 495 / 500 largest observed right-rim resolving depth 36 unresolved ages [1, 3, 5, 7, 11]
+finite true east 01 r 90 ages resolved through x1 0 / 500 largest observed right-rim resolving depth None unresolved ages [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+finite true east 011 r 30 ages resolved through x1 495 / 500 largest observed right-rim resolving depth 43 unresolved ages [1, 3, 5, 7, 9]
+finite true east 011 r 90 ages resolved through x1 0 / 500 largest observed right-rim resolving depth None unresolved ages [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+finite true east 0011 r 30 ages resolved through x1 497 / 500 largest observed right-rim resolving depth 38 unresolved ages [1, 3, 5]
+finite true east 0011 r 90 ages resolved through x1 0 / 500 largest observed right-rim resolving depth None unresolved ages [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+finite true east 00101 r 30 ages resolved through x1 493 / 500 largest observed right-rim resolving depth 36 unresolved ages [1, 3, 5, 7, 9, 15, 17]
+finite true east 00101 r 90 ages resolved through x1 0 / 500 largest observed right-rim resolving depth None unresolved ages [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
