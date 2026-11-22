@@ -122,9 +122,13 @@
   "bounds_ultra/general_clocks/forced_words.py": "a6fdcb54170edd6b57e94094e24154492b78e9bd",
   "bounds_ultra/general_clocks/spatial_certificate.py": "a3bc261dc28212c44c216984ebf6cf0057bf317d",
   "bounds_ultra/general_clocks/spatial_certificate.txt": "b2186779d3d9c104f4a4a3d5321393d6ea2e909f",
-  "bounds_ultra/general_clocks/SPATIAL_ENTROPY.md": "0657dccab6692a460f637795dd3e4aefcc55da81",
+  "bounds_ultra/general_clocks/SPATIAL_ENTROPY.md": "896282527943d36ff0491b4c31f4150a3af1d0d0",
   "bounds_ultra/general_clocks/__pycache__/controls.cpython-312.pyc": "7ce88564d49ca0df834a3bf2a8bfe2ad57d6fed3",
   "bounds_ultra/general_clocks/__pycache__/spatial_certificate.cpython-312.pyc": "ea1df0e2cdb737c899230439c588708eb728932b",
   "bounds_ultra/general_clocks/aperiodic_subfamily.txt": "eda7c82357a5bee734583ad0df0e9b18c6b7d9e3",
-  "bounds_ultra/general_clocks/aperiodic_subfamily.py": "0c945fcffb2bcb067b4dd0405cd604579b5d21d6"
+  "bounds_ultra/general_clocks/aperiodic_subfamily.py": "0c945fcffb2bcb067b4dd0405cd604579b5d21d6",
+  "bounds_ultra/general_clocks/strip_entropy.py": "fd9508a22b16e01238d696886f94a242e5e35e4e",
+  "bounds_ultra/general_clocks/marked_rewind.txt": "5425b30e54ea8f14f8f273bc50d592d3679c167e",
+  "bounds_ultra/general_clocks/strip_entropy.txt": "a3501fec8332353d2da18e1b98064ae435fa5d99",
+  "bounds_ultra/general_clocks/marked_rewind.py": "e664992cd83116fa4a4c25c8075875a98a2880a7"
 }

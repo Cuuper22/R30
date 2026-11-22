@@ -1,0 +1,13 @@
+clock 01 strip 1 initial east 1; genuine branching traces at n=30 275807 Fibonacci cap 2178309 R90 1073741824
+clock 01 strip 4 initial east 1; genuine branching traces at n=30 167908 Fibonacci cap 2178309 R90 1073741824
+clock 01 strip 7 initial east 1; genuine branching traces at n=30 248737 Fibonacci cap 2178309 R90 1073741824
+clock 011 strip 1 initial east 1; genuine branching traces at n=30 262087 Fibonacci cap 2178309 R90 1073741824
+clock 011 strip 4 initial east 1; genuine branching traces at n=30 183224 Fibonacci cap 2178309 R90 1073741824
+clock 011 strip 7 initial east 1; genuine branching traces at n=30 227005 Fibonacci cap 2178309 R90 1073741824
+clock 0011 strip 1 initial east 1; genuine branching traces at n=30 47956 Fibonacci cap 2178309 R90 1073741824
+clock 0011 strip 4 initial east 1; genuine branching traces at n=30 263150 Fibonacci cap 2178309 R90 1073741824
+clock 0011 strip 7 initial east 1; genuine branching traces at n=30 222506 Fibonacci cap 2178309 R90 1073741824
+clock 00101 strip 1 initial east 1; genuine branching traces at n=30 88327 Fibonacci cap 2178309 R90 1073741824
+clock 00101 strip 4 initial east 1; genuine branching traces at n=30 185641 Fibonacci cap 2178309 R90 1073741824
+clock 00101 strip 7 initial east 1; genuine branching traces at n=30 232465 Fibonacci cap 2178309 R90 1073741824
+translated spatial PF 1.9631046975854958 bits/site 0.9731371176127727 strip temporal bound 0.6942419136306174

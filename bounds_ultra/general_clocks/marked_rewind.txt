@@ -1,0 +1,2 @@
+marked rule 30 (age,needed future masked ticks,guaranteed full-pair rewinds) [(50, 36, 7), (100, 66, 17), (200, 153, 24), (300, 194, 53), (400, 273, 64), (500, 349, 76)] m/age range t>=100 0.6090909090909091 0.7738693467336684
+marked rule 90 (age,needed future masked ticks,guaranteed full-pair rewinds) [(50, 50, 0), (100, 100, 0), (200, 200, 0), (300, 300, 0), (400, 400, 0), (500, 500, 0)] m/age range t>=100 1.0 1.0
