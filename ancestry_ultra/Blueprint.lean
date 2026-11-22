@@ -556,6 +556,281 @@ theorem finite_cavity (c : Trace) (mark : c 0=true) (a p d : Nat) (pos : 0<p)
   obtain ⟨r,ru,_,_,_,ne⟩ := every_pair_splits c mark noFork s u su same
   exact ne (band r (by omega) 1 (by omega))
 
+/-- The two inputs are the wall and its effective OR gate. Separating them
+allows a cyclic test gate to be compared with the true one, not confused
+with the independent half-line that supplies the actual observations. -/
+def invertGate (m g : Trace) : Nat → Trace
+  | 0 => m
+  | 1 => fun t => xor (m (t+1)) (g t)
+  | n+2 => unleft (invertGate m g (n+1)) (invertGate m g n)
+
+theorem invert_step (m g : Trace) (d t : Nat) :
+    invertGate m g (d+1) (t+1) =
+    rule (invertGate m g (d+2) t) (invertGate m g (d+1) t) (invertGate m g d t) :=
+  (reapply _ _ _).symm
+
+private theorem invert_agree (m g h : Trace) (d t : Nat)
+    (common : ∀ i, i<d → g (t+i)=h (t+i)) : invertGate m g d t=invertGate m h d t := by
+  induction d using Nat.strongRecOn generalizing t with
+  | ind d ih =>
+    rcases d with _|d
+    · rfl
+    rcases d with _|d
+    · have e := common 0 (by omega)
+      simpa [invertGate,Nat.add_zero] using congrArg (xor (m (t+1))) e
+    · simp only [invertGate,unleft]
+      rw [ih (d+1) (by omega) (t+1)
+            (by intro i hi; simpa only [Nat.add_assoc] using common (1+i) (by omega)),
+          ih (d+1) (by omega) t (fun i hi => common i (by omega)),
+          ih d (by omega) t (fun i hi => common i (by omega))]
+
+private theorem invert_true (c : Trace) (s d t : Nat) :
+    invertGate (fun i => c (s+i)) (fun i => gate c (s+i)) d t=(pair c d).1 (s+t) := by
+  induction d using Nat.strongRecOn generalizing t with
+  | ind d ih =>
+    rcases d with _|d
+    · rfl
+    rcases d with _|d
+    · rfl
+    · let m := fun i => c (s+i)
+      let g := fun i => gate c (s+i)
+      change xor (invertGate m g (d+1) (t+1)) (invertGate m g (d+1) t || invertGate m g d t) =
+        xor ((pair c (d+1)).1 (s+t+1)) ((pair c (d+1)).1 (s+t) || (pair c d).1 (s+t))
+      rw [ih (d+1) (by omega),ih (d+1) (by omega),ih d (by omega),Nat.add_assoc]
+
+def cyclicWest (c : Trace) (s Q : Nat) : Nat → Trace :=
+  invertGate (fun i => c (s+i)) (fun i => gate c (s+i%Q))
+
+private theorem cyclic_earlier (c : Trace) (s Q d : Nat) (cap : d≤Q) :
+    cyclicWest c s Q d 0=(pair c d).1 s := by
+  have e := invert_agree (fun i => c (s+i)) (fun i => gate c (s+i%Q)) (fun i => gate c (s+i)) d 0
+    (by intro i hi; simp only [Nat.zero_add,Nat.mod_eq_of_lt (show i<Q by omega)])
+  simpa only [cyclicWest,invert_true,Nat.add_zero] using e
+
+private theorem inv_period (m g : Trace) (Q : Nat) (mp : ∀ t,m (t+Q)=m t)
+    (gp : ∀ t,g (t+Q)=g t) (d t : Nat) :
+    invertGate m g d (t+Q)=invertGate m g d t := by
+  induction d using Nat.strongRecOn generalizing t with
+  | ind d ih =>
+    rcases d with _|d
+    · exact mp _
+    rcases d with _|d
+    · change xor (m (t+Q+1)) (g (t+Q))=xor (m (t+1)) (g t)
+      rw [show t+Q+1=t+1+Q by omega,mp,gp]
+    · simp only [invertGate,unleft]
+      rw [show t+Q+1=t+1+Q by omega,ih (d+1) (by omega),ih (d+1) (by omega),ih d (by omega)]
+
+/-- If the initial phase row agrees up to the cone endpoint, it advances
+as the independent west half within that cone. -/
+private theorem inv_west_cone (c g : Trace) (s d t : Nat)
+    (init : ∀ j, j≤d+t → invertGate (fun i => c (s+i)) g j 0=west c s j) :
+    invertGate (fun i => c (s+i)) g d t=west c (s+t) d := by
+  induction t generalizing d with
+  | zero => exact init d (by omega)
+  | succ t ih =>
+    cases d with
+    | zero => exact (west_wall c (s+(t+1))).symm
+    | succ d =>
+      rw [invert_step]
+      change rule _ _ _ = rule (west c (s+t) (d+2)) (west c (s+t) (d+1)) (west c (s+t) d)
+      rw [ih (d+2) (by intro j hj; exact init j (by omega)),
+        ih (d+1) (by intro j hj; exact init j (by omega)),ih d (by intro j hj; exact init j (by omega))]
+
+/-- A finite cyclic inverse must manufacture an extra west mark. If the
+actual seed has no positive coefficient through s+Q, this mark lies strictly
+beyond Q; it is a mark of the CYCLIC inverse, not of the true origin. -/
+theorem cyclic_mark (c : Trace) (s Q : Nat) (mark : c 0=true) (pos : 0<Q) (start : s≤Q)
+    (clock : ∀ i,c (s+(i+Q))=c (s+i))
+    (blank : ∀ j, 0<j → j≤s+Q → origin c j=false) :
+    ∃ b, Q<b ∧ b≤s+2*Q ∧ cyclicWest c s Q b 0=true ∧
+      ∀ j, j<b → cyclicWest c s Q j 0=west c s j := by
+  let v := cyclicWest c s Q
+  have upto (j : Nat) (hj : j≤Q) : v j 0=west c s j :=
+    (cyclic_earlier c s Q j hj).trans (finite_west c s j (fun n hn hcap => blank n hn (by omega)))
+  have cyc (j : Nat) : v j Q=v j 0 := by
+    have e := inv_period (fun i => c (s+i)) (fun i => gate c (s+i%Q)) Q clock
+      (by intro t; simp) j 0
+    simpa only [v,cyclicWest,Nat.zero_add] using e
+  let bad (j : Nat) := v j 0≠west c s j
+  have any : ∃ j, j≤s+2*Q ∧ bad j := by
+    apply Classical.byContradiction
+    intro no
+    have same (j : Nat) (hj : j≤s+2*Q) : v j 0=west c s j :=
+      Classical.byContradiction (fun ne => no ⟨j,hj,ne⟩)
+    have ray := inv_west_cone c (fun i => gate c (s+i%Q)) s (s+Q) Q
+      (fun j hj => same j (by omega))
+    change v (s+Q) Q=west c (s+Q) (s+Q) at ray
+    rw [cyc,same (s+Q) (by omega),west_vac _ _ _ (by omega),west_tip _ mark] at ray
+    contradiction
+  have least (n : Nat) (b : bad n) : ∃ j, j≤n ∧ bad j ∧ ∀ i, i<j → ¬bad i := by
+    induction n using Nat.strongRecOn with
+    | ind n ih =>
+      by_cases prior : ∃ i, i<n ∧ bad i
+      · obtain ⟨i,lt,badI⟩ := prior
+        obtain ⟨j,ji,e,low⟩ := ih i lt badI
+        exact ⟨j,by omega,e,low⟩
+      · exact ⟨n,Nat.le_refl _,b,fun i hi bi => prior ⟨i,hi,bi⟩⟩
+  obtain ⟨n,cap,badn⟩ := any
+  obtain ⟨b,bn,err,low⟩ := least n badn
+  have large : Q<b := by
+    by_cases le : b≤Q
+    · exact False.elim (err (upto b le))
+    · omega
+  have white := west_vac c s b (by omega)
+  have one : v b 0=true := by
+    cases e : v b 0 with
+    | false => exact False.elim (err (e.trans white.symm))
+    | true => rfl
+  exact ⟨b,large,by omega,one,fun j hj => Classical.byContradiction (low j hj)⟩
+
+/-- Direct transfer, with a bound on the actual coefficient. A cyclic
+extra mark survives if its corresponding TRUE sideways bit is also black,
+even if there have been earlier true/cyclic differences. -/
+theorem true_mark_strobe (c : Trace) (s b k : Nat) (beyond : s<b) (hk : 0<k)
+    (real : (pair c b).1 s=true) :
+    ∃ j, 0<j ∧ j≤s+b ∧ east c (2^(s+b)*k) (2^(s+b)*k-j)=true := by
+  apply Classical.byContradiction
+  intro miss
+  have blank (j : Nat) (pos : 0<j) (le : j≤s+b) : origin c j=false := by
+    cases e : origin c j with
+    | true => exact False.elim (miss ⟨j,pos,le,(common_strobe c j (s+b) k le hk).trans e⟩)
+    | false => rfl
+  rw [finite_west c s b blank,west_vac c s b beyond] at real
+  contradiction
+
+/-- The newest gate appears exactly once. This provides both directions:
+a first gate error cannot disappear, and a first inverse-bit error cannot
+be attributed to some unspecified earlier mismatch. -/
+private theorem invert_tip (m g h : Trace) (r t : Nat)
+    (before : ∀ i, i<r → g (t+i)=h (t+i)) :
+    xor (invertGate m g (r+1) t) (invertGate m h (r+1) t) = xor (g (t+r)) (h (t+r)) := by
+  induction r generalizing t with
+  | zero =>
+    change xor (xor (m (t+1)) (g t)) (xor (m (t+1)) (h t))=xor (g t) (h t)
+    cases m (t+1) <;> cases g t <;> cases h t <;> rfl
+  | succ r ih =>
+    have now := invert_agree m g h (r+1) t before
+    have near := invert_agree m g h r t (fun i hi => before i (by omega))
+    have ahead := ih (t+1) (fun i hi => by
+      simpa only [Nat.add_assoc] using before (1+i) (by omega))
+    change xor (xor (invertGate m g (r+1) (t+1)) (invertGate m g (r+1) t || invertGate m g r t))
+      (xor (invertGate m h (r+1) (t+1)) (invertGate m h (r+1) t || invertGate m h r t)) = _
+    rw [now,near,bxCancel,ahead,show t+1+r=t+(r+1) by omega]
+
+/-- Under the no-hit alternative the first manufactured black is removed
+by exactly the last gate of its diagonal. All prior cyclic reads, including
+those past a complete Q-cycle, agree with the actual east response. -/
+theorem first_cyclic_tear (c : Trace) (s Q r : Nat) (old : s<r+1)
+    (extra : cyclicWest c s Q (r+1) 0=true)
+    (first : ∀ j, j<r+1 → cyclicWest c s Q j 0=west c s j)
+    (blank : ∀ j, 0<j → j≤s+(r+1) → origin c j=false) :
+    (∀ i, i<r → gate c (s+i)=gate c (s+i%Q)) ∧
+      gate c (s+r) ≠ gate c (s+r%Q) := by
+  let m := fun i => c (s+i)
+  let g := fun i => gate c (s+i)
+  let h := fun i => gate c (s+i%Q)
+  have real (j : Nat) (le : j≤r+1) : invertGate m g j 0=west c s j := by
+    rw [invert_true,finite_west _ _ _ (fun j' pos jb => blank j' pos (by omega))]
+    rfl
+  have prior (i : Nat) (hi : i<r) : g i=h i := by
+    induction i using Nat.strongRecOn with
+    | ind i ih =>
+      have t := invert_tip m g h i 0 (fun k hk => by simpa only [Nat.zero_add] using ih k hk (by omega))
+      simp only [Nat.zero_add] at t
+      have eq : invertGate m g (i+1) 0=invertGate m h (i+1) 0 :=
+        (real _ (by omega)).trans (first _ (by omega)).symm
+      rw [eq,Bool.xor_self] at t
+      exact bx0 t.symm
+  have tip := invert_tip m g h r 0 (fun k hk => by simpa only [Nat.zero_add] using prior k hk)
+  simp only [Nat.zero_add] at tip
+  have left0 : invertGate m g (r+1) 0=false := (real _ (by omega)).trans (west_vac c s (r+1) old)
+  have right1 : invertGate m h (r+1) 0=true := extra
+  rw [left0,right1] at tip
+  refine ⟨prior,?_⟩
+  intro same
+  change g r=h r at same
+  rw [same,Bool.xor_self] at tip
+  contradiction
+
+private theorem inv_west_tip (c g : Trace) (s d t : Nat) (pos : 0<d)
+    (first : ∀ j, j<d+t → invertGate (fun i => c (s+i)) g j 0=west c s j) :
+    xor (invertGate (fun i => c (s+i)) g d t) (west c (s+t) d) =
+    xor (invertGate (fun i => c (s+i)) g (d+t) 0) (west c s (d+t)) := by
+  induction t generalizing d with
+  | zero => rfl
+  | succ t ih =>
+    obtain ⟨n,rfl⟩ := Nat.exists_eq_succ_of_ne_zero (show d ≠ 0 by omega)
+    let m := fun i => c (s+i)
+    change xor (invertGate m g (n+1) (t+1)) (west c ((s+t)+1) (n+1)) = _
+    rw [invert_step]
+    change xor (xor (invertGate m g (n+2) t) (invertGate m g (n+1) t || invertGate m g n t))
+      (xor (west c (s+t) (n+2)) (west c (s+t) (n+1) || west c (s+t) n)) = _
+    rw [inv_west_cone c g s (n+1) t (fun j hj => first j (by omega)),
+      inv_west_cone c g s n t (fun j hj => first j (by omega)),bxCancel,
+      ih (n+2) (by omega) (fun j hj => first j (by omega)),
+      show n+2+t=(n+1)+(t+1) by omega]
+
+/-- The first cyclic excess has a second, independent location formula.
+Read only the WEST halves at ages s and s+Q: the first split there is
+exactly Q sites closer to the wall than this mark reconstructed from the
+first Q EAST gate samples. No later east reads enter this comparison. -/
+theorem cyclic_offset (c : Trace) (s Q b : Nat) (pos : 0<Q) (large : Q<b)
+    (old : s<b) (clock : ∀ i,c (s+(i+Q))=c (s+i))
+    (extra : cyclicWest c s Q b 0=true)
+    (first : ∀ j, j<b → cyclicWest c s Q j 0=west c s j) :
+    (∀ j, j<b-Q → west c s j=west c (s+Q) j) ∧
+    west c s (b-Q) ≠ west c (s+Q) (b-Q) := by
+  let g := fun i => gate c (s+i%Q)
+  let v := cyclicWest c s Q
+  change v b 0=true at extra
+  change ∀ j, j<b → v j 0=west c s j at first
+  have cyc (j : Nat) : v j Q=v j 0 := by
+    have e := inv_period (fun i => c (s+i)) g Q clock (by intro t; simp [g]) j 0
+    simpa only [v,g,cyclicWest,Nat.zero_add] using e
+  constructor
+  · intro j hj
+    have e := inv_west_cone c g s j Q (fun i hi => first i (by omega))
+    change v j Q = west c (s+Q) j at e
+    rw [cyc,first j (by omega)] at e
+    exact e
+  · have t := inv_west_tip c g s (b-Q) Q (by omega) (fun i hi => first i (by omega))
+    change xor (v (b-Q) Q) (west c (s+Q) (b-Q)) =
+      xor (v (b-Q+Q) 0) (west c s (b-Q+Q)) at t
+    rw [show b-Q+Q=b by omega,cyc,first (b-Q) (by omega),extra,west_vac _ _ _ old] at t
+    intro eq
+    rw [eq,Bool.xor_self] at t
+    contradiction
+
+/-- The survivor test is exact at the FIRST candidate mark, not just a
+sufficient comparison of entire periodic right columns. If this arithmetic
+synchronization fails at any Q then the true strobe already has a hit. -/
+def TornCycles (c : Trace) (s Q : Nat) : Prop :=
+  ∃ r, Q≤r ∧ r+1≤s+2*Q ∧ cyclicWest c s Q (r+1) 0=true ∧
+    (∀ j, j<r+1 → cyclicWest c s Q j 0=west c s j) ∧
+    (∀ i, i<r → gate c (s+i)=gate c (s+i%Q)) ∧
+    gate c (s+r) ≠ gate c (s+r%Q) ∧
+    (∀ j, j<r+1-Q → west c s j=west c (s+Q) j) ∧
+    west c s (r+1-Q) ≠ west c (s+Q) (r+1-Q)
+
+theorem tear_or_strobe (c : Trace) (s Q k : Nat) (mark : c 0=true) (pos : 0<Q)
+    (hk : 0<k) (start : s≤Q) (clock : ∀ i,c (s+(i+Q))=c (s+i)) :
+    TornCycles c s Q ∨
+      ∃ j, 0<j ∧ j≤2*s+2*Q ∧ east c (2^(2*s+2*Q)*k) (2^(2*s+2*Q)*k-j)=true := by
+  by_cases real : ∃ j, 0<j ∧ j≤2*s+2*Q ∧ origin c j=true
+  · obtain ⟨j,pos,le,hit⟩ := real
+    exact Or.inr ⟨j,pos,le,(common_strobe c j (2*s+2*Q) k le hk).trans hit⟩
+  · have blank (j : Nat) (pos : 0<j) (le : j≤2*s+2*Q) : origin c j=false := by
+      cases v : origin c j with
+      | false => rfl
+      | true => exact False.elim (real ⟨j,pos,le,v⟩)
+    obtain ⟨b,large,cap,extra,first⟩ := cyclic_mark c s Q mark pos start clock
+      (fun j p le => blank j p (by omega))
+    obtain ⟨r,rfl⟩ := Nat.exists_eq_succ_of_ne_zero (show b≠0 by omega)
+    obtain ⟨prior,tear⟩ := first_cyclic_tear c s Q r (by omega) extra first
+      (fun j p le => blank j p (by omega))
+    have offset := cyclic_offset c s Q (r+1) pos large (by omega) clock extra first
+    exact Or.inl ⟨r,by omega,cap,extra,first,prior,tear,offset⟩
+
 /-- Every putative periodic wall can be specified by a finite onset/period word.
 This is a sequence on TIME, never a spatial periodicization of a genuine age row. -/
 def repeatWord (c : Trace) (T P i : Nat) : Bool :=
@@ -596,7 +871,22 @@ theorem L1 (c : Trace) (hmark : c 0 = true) (T P : Nat) (hp : 0 < P)
         -- forced applies to EVERY pair of sufficiently late equal clock
         -- phases. Its first west split supplies the location and the white
         -- phase of an independently constrained single east comparison.
-        sorry
+        by_cases all_torn : ∀ s q, T≤s → 0<q → s≤P*q → TornCycles w s (P*q)
+        · -- The first manufactured mark on EVERY cyclic closure has to
+          -- line up exactly with its first true (noncyclic) east tear.
+          -- Defeat this simultaneous survival obstruction.
+          sorry
+        · apply Classical.byContradiction
+          intro miss
+          apply all_torn
+          intro s q hs hq cap
+          have clock (i : Nat) : w (s+(i+P*q))=w (s+i) := by
+            rw [show s+(i+P*q)=s+P*q+i by omega]
+            exact repeat_return c T P s hs q i
+          rcases tear_or_strobe w s (P*q) P mark (Nat.mul_pos hp hq) hp cap clock with torn|ok
+          · exact torn
+          · obtain ⟨j,pos,le,one⟩ := ok
+            exact False.elim (miss ⟨2*s+2*(P*q),j,pos,le,one⟩)
   obtain ⟨N,j,pos,hj,one⟩ := hit
   rw [common_strobe w j N P hj hp] at one
   refine ⟨j,?_,one⟩
