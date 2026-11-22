@@ -1012,6 +1012,327 @@ theorem bulk_nonperiodic (hc : EventuallyPeriodic center) : ¬EventuallyPeriodic
   rw [w1,Bool.false_xor,Nat.zero_add,Nat.zero_add,show S+n+Q+1=t+Q by omega,time] at z
   exact ne (by cases a : pulse 0 (t+Q) <;> cases b : pulse 0 t <;> simp_all)
 
+private def mix : List Bool → (Int→Bool) → Int → Bool
+  | [], _, _ => false
+  | b::v,f,x => xor (b && f x) (mix v f (x+1))
+
+private theorem mix_congr (v : List Bool) (f g : Int→Bool) (x : Int)
+    (same : ∀ i, x≤i → i<x+(v.length:Int) → f i=g i) : mix v f x=mix v g x := by
+  induction v generalizing x with
+  | nil => rfl
+  | cons b v ih =>
+    simp only [List.length_cons,Int.natCast_succ] at same
+    rw [mix,mix,same x (by omega) (by omega),ih (x+1) (by intro i a b;exact same i (by omega) (by omega))]
+
+private theorem mix_shift (v : List Bool) (f : Int→Bool) (x d : Int) :
+    mix v (fun y => f (y+d)) x=mix v f (x+d) := by
+  induction v generalizing x with
+  | nil => rfl
+  | cons b v ih => rw [mix,mix,ih,show x+1+d=x+d+1 by omega]
+
+private theorem mix_add (v : List Bool) (f g : Int→Bool) (x : Int) :
+    mix v (fun y => xor (f y) (g y)) x=xor (mix v f x) (mix v g x) := by
+  induction v generalizing x with
+  | nil => rfl
+  | cons b v ih =>
+    rw [mix,mix,mix,ih]
+    cases b with
+    | false => simp
+    | true => simpa only [Bool.true_and] using (xorLag (a:=f x) (b:=g x) (c:=mix v f (x+1)) (d:=mix v g (x+1)))
+
+/-- End coefficients are both 1; the listed bits are all interior
+coefficients, in physical spatial order. -/
+private def stencil (v : List Bool) (f : Int→Bool) (x : Int) : Bool :=
+  xor (xor (f (x-1)) (mix v f x)) (f (x+v.length))
+
+private theorem stencil_add (v : List Bool) (f g : Int→Bool) (x : Int) :
+    stencil v (fun y => xor (f y) (g y)) x=xor (stencil v f x) (stencil v g x) := by
+  unfold stencil;rw [mix_add,xorLag (a:=f (x-1)),xorLag]
+
+private theorem stencil_step (v : List Bool) (Z : Nat→Int→Bool) (n : Nat) (x : Int)
+    (law : ∀ i, x-1≤i → Z (n+1) i=xor (Z n (i-1)) (Z n (i+1))) :
+    stencil v (Z (n+1)) x=xor (stencil v (Z n) (x-1)) (stencil v (Z n) (x+1)) := by
+  let f:=Z n
+  have wel : mix v (Z (n+1)) x=mix v (fun i => xor (f (i+(-1))) (f (i+1))) x :=
+    mix_congr v _ _ x (by intro i lo _;exact law _ (by omega))
+  unfold stencil
+  rw [wel,mix_add,mix_shift,mix_shift,law (x-1) (by omega),law (x+v.length) (by omega)]
+  change _ = xor (xor (xor (f (x-1-1)) (mix v f (x-1))) (f (x-1+v.length)))
+    (xor (xor (f (x+1-1)) (mix v f (x+1))) (f (x+1+v.length)))
+  rw [show x+-1=x-1 by omega,show x-1+1=x+1-1 by omega,
+    show x+(v.length:Int)-1=x-1+v.length by omega,show x+(v.length:Int)+1=x+1+v.length by omega]
+  dsimp only [f]
+  generalize Z n (x-1-1)=a;generalize Z n (x+1-1)=b
+  generalize mix v (Z n) (x-1)=c;generalize mix v (Z n) (x+1)=d
+  generalize Z n (x-1+v.length)=g;generalize Z n (x+1+v.length)=h
+  cases a <;> cases b <;> cases c <;> cases d <;> cases g <;> cases h <;> rfl
+
+private theorem leftSolve {a b c : Bool} (eq : xor (xor a b) c=false) : a=xor b c := by
+  cases a <;> cases b <;> cases c <;> simp_all
+private theorem rightSolve {a b c : Bool} (eq : xor (xor a b) c=false) : c=xor a b := by
+  cases a <;> cases b <;> cases c <;> simp_all
+
+/-- A finite homogeneous spatial filter at both bounding positions makes
+the enclosed Rule90 strip autonomous, without requiring a spatially
+periodic state or any prescribed exterior history. -/
+private theorem collar_echo (v : List Bool) (Z : Nat→Int→Bool) (U : Nat)
+    (law : ∀ n x, 0≤x → Z (n+1) x=xor (Z n (x-1)) (Z n (x+1)))
+    (cut : ∀ n, n<U → stencil v (Z n) 0=false ∧ stencil v (Z n) 1=false) :
+    ∃ h, 0<h ∧ h≤2^(v.length+1) ∧ ∀ n, 2^(v.length+1)≤n → n+h<U →
+      Z (n+h) (-1)=Z n (-1) := by
+  let d:=v.length
+  let B:=2^(d+1)
+  let rows (a : Nat):=FiniteWindowRecurrence.window (fun j : Nat => Z a j) (d+1) 0
+  obtain ⟨i,j,lt,cap,e⟩ := QuantifiedSplit.repeat_le B
+    (fun a => FiniteWindowRecurrence.encode (rows a)) (fun t _ => by
+      simpa [rows,B,FiniteWindowRecurrence.window_len] using FiniteWindowRecurrence.encode_bound (rows t))
+  let same (a b : Nat) := ∀ y : Int, 0≤y → y≤d → Z a y=Z b y
+  have eq0 : same i j := by
+    have eq := FiniteWindowRecurrence.same_encode_eq (xs:=rows i) (ys:=rows j)
+      (by simp [rows,FiniteWindowRecurrence.window_len]) e
+    intro y lo hi
+    have yh : y.toNat<d+1 := by omega
+    have ai : (rows i)[y.toNat]'(by simp [rows,FiniteWindowRecurrence.window_len,yh])=Z i y := by
+      rw [FiniteWindowRecurrence.window_at (fun j : Nat => Z i j) (d+1) 0 _ yh];simp [Int.toNat_of_nonneg lo]
+    have aj : (rows j)[y.toNat]'(by simp [rows,FiniteWindowRecurrence.window_len,yh])=Z j y := by
+      rw [FiniteWindowRecurrence.window_at (fun k : Nat => Z j k) (d+1) 0 _ yh];simp [Int.toNat_of_nonneg lo]
+    simpa only [eq,aj] using ai.symm
+  have border (a b : Nat) (au : a<U) (bu : b<U) (s : same a b) :
+      Z a (-1)=Z b (-1) ∧ Z a ((d:Int)+1)=Z b ((d:Int)+1) := by
+    obtain ⟨al,ar⟩:=cut a au
+    obtain ⟨bl,br⟩:=cut b bu
+    have l1:=leftSolve al;have l2:=leftSolve bl
+    change Z a (-1)=xor (mix v (Z a) 0) (Z a (0+d)) at l1
+    change Z b (-1)=xor (mix v (Z b) 0) (Z b (0+d)) at l2
+    have r1:=rightSolve ar;have r2:=rightSolve br
+    change Z a (1+d)=xor (Z a 0) (mix v (Z a) 1) at r1
+    change Z b (1+d)=xor (Z b 0) (mix v (Z b) 1) at r2
+    constructor
+    · rw [l1,l2,mix_congr v (Z a) (Z b) 0 (by intro y ly hy;exact s y ly (by dsimp [d];omega)),
+        s (0+d) (by omega) (by omega)]
+    · rw [show (d:Int)+1=1+d by omega,r1,r2,s 0 (by omega) (by omega),
+        mix_congr v (Z a) (Z b) 1 (by intro y ly hy;exact s y (by omega) (by dsimp [d];omega))]
+  have advance (k : Nat) (lim : j+k≤U) : same (i+k) (j+k) := by
+    induction k with
+    | zero => simpa using eq0
+    | succ k ih =>
+      have prev:=ih (by omega)
+      have ⟨left,right⟩:=border _ _ (by omega) (by omega) prev
+      have ext (y : Int) (lo : -1≤y) (hi : y≤(d:Int)+1) : Z (i+k) y=Z (j+k) y := by
+        by_cases le : y= -1
+        · simpa [le] using left
+        by_cases ri : y=(d:Int)+1
+        · simpa [ri] using right
+        exact prev y (by omega) (by omega)
+      intro y lo hi
+      rw [show i+(k+1)=i+k+1 by omega,show j+(k+1)=j+k+1 by omega,law _ _ lo,law _ _ lo,
+        ext (y-1) (by omega) (by omega),ext (y+1) (by omega) (by omega)]
+  refine ⟨j-i,by omega,by change j-i≤B;omega,?_⟩
+  intro n early lim
+  change B≤n at early
+  let k:=n-i
+  have a : i+k=n:=by dsimp [k];omega
+  have b : j+k=n+(j-i):=by dsimp [k];omega
+  have pair:=border (i+k) (j+k) (by omega) (by omega) (advance k (by omega))
+  simpa [a,b] using pair.1.symm
+
+private theorem rectLag (g : Nat→Bool) (t Q h : Nat)
+    (echoLag : ∀ i, i≤2*(Q*h) →
+      xor (g (t+i+h+Q)) (g (t+i+h))=xor (g (t+i+Q)) (g (t+i))) :
+    g (t+2*(Q*h))=g t := by
+  let M:=Q*h
+  let d (i : Nat):=xor (g (t+i+Q)) (g (t+i))
+  have times (i k : Nat) (room : i+h*k≤2*M) : d (i+h*k)=d i := by
+    induction k with
+    | zero => simp
+    | succ k ih =>
+      rw [Nat.mul_succ,←Nat.add_assoc]
+      change xor (g (t+(i+h*k+h)+Q)) (g (t+(i+h*k+h)))=_
+      rw [show t+(i+h*k+h)=t+(i+h*k)+h by omega,echoLag _ (by rw [Nat.mul_succ] at room;omega)]
+      exact ih (by rw [Nat.mul_succ] at room;omega)
+  have same (i : Nat) (bound : i≤M) : d (i+M)=d i := by
+    have m : h*Q=M:=Nat.mul_comm ..;simpa [m] using times i Q (by rw [m];omega)
+  let p (i : Nat):=xor (g (t+i+M)) (g (t+i))
+  have advance (i : Nat) (bound : i≤M) : p (i+Q)=p i := by
+    have a := same i bound
+    dsimp [p,d] at *
+    rw [show t+(i+M)+Q=t+i+Q+M by omega,show t+(i+M)=t+i+M by omega] at a
+    rw [show t+(i+Q)=t+i+Q by omega]
+    generalize g (t+i+Q+M)=A at a ⊢
+    generalize g (t+i+M)=B at a ⊢
+    generalize g (t+i+Q)=C at a ⊢
+    generalize g (t+i)=D at a ⊢
+    cases A <;> cases B <;> cases C <;> cases D <;> simp_all
+  have walkP (k : Nat) (cap : k≤h) : p (Q*k)=p 0 := by
+    induction k with
+    | zero => simp
+    | succ k ih =>
+      rw [Nat.mul_succ,advance _ (Nat.mul_le_mul_left _ (by omega)),ih (by omega)]
+  have a:=walkP h (by omega)
+  change p M=p 0 at a
+  dsimp [p] at a
+  rw [show t+M+M=t+2*M by omega] at a
+  change g (t+2*M)=g t
+  generalize g (t+2*M)=A at a ⊢;generalize g (t+M)=B at a ⊢;generalize g t=C at a ⊢
+  cases A <;> cases B <;> cases C <;> simp_all
+
+private theorem bounded_late (R : Nat→Nat→Prop) (h : ∀ j, 0<j → ∃ V, ∀ s≥V, R j s) (B : Nat) :
+    ∃ V, ∀ j, 0<j → j≤B → ∀ s≥V, R j s := by
+  induction B with
+  | zero => exact ⟨0,by intros;omega⟩
+  | succ b ih =>
+    obtain ⟨V,low⟩:=ih
+    obtain ⟨T,top⟩:=h (b+1) (by omega)
+    refine ⟨V+T,?_⟩
+    intro j pos cap s late
+    by_cases z : j=b+1
+    · exact z ▸ top s (by omega)
+    · exact low j pos (by omega) s (by omega)
+
+/-- The signed physical stencil of the genuinely marked source against
+arbitrary east positions. At the distinguished time n, x=−1 is the old
+nonlinear pulse plus the explicitly known marks; correcting removes
+that free field. For the empty stencil, this is the direct pulse/bulk
+cancellation test. -/
+def markedLink (v : List Bool) (corr : Bool) (n : Nat) : Bool :=
+  xor (stencil v (packet n) 0) (corr && freeMarks n (-1))
+
+theorem no_marked_link (hc : EventuallyPeriodic center) (v : List Bool) (corr : Bool) :
+    ¬EventuallyPeriodic (markedLink v corr) := by
+  intro hb
+  obtain ⟨T,P,hp,cper⟩:=hc
+  obtain ⟨U,p,pp,per⟩:=hb
+  let Q:=P*p
+  let S:=T+U+3
+  let L:=S+Q+10
+  let B:=2^(v.length+1)
+  let D:=L+S+3*B+2*(Q*B)+40
+  have qp : 0<Q:=Nat.mul_pos hp pp
+  let Z (n : Nat) (x : Int):=xor (packet (S+n+Q) x) (packet (S+n) x)
+  let W (n : Nat) (x : Int):=xor (freeMarks (S+n+Q) x) (freeMarks (S+n) x)
+  let Y (n : Nat) (x : Int):=xor (stencil v (Z n) x) (corr && W n (x-1))
+  have wall (n : Nat) : Y n 0=false := by
+    have h:=repeat_add per (S+n) (by dsimp [S];omega) P
+    rw [show p*P=Q by dsimp [Q];ac_rfl] at h
+    dsimp [markedLink,Y,Z,W] at *
+    rw [stencil_add]
+    generalize stencil v (packet (S+n+Q)) 0=a at *
+    generalize stencil v (packet (S+n)) 0=b at *
+    change (a ^^ (corr && freeMarks (S+n+Q) (-1)))=(b ^^ (corr && freeMarks (S+n) (-1))) at h
+    change ((a ^^ b) ^^ (corr && (freeMarks (S+n+Q) (-1) ^^ freeMarks (S+n) (-1))))=false
+    generalize freeMarks (S+n+Q) (-1)=c at *
+    generalize freeMarks (S+n) (-1)=d at *
+    cases corr <;> cases a <;> cases b <;> cases c <;> cases d <;> simp_all
+  have zlaw (n : Nat) (x : Int) (pos : 0≤x) :
+      Z (n+1) x=xor (Z n (x-1)) (Z n (x+1)) := by
+    dsimp [Z];rw [show S+(n+1)+Q=(S+n+Q)+1 by omega,show S+(n+1)=(S+n)+1 by omega,
+      packet_step _ _ (by omega),packet_step _ _ (by omega),xorLag]
+  have wlaw (n : Nat) (x : Int) : W (n+1) x=xor (W n (x-1)) (W n (x+1)) := by
+    dsimp [W];rw [show S+(n+1)+Q=(S+n+Q)+1 by omega,show S+(n+1)=(S+n)+1 by omega,
+      marks_step,marks_step,xorLag]
+  have ylaw (n : Nat) (x : Int) (pos : 0<x) :
+      Y (n+1) x=xor (Y n (x-1)) (Y n (x+1)) := by
+    dsimp only [Y];rw [stencil_step _ _ _ _ (fun i lo => zlaw n i (by omega)),wlaw,
+      show x-1+1=x+1-1 by omega]
+    cases corr with
+    | false => simp
+    | true => simpa only [Bool.true_and] using xorLag
+  have wvac (y : Int) (out : y< -(L:Int) ∨ (L:Int)<y) : W 0 y=false := by
+    dsimp [W,L] at *;rw [marks_vac _ _ (by omega),marks_vac _ _ (by omega)];rfl
+  have yvac (y : Int) (out : y< -(L:Int) ∨ (L:Int)<y) : Y 0 (if y<0 then -y else y)=false := by
+    let j:=if y<0 then -y else y
+    have far : (L:Int)<j:=by dsimp [j];split <;> omega
+    have zw (x : Int) (hx : j-1≤x) : Z 0 x=false := by
+      dsimp [Z,packet,L] at *;rw [marks_vac _ _ (by omega),marks_vac _ _ (by omega),
+        tap_vac _ _ (by omega),tap_vac _ _ (by omega)];rfl
+    have wh : W 0 (j-1)=false := by
+      dsimp [W,L] at *;rw [marks_vac _ _ (by omega),marks_vac _ _ (by omega)];rfl
+    have zero (v : List Bool) (x : Int) : mix v (fun _ => false) x=false := by
+      induction v generalizing x with
+      | nil => rfl
+      | cons b v ih => simp [mix,ih]
+    change xor (stencil v (Z 0) j) (corr && W 0 (j-1))=false
+    rw [stencil, mix_congr v (Z 0) (fun _ => false) j (by intro i lo _;exact zw i (by omega)),
+      zero, zw _ (by omega),zw _ (by omega),wh];simp
+  have early (h : Nat) (ph : 0<h) :
+      ∃ V, ∀ s≥V, ∃ t, s≤t ∧ t+D<2*s ∧ pulse 0 (t+2*(Q*h))≠pulse 0 t := by
+    apply earlyPulse 0 T _ D (by exact Nat.mul_pos (by decide) (Nat.mul_pos qp ph))
+    intro t late
+    rw [show 2*(Q*h)=P*(p*h*2) by dsimp [Q];ac_rfl]
+    exact repeat_add cper t late _
+  obtain ⟨V,force⟩:=bounded_late _ early B
+  let k:=V+D+B+2
+  let H:=2^k
+  let M:=H-L-3
+  have hp2 : k<H:=Nat.lt_two_pow_self
+  have enough : V+D+B<H:=by dsimp [k] at hp2;omega
+  let c (n : Nat) (x : Int):=Z (H+n) x
+  have cuts (n : Nat) (cap : n<M) : stencil v (c n) 0=false ∧ stencil v (c n) 1=false := by
+    have room : n+L+1<H:=by dsimp [M] at cap;omega
+    have w0:=packet_hush W L k n (-1) wlaw wvac (by decide) room
+    have w1:=packet_hush W L k n 0 wlaw wvac (by decide) room
+    have y0:=wall (H+n)
+    have y1:=packet_hush (fun u x => Y u (if x<0 then -x else x)) L k n 1
+      (reflect_law Y wall ylaw) yvac (by decide) room
+    change Y (H+n) 1=false at y1
+    change W (H+n) (-1)=false at w0
+    change W (H+n) 0=false at w1
+    change xor (stencil v (c n) 0) (corr && W (H+n) (-1))=false at y0
+    change xor (stencil v (c n) 1) (corr && W (H+n) 0)=false at y1
+    exact ⟨by simpa [w0] using y0,by simpa [w1] using y1⟩
+  obtain ⟨h,ph,hb,eq⟩:=collar_echo v c M
+    (fun n x nx => by change Z (H+n+1) x=_;exact zlaw _ _ nx) cuts
+  change h≤B at hb
+  let s:=S+H+B+1
+  obtain ⟨t,st,cap,ne⟩:=force h ph hb s (by dsimp [s];omega)
+  apply ne
+  apply rectLag
+  intro i yi
+  let r:=t+i-(S+H+1)
+  have hb' : Q*h≤Q*B:=Nat.mul_le_mul_left _ hb
+  have rb : B≤r:=by dsimp [r,s] at *;omega
+  have rr : r+h<M:=by dsimp [M,r,D,s] at *;omega
+  have e:=eq r rb rr
+  have hw (u : Nat) (uu : u<M) : W (H+u) (-1)=false :=
+    packet_hush W L k u (-1) wlaw wvac (by decide) (by dsimp [M] at uu;omega)
+  have pulseAt (u : Nat) (uu : u<M) : c u (-1) =
+      xor (pulse 0 (S+(H+u)+Q+1)) (pulse 0 (S+(H+u)+1)) := by
+    dsimp only [c,Z,packet];rw [tap_source,tap_source,xorLag]
+    change xor (W (H+u) (-1)) _=_
+    rw [hw u uu];simp
+  rw [pulseAt _ rr,pulseAt _ (by omega)] at e
+  rwa [show S+(H+(r+h))+Q+1=t+i+h+Q by dsimp [r];omega,
+    show S+(H+(r+h))+1=t+i+h by dsimp [r];omega,
+    show S+(H+r)+Q+1=t+i+Q by dsimp [r];omega,
+    show S+(H+r)+1=t+i by dsimp [r];omega] at e
+
+/-- Empty spatial stencil recovers the actual signed complementary bulk
+at the physical source timing. In particular the two irregular signals
+cannot cancel even up to an arbitrary eventually periodic error. -/
+theorem no_direct_cancellation (hc : EventuallyPeriodic center) :
+    ¬EventuallyPeriodic (fun n => xor (bulk n) (pulse 0 (n+1))) := by
+  intro alleged
+  have no := no_marked_link hc [] true
+  obtain ⟨A,P,pos,per⟩:=hc
+  obtain ⟨B,Q,qpos,other⟩:=alleged
+  have link (n : Nat) : markedLink [] true n =
+      xor (center (n+2)) (xor (bulk n) (pulse 0 (n+1))) := by
+    change xor (xor (xor (packet n (-1)) false) (packet n 0)) (freeMarks n (-1))=_
+    rw [packet_center]
+    unfold packet
+    rw [tap_source,Nat.zero_add]
+    generalize freeMarks n (-1)=a;generalize pulse 0 (n+1)=b
+    generalize center (n+2)=c;generalize bulk n=d
+    cases a <;> cases b <;> cases c <;> cases d <;> rfl
+  apply no
+  refine ⟨A+B,P*Q,Nat.mul_pos pos qpos,?_⟩
+  intro t late
+  have c:=repeat_add per (t+2) (by omega) Q
+  have o:=repeat_add (f:=fun n => xor (bulk n) (pulse 0 (n+1))) (T:=B) (P:=Q) other t (by omega) P
+  rw [Nat.mul_comm Q P] at o
+  rw [link,link,show t+P*Q+2=t+2+P*Q by omega,c]
+  exact congrArg _ o
+
 /-- The hard collision: the difference of the other genuine lanes agrees
 with the finite transfer from the known-irregular lane at one mixed pair.
 The targets may choose their checkerboard tags separately. k=0 is legal:
@@ -1019,7 +1340,8 @@ all sufficiently late noncritical ages are then available; higher k retains
 the exact growing-collar deletion when it helps. There is no independence
 assumption between pulses or cones. -/
 theorem L1 (P N : Nat) (hP : 0<P) (marked : IrregularPulse) (annuli : AnnularPulse P N)
-    (bulkVaries : ¬EventuallyPeriodic bulk) :
+    (bulkVaries : ¬EventuallyPeriodic bulk)
+    (nonlocal : ∀ v corr, ¬EventuallyPeriodic (markedLink v corr)) :
     ∃ (k a v d : Nat) (evA evB : Bool), 0<d ∧
       let A := tagAge k (2^a) evA
       let B := tagAge k ((2*d+1)*2^v) evB
@@ -1028,7 +1350,7 @@ theorem L1 (P N : Nat) (hP : 0<P) (marked : IrregularPulse) (annuli : AnnularPul
 
 theorem close_step4 (hcenter : EventuallyPeriodic center) : False := by
   obtain ⟨T,P,hP,period⟩ := hcenter
-  obtain ⟨k,a,v,d,evA,evB,hd,earlyA,earlyB,hs,he⟩ := L1 P T hP (pulse_filters ⟨T,P,hP,period⟩) (pulse_annuli P T hP period) (bulk_nonperiodic ⟨T,P,hP,period⟩)
+  obtain ⟨k,a,v,d,evA,evB,hd,earlyA,earlyB,hs,he⟩ := L1 P T hP (pulse_filters ⟨T,P,hP,period⟩) (pulse_annuli P T hP period) (bulk_nonperiodic ⟨T,P,hP,period⟩) (no_marked_link ⟨T,P,hP,period⟩)
   let A := tagAge k (2^a) evA
   let B := tagAge k ((2*d+1)*2^v) evB
   change A%P=B%P at hs
