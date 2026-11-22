@@ -1,0 +1,6 @@
+exact finite east merged pair 011 0 K 12 vacuum pasts 122 sampled eligible 58 longest paired past checked (excluding exact hit) 11 full witness (30, '0x1dc6fdb', [('0xaaa', '0xfbf'), ('0x55c', '0x7d2')])
+exact finite east merged pair 00101 1 K 12 vacuum pasts 122 sampled eligible 273 longest paired past checked (excluding exact hit) 8 full witness None
+exact finite east merged pair 011 0 K 20 vacuum pasts 386 sampled eligible 305 longest paired past checked (excluding exact hit) 12 full witness None
+exact finite east merged pair 00101 1 K 20 vacuum pasts 386 sampled eligible 273 longest paired past checked (excluding exact hit) 8 full witness None
+exact finite east merged pair 011 0 K 32 vacuum pasts 962 sampled eligible 305 longest paired past checked (excluding exact hit) 12 full witness None
+exact finite east merged pair 00101 1 K 32 vacuum pasts 962 sampled eligible 273 longest paired past checked (excluding exact hit) 8 full witness None
