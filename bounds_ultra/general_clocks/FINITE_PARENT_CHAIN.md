@@ -962,3 +962,42 @@ copy upon contact with the older eastern mark can be traced to the same
 actual sufficiently early rightmost checker mark, for each fixed Q. This
 is an actual same-origin contact; sibling cancellation need not respect
 an identity of the ensuing temporal D parents.
+
+The exact source-path transfer needs no resident hypothesis. Suppose the
+actual center and c-shift agree, h and its Q-shift agree on [t-r,t), and
+a first wall split at t makes both true centers white. Every checker
+ancestor of their live center vacancies stays at x<=0 and, j ticks back,
+lies in [-j,0]. All raw cells of that triangle agree by the west decoder:
+X(t-j,-d) uses h through t-j+d-1 <= t-1. The material parent of a live
+even vacancy is the western odd if present, else the same old even site;
+the parent of a live odd is the western even vacancy if present, else an
+eastern bounce within its box. Thus the entire two material parent paths,
+and the actual sites they reach at t-r and t+Q-r, coincide up to the time
+shift. No unobserved eastern input enters this selection.
+
+A genuine initial checker founder -d (d even, d>=2) has exactly two exit
+slots from its original box: the even vacancy at ages d-2 or d-1 sends to
+odd -d+1 at ages d-1 or d. Before d-2 the east even vacancy cancels this
+attempt in raw vacuum. At d-2 the real mark is at -d+2, permitting the
+first exit. At d-1 the eastern odd is already occupied and the second exit
+comes directly from the old even. At age d the west edge itself occupies
+-d, while -d-1 is white, making this original checker box empty; that
+founder can never return from farther east. If the above two paths match
+back through age d-2 and Q>=2, the later vacancy at -d therefore has a
+strictly more western initial label -d'. Its first possible passage to
+-d takes (d'-2)+(d'-d) ticks, giving 2<=d'-d<=floor(Q/2). In particular
+Q=2,3 cannot support such a matched original launch. For any fixed Q the
+old full rim is also inside this triangle whenever the launch is reached
+(t>=2d-2); this is consistent with the prior fixed-Q embedded-rim ceiling.
+A long matched past at a late age need not reach this launch.
+
+In the permanent center ancestry branch, fix one late resident at a cut S.
+All sufficiently late checker material in each fixed positive prefix is
+descended from that very individual. Earlier material strictly west cannot
+pass it by the ordering of actual checker paths. The finite cut stock to
+its east eventually clears the fixed positive boxes as above. No other
+cut individual's lineage can persist alongside it in the center box,
+which at every center black contains just its one odd. Thus the varying
+later eastern gates have no independent material founder; this need not
+mean a counterfactual removal of the earlier eastern stock leaves all
+subsequent cancellations unchanged.
