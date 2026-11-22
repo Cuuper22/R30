@@ -868,3 +868,29 @@ periodic-geometry branch must contain at least two unresolved outward rises
 on a single excursion/2Q-phase, not an arbitrary stepwise exterior stream.
 The geometry or these residual parity-paired inputs may still be aperiodic
 in the remaining cases; no periodic geometry follows from boundedness.
+
+There is a genuinely marked crossing restriction on precisely those
+outward gates, even when the two-rise parity leaves freedom. Take any K
+multiple of 2Q. Along the Q-periodic D_Q material path every boundary
+value is K-common. Every actual western-mark D_K crossing ray in
+`ancestry_ultra/TRUE_LAG_CHAIN.md` eventually reaches the true eastern
+mark, so it must overtake this bounded path. A stay is uncrossable: old
+x=e-1 is Q-common (otherwise the selected D_Q parent e cannot stay), and
+old and next x=e are K-common. A west step has old x=e-1 commonly white,
+old x=e-2 Q-common and new x=e-1 K-common; the ray cannot get across
+from the next possible old discrepancy at or west of e-3. At an east step
+the sole possible crossing is the horizontal jump (t,e-1)->(t,e+1).
+Indeed old e and new e+1 are K-common, and a jump may omit its intermediate
+site only when it has no available discrepancy at either age (using the
+extremal companion ray that takes the immediate neighbor if available).
+So D_K(t,e-1)=D_K(t,e+1)=1, D_K(t,e)=D_K(t+1,e)=0. The raw gate at e
+is white; the differing o_k and common next boundary force the raw b
+rise 0->1. A 011 continuation during the outward excursion is impossible
+by the previous o_k=1 constraint. Conversely, if an actual temporal D_K
+path enters the interior *from* the outside at an outward step, its
+west edge e+1->e requires D_K(t,e-1)=0 with exterior D_K(t,e+1)=1;
+the new inner D_K is 1, rather than 0. Thus the compulsory marked
+west-to-east crossing and any incoming eastern material cannot use the
+same occurrence of an unresolved gate. A west-to-east ray exists for
+every true western launch; it is not assumed injective in those launches.
+Neither source is claimed to make the two opposite crossings simultaneous.
