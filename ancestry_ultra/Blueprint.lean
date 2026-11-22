@@ -555,6 +555,94 @@ private theorem ballistic (c : Trace) (black : BlackLock c) (k s u : Nat)
       | succ j => simpa [Nat.add_assoc,Nat.add_comm 1 j] using step.1 j (by omega)
     · simpa [Nat.add_assoc,Nat.add_comm 1 k] using step.2
 
+private theorem east_vacuum (c : Trace) (t d : Nat) (away : t<d) : east c t d=false := by
+  induction t generalizing d with
+  | zero => cases d <;> simp_all [east]
+  | succ t ih =>
+    obtain ⟨j,rfl⟩ := Nat.exists_eq_succ_of_ne_zero (show d≠0 by omega)
+    change rule (east c t j) (east c t (j+1)) (east c t (j+2))=false
+    rw [ih j (by omega),ih (j+1) (by omega),ih (j+2) (by omega)]
+    rfl
+
+/-- True noncancelling eastern genealogy. The last coordinate charges
+2 for an outward edge, 1 for a stay and 0 for an inward edge; an inward
+edge requires the receiving site vacant in BOTH copies. -/
+inductive EastRoute (c : Trace) (s u y : Nat) : Nat → Nat → Nat → Prop where
+  | origin (pos : 0<y) (live : east c s y≠east c u y) : EastRoute c s u y 0 y 0
+  | outward {n j a} (prev : EastRoute c s u y n j a)
+      (gate : (east c (s+n) (j+1) || east c (s+n) (j+2))=
+        (east c (u+n) (j+1) || east c (u+n) (j+2))) :
+      EastRoute c s u y (n+1) (j+1) (a+2)
+  | stay {n j a} (prev : EastRoute c s u y n (j+1) a)
+      (left : east c (s+n) j=east c (u+n) j)
+      (gate : (east c (s+n) (j+1) || east c (s+n) (j+2))≠
+        (east c (u+n) (j+1) || east c (u+n) (j+2))) :
+      EastRoute c s u y (n+1) (j+1) (a+1)
+  | inward {n j a} (prev : EastRoute c s u y n (j+2) a)
+      (left : east c (s+n) j=east c (u+n) j)
+      (emptyS : east c (s+n) (j+1)=false) (emptyU : east c (u+n) (j+1)=false) :
+      EastRoute c s u y (n+1) (j+1) a
+
+private theorem parents : ∀ l m r L M R : Bool,rule l m r≠rule L M R →
+    (l≠L ∧ (m || r)=(M || R)) ∨
+    (l=L ∧ m≠M ∧ (m || r)≠(M || R)) ∨
+    (l=L ∧ m=false ∧ M=false ∧ r≠R) := by decide
+
+private theorem pull_east (c : Trace) (s u n j : Nat)
+    (clk : ∀i,c (s+i)=c (u+i)) (diff : east c (s+n) j≠east c (u+n) j) :
+    ∃ y a,y+a=n+j ∧ east c s y≠east c u y ∧ EastRoute c s u y n j a := by
+  induction n generalizing j with
+  | zero =>
+    simp only [Nat.add_zero] at diff
+    have pos : 0<j := by
+      cases j with
+      | zero => exact False.elim (diff (by simpa only [east0,Nat.add_zero] using clk 0))
+      | succ j => omega
+    exact ⟨j,0,by omega,diff,.origin pos diff⟩
+  | succ n ih =>
+    cases j with
+    | zero => exact False.elim (diff (by simpa only [east0] using clk (n+1)))
+    | succ j =>
+      have bad : rule (east c (s+n) j) (east c (s+n) (j+1)) (east c (s+n) (j+2))≠
+          rule (east c (u+n) j) (east c (u+n) (j+1)) (east c (u+n) (j+2)) := by
+        rw [show s+(n+1)=s+n+1 by omega,show u+(n+1)=u+n+1 by omega] at diff
+        exact diff
+      rcases parents _ _ _ _ _ _ bad with ⟨d,gate⟩|⟨left,d,gate⟩|⟨left,x,z,d⟩
+      · obtain ⟨y,a,eq,raw,path⟩ := ih j d
+        exact ⟨y,a+2,by omega,raw,.outward path gate⟩
+      · obtain ⟨y,a,eq,raw,path⟩ := ih (j+1) d
+        exact ⟨y,a+1,by omega,raw,.stay path left gate⟩
+      · obtain ⟨y,a,eq,raw,path⟩ := ih (j+2) d
+        exact ⟨y,a,by omega,raw,.inward path left x z⟩
+
+/-- Both sources must fit inside the same genuine finite cone. If
+the east founder lies beyond the older mark, its sign is prescribed.
+The western founder is exactly y plus the accumulated eastern charge. -/
+def EastFounder (c : Trace) (h s u k : Nat) : Prop :=
+  ∃ y a,h+8<y ∧ y≤u ∧ y+a=k+1 ∧
+    (s<y → east c s y=false ∧ east c u y=true) ∧ EastRoute c s u y k 1 a
+
+private theorem joint_founder (c : Trace) (h s u k : Nat) (su : s<u)
+    (clk : ∀i,c (s+i)=c (u+i)) (join : Joined c)
+    (same : ∀i,i≤h+8 → east c s i=east c u i)
+    (split : whiteNeed c (s+k)≠whiteNeed c (u+k)) : EastFounder c h s u k := by
+  have wh : c (u+k)=false := by
+    cases z : c (u+k)
+    · rfl
+    · exact False.elim (split (by simp [whiteNeed,clk k,z]))
+  have whS := (clk k).trans wh
+  have diff : east c (s+k) 1≠east c (u+k) 1 := by
+    simpa only [whiteNeed,whS,wh,Bool.not_false,Bool.true_and,join (s+k) whS,join (u+k) wh] using split
+  obtain ⟨y,a,eq,raw,path⟩ := pull_east c s u k 1 clk diff
+  have out : h+8<y := Nat.lt_of_not_ge (fun inside => raw (same y inside))
+  have within : y≤u := by
+    by_cases outside : u<y
+    · exact False.elim (raw ((east_vacuum c s y (by omega)).trans (east_vacuum c u y outside).symm))
+    · omega
+  exact ⟨y,a,out,within,eq,fun farther => by
+    have old := east_vacuum c s y farther
+    exact ⟨old,by cases bit : east c u y <;> simp_all⟩,path⟩
+
 /-- A paired reset REALIZED by two distinct ages of these same
 initialized halves, and its nearest later western collision. -/
 structure Matched (c : Trace) (T P d h s u k : Nat) : Prop where
@@ -570,6 +658,7 @@ structure Matched (c : Trace) (T P d h s u k : Nat) : Prop where
   founder : west c s (k+1)≠west c u (k+1)
   common : ∀ j,j<k → whiteNeed c (s+j)=whiteNeed c (u+j)
   split : whiteNeed c (s+k)≠whiteNeed c (u+k)
+  eastSource : EastFounder c h s u k
 
 /-- The common collars can be required arbitrarily wide independently. -/
 def ResetStarts (c : Trace) (T P : Nat) : Prop :=
@@ -613,10 +702,10 @@ theorem reset_starts (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
     · omega
   obtain ⟨k,rfl⟩ := Nat.exists_eq_succ_of_ne_zero (show y≠0 by omega)
   have clk := same_clock c T P per s u (by omega) (by omega) (ps.trans pu.symm)
-  exact ⟨s,u,k,by omega,by omega,by omega,ps.trans pu.symm,rs,ru,
-    fun i hi => same_window (es.trans eu.symm) i (by omega),by omega,by omega,
-    fun i hi => near i (by omega),ne,(ballistic c black k s u clk near ne).1,
-    (ballistic c black k s u clk near ne).2⟩
+  have startE (i : Nat) (hi : i≤h+8) : east c s i=east c u i := same_window (es.trans eu.symm) i (by omega)
+  have hit := ballistic c black k s u clk near ne
+  exact ⟨s,u,k,by omega,by omega,by omega,ps.trans pu.symm,rs,ru,startE,by omega,by omega,
+    fun i hi => near i (by omega),ne,hit.1,hit.2,joint_founder c h s u k (by omega) clk join startE hit.2⟩
 
 /-- Orient one selected arm of the actual split. The other arm is
 present in the claim but its eastern label is unrestricted. -/
