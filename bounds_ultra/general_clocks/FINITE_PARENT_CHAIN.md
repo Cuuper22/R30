@@ -160,3 +160,99 @@ This provides a same-host and same-west fork in the actual limit set,
 rather than a freely invented host past. It does not certify either
 western tape at the earlier cut as finite. The physical marks may
 move to minus infinity along both sequences of genuine ages.
+
+**Retaining the whole marked phase, not a finite sample of its lanes.**
+Record the genuine age t also as an element of the compact additive group
+G of dyadic integers. Under a tick this coordinate translates by 1.
+For every fixed normalized western lane, the true marked-left subsystem
+is eventually periodic with a power-of-two period (the known finite-lane
+result). Thus a limiting phase g specifies the *entire* limiting
+normalized marked front, at every fixed normalized lane and every signed
+finite time offset. The forks above can have exactly the same g.
+
+In the aperiodic-minimal case take a minimal joining J inside the actual
+limit set projected to Y times G. It projects onto Y. Each vertical
+translate J+b is minimal for the same transformation, so it is either
+disjoint from J or equal to J. Put H={b:J+b=J}, a closed subgroup. The
+fiber over any x in Y is one H-coset: subtract two points of the fiber
+to find an intersecting translate; the reverse inclusion follows from
+H-invariance. The resulting coset map Y -> G/H is continuous by
+compactness (its graph is the projected compact joining) and commutes
+with translation by 1. For right-asymptotic different-past x,y in Y,
+the distances between their positive translates in Y tend to zero.
+The quotient rotation preserves distance, so their cosets are equal.
+Lift both with the *same* g. These lifts in J are right-asymptotic.
+The closed sheets of J admitting each additional finite color still
+cover J; a sheet contains a relative open cylinder and a common
+sufficiently late forward translate puts both lifts inside. This
+preserves equality of the entire phase, the common symbol future,
+and the difference somewhere in their past.
+
+In the periodic-future case lift the last-mismatch history to the actual
+joint limit including the full marked phase and all finite colors at all
+times. Along shifts by n*l, n>=0, the symbol future stays periodic.
+Color these integers n by their actual shifted finite color. The sets of
+dyadic limit points of the color classes along n tending to infinity
+are closed and cover G: every dyadic residue has arbitrarily late integer
+representatives. One color's limit set contains a dyadic residue ball.
+Choose a member n0 of this color inside the ball, and arbitrarily late
+members n_i of the same color converging dyadically to n0. A convergent
+subsequence of the shifted full histories has the completely periodic
+two-sided symbols, while the shift by n0*l has its last mismatch a
+fixed distance in the past. Their current colors and their phases
+g+n0*l coincide. This also gives the desired fork.
+
+These are genuine limits of the one singleton orbit, sharing its
+complete normalized marked source phase as well as the entire physical
+strict-west landing. The distance in cells between the source frame
+and the physical wall still tends to infinity. Equality of these two
+limits is not uniform in the intervening, growing spatial depth.
+
+The same age phase also fixes every true normalized *eastern* lane.
+In the frame j=t-x the update is E'_j=E_j XOR (E_(j-1) OR E_(j-2))
+with vacuum for j<0. Each lower-prefix period from time zero is dyadic:
+over one period the next coordinate toggles by one fixed parity.
+Consequently the forks above agree at both normalized source edges to
+all fixed depths. This does not identify the physical eastern ray at
+the center, since its normalized depth is the moving age t rather
+than a fixed j.
+
+**Fixed lag before moving the observation late.** In the minimal case
+choose at the outset a minimal subsystem of the *full* actual joint
+limit above Y, including the finite color. Take J as its projection
+to (symbols,phase), and use this same full subsystem to form the
+closed color sheets. The two selected lifts then belong to one
+minimal full subsystem. For each finite matching window of length r
+and phase precision 2^r, choose finite cylinder neighborhoods of the
+two lifts prescribing these data, their common color, and the symbols
+back through the fixed last discrepancy at -k. One forward orbit in
+this minimal system visits the first neighborhood and then the second,
+with one fixed positive lag Q_r divisible by 2^r and aligned in the
+clock; increase the separation if necessary. The resulting one finite
+block is in the actual omega-limit language, so it occurs at
+arbitrarily late genuine ages with that SAME lag. In the
+periodic-future case choose instead a sufficiently late n_i for the
+same finite windows and phase precision in the pinned-shift construction;
+the two neighborhoods are again realized by one finite block of a
+genuine limit history. This lets the observation age tend to infinity
+*after* fixing Q_r, so every marked lane of depth prescribed as a
+function of Q_r is mature. There is no bound here of Q_r by r, nor
+uniform agreement across a growing source-to-center interval.
+
+**Finite support is not obtained by Baire.** In the periodic-point
+construction the common west landing cannot itself be finite. The
+periodic center and masked future give periodic temporal words in
+every western column from one and the same cutoff by the outward
+recurrence. A finite nonzero west grows in width at every step; a
+zero west also becomes nonzero under a mixed self-consistent future.
+So no finite west at any earlier clocked time can map to this landing.
+In an infinite minimal symbol component the histories with a finite
+physical west at *any* signed time form a meager set: at each named
+time there are countably many finite tapes, and a fixed tape and
+clock phase determine at most one entire future of symbols. Any one
+such exact-future fiber is closed with empty relative interior:
+otherwise a point in a cylinder contained in the fiber returns to the
+cylinder in positive time by minimality, making its future periodic
+and the entire minimal system periodic. Take the countable union
+over tapes and times. Thus matching all dyadic source lanes cannot
+by itself license replacing a limiting west by a finite tape.
