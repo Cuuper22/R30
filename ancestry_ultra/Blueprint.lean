@@ -1789,7 +1789,7 @@ private theorem compare_band (c : Trace) (s u width : Nat)
 white interval can then have any length: its first occupied position
 determines all of its raw head reads and restores the whole checker. -/
 private theorem paired_bridge (c : Trace) (m s u n h : Nat) (bound : n≤m)
-    (long : bridgeH m≤h) (wh : ∀ j,j<h → c (s+n+j)=false)
+    (long : m+2+9*(m+2)≤h) (wh : ∀ j,j<h → c (s+n+j)=false)
     (clk : ∀ i,c (s+i)=c (u+i))
     (old : CheckerAt c s (2*m+4)) (newer : CheckerAt c u (2*m+4)) :
     (CheckerAt c (s+n+h) (2*m+4) ∧ CheckerAt c (u+n+h) (2*m+4)) ∧
@@ -1802,8 +1802,7 @@ private theorem paired_bridge (c : Trace) (m s u n h : Nat) (bound : n≤m)
     (band n y (by omega)).symm.trans (zero _ yp yl)
   have whites (j : Nat) (lt : j<h) : c (u+n+j)=false := by
     rw [Nat.add_assoc,←clk,←Nat.add_assoc];exact wh j lt
-  have kbound : m+2≤bridgeK m := by unfold bridgeK;omega
-  have room : d+9*(m+2)≤h := by have := Nat.le_trans (space (m:=m)) long;omega
+  have room : d+9*(m+2)≤h := by omega
   refine ⟨⟨early_checker c (s+n) h d m dp room wh zero yes,
     early_checker c (u+n) h d m dp room whites zeros right⟩,?_⟩
   intro i lt
@@ -1826,7 +1825,7 @@ private theorem after_solid (c : Trace) (s n : Nat) (long : 9≤n)
   rwa [show s+n-9+9=s+n by omega] at p
 
 private theorem paired_span (c : Trace) (m s u n h : Nat) (kind : ShortOrSolid c m s n)
-    (long : bridgeH m≤h) (wh : ∀ j,j<h → c (s+n+j)=false)
+    (long : m+2+9*(m+2)≤h) (wh : ∀ j,j<h → c (s+n+j)=false)
     (clk : ∀ i,c (s+i)=c (u+i))
     (old : CheckerAt c s (2*m+4)) (newer : CheckerAt c u (2*m+4)) :
     (CheckerAt c (s+n+h) (2*m+4) ∧ CheckerAt c (u+n+h) (2*m+4)) ∧
@@ -1838,9 +1837,7 @@ private theorem paired_span (c : Trace) (m s u n h : Nat) (kind : ShortOrSolid c
   have twin := after_solid c u n sz (fun j lj => (clk j).symm.trans (solid j lj))
   have whites (j : Nat) (lt : j<h) : c (u+n+j)=false := by
     rw [Nat.add_assoc,←clk,←Nat.add_assoc];exact wh j lt
-  have room : 2+9*(m+2)≤h := by
-    have a : 2≤bridgeK m := by unfold bridgeK;omega
-    have := Nat.le_trans (space (m:=m)) long;omega
+  have room : 2+9*(m+2)≤h := by omega
   have z (s' : Nat) (v : east c s' 1=false) (y : Nat) (yp : 0<y) (yl : y<2) :
       east c s' y=false := by rwa [show y=1 by omega]
   refine ⟨⟨early_checker c (s+n) h 2 m (by decide) room wh (z _ first.1) first.2,
@@ -1864,9 +1861,14 @@ def Bridged (c : Trace) : Prop :=
   ∃ m : Nat, ∃ f n h : Nat → Nat, ∀ k,c (f k)=true ∧ 0<n k ∧ ShortOrSolid c m (f k) (n k) ∧
     bridgeH m≤h k ∧ f k+n k+h k=f (k+1) ∧ ∀ j,j<h k → c (f k+n k+j)=false
 
-theorem excludes_bridged (c : Trace) (ep : EventuallyPeriodic c) (mark : c 0=true)
-    (black : BlackLock c) (join : Joined c) : ¬Bridged c := by
-  rintro ⟨m,f,n,h,seq⟩
+private def LinearTiles (c : Trace) (m : Nat) (f n h : Nat → Nat) : Prop :=
+  ∀ k,c (f k)=true ∧ 0<n k ∧ ShortOrSolid c m (f k) (n k) ∧
+    m+2+9*(m+2)≤h k ∧ f k+n k+h k=f (k+1) ∧ ∀ j,j<h k → c (f k+n k+j)=false
+
+private theorem reject_checkpoints (c : Trace) (ep : EventuallyPeriodic c) (mark : c 0=true)
+    (black : BlackLock c) (join : Joined c) (m : Nat) (f n h : Nat → Nat)
+    (seq : LinearTiles c m f n h)
+    (allcheck : ∀ k,CheckerAt c (f (k+2)) (2*m+4)) : False := by
   have advance (k : Nat) : f k<f (k+1) := by
     obtain ⟨_,p,_,_,ends,_⟩ := seq k;omega
   have many (a k : Nat) : f a+k≤f (a+k) := by
@@ -1875,18 +1877,6 @@ theorem excludes_bridged (c : Trace) (ep : EventuallyPeriodic c) (mark : c 0=tru
     | succ k ih =>
       change f a+k+1≤f (a+k+1)
       exact Nat.le_trans (Nat.succ_le_succ ih) (advance (a+k))
-  have allcheck (k : Nat) : CheckerAt c (f (k+2)) (2*m+4) := by
-    obtain ⟨_,_,_,long,ends,wh⟩ := seq k
-    obtain ⟨bk,l,b,long',ends',wh'⟩ := seq (k+1)
-    obtain ⟨y,yp,yb,hit⟩ : ∃ y,0<y ∧ y≤bridgeK m ∧ east c (f (k+1)+n (k+1)) y=true := by
-      rcases b with b|⟨sz,solid⟩
-      · have longn := Nat.le_trans (h_mono b) long
-        obtain ⟨y,p,le,e⟩ := renewal c (f k+n k) (h k) (n (k+1)) l longn wh (by rw [ends];exact bk)
-        rw [ends] at e;exact ⟨y,p,Nat.le_trans le (k_mono b),e⟩
-      · exact ⟨2,by decide,by unfold bridgeK;omega,(after_solid c _ _ sz solid).2⟩
-    obtain ⟨d,dp,dy,yes,zero⟩ := first_in c _ y ⟨y,yp,by omega,hit⟩
-    have total : d+9*(m+2)≤h (k+1) := by have := Nat.le_trans (space (m:=m)) long';omega
-    rw [←ends'];exact early_checker _ _ _ _ _ dp total wh' zero yes
   obtain ⟨T,P,hp,per⟩ := ep
   let idx (i : Nat) := T+i+2
   obtain ⟨a,b,lt,_,ph⟩ := QuantifiedSplit.repeat_le P (fun i => (f (idx i)-T)%P) (fun i _ => Nat.mod_lt _ hp)
@@ -1946,6 +1936,103 @@ theorem excludes_bridged (c : Trace) (ep : EventuallyPeriodic c) (mark : c 0=tru
   | false => simp [whiteNeed,←ct,val,join t,join (t+Q),e val]
   | true => simp [whiteNeed,←ct,val]
 
+theorem excludes_bridged (c : Trace) (ep : EventuallyPeriodic c) (mark : c 0=true)
+    (black : BlackLock c) (join : Joined c) : ¬Bridged c := by
+  rintro ⟨m,f,n,h,seq⟩
+  have allcheck (k : Nat) : CheckerAt c (f (k+2)) (2*m+4) := by
+    obtain ⟨_,_,_,long,ends,wh⟩ := seq k
+    obtain ⟨bk,l,b,long',ends',wh'⟩ := seq (k+1)
+    obtain ⟨y,yp,yb,hit⟩ : ∃ y,0<y ∧ y≤bridgeK m ∧ east c (f (k+1)+n (k+1)) y=true := by
+      rcases b with b|⟨sz,solid⟩
+      · have longn := Nat.le_trans (h_mono b) long
+        obtain ⟨y,p,le,e⟩ := renewal c (f k+n k) (h k) (n (k+1)) l longn wh (by rw [ends];exact bk)
+        rw [ends] at e;exact ⟨y,p,Nat.le_trans le (k_mono b),e⟩
+      · exact ⟨2,by decide,by unfold bridgeK;omega,(after_solid c _ _ sz solid).2⟩
+    obtain ⟨d,dp,dy,yes,zero⟩ := first_in c _ y ⟨y,yp,by omega,hit⟩
+    have total : d+9*(m+2)≤h (k+1) := by have := Nat.le_trans (space (m:=m)) long';omega
+    rw [←ends'];exact early_checker _ _ _ _ _ dp total wh' zero yes
+  apply reject_checkpoints c ep mark black join m f n h _ allcheck
+  intro k;obtain ⟨bk,p,kind,long,ends,wh⟩ := seq k
+  have cap : m+2≤bridgeK m := by unfold bridgeK;omega
+  exact ⟨bk,p,kind,Nat.le_trans (Nat.add_le_add_right cap _) (Nat.le_trans space long),ends,wh⟩
+
+/-- On the affine-length tiling, a single real early arrival is
+sufficient. No lower bound on density or recurrence of such arrivals. -/
+private theorem reject_early (c : Trace) (ep : EventuallyPeriodic c) (mark : c 0=true)
+    (black : BlackLock c) (join : Joined c) (m : Nat) (f n h : Nat → Nat)
+    (seq : LinearTiles c m f n h) (k d : Nat) (dp : 0<d)
+    (room : d+9*(m+2)≤h k) (hit : east c (f k+n k) d=true) : False := by
+  obtain ⟨e,pe,le,yes,zero⟩ := first_in c _ d ⟨d,dp,by omega,hit⟩
+  obtain ⟨_,_,_,_,ends,wh⟩ := seq k
+  have ready := early_checker c (f k+n k) (h k) e m pe (by omega) wh zero yes
+  rw [ends] at ready
+  have more (r : Nat) : CheckerAt c (f (k+1+r)) (2*m+4) := by
+    induction r with
+    | zero => exact ready
+    | succ r ih =>
+      obtain ⟨_,_,kind,long,ends,wh⟩ := seq (k+1+r)
+      have z := paired_span c m (f (k+1+r)) (f (k+1+r)) _ _ kind long wh (fun _ => rfl) ih ih
+      rw [ends] at z;exact z.1.1
+  exact reject_checkpoints c ep mark black join m (fun r => f (k+1+r))
+    (fun r => n (k+1+r)) (fun r => h (k+1+r)) (fun r => seq _) (fun r => more (r+2))
+
+/-- All black intervals are solid and unrestricted in length. The
+white intervals need only 100 steps, independent of the period or the
+number of black intervals. -/
+def PulseWindows (c : Trace) : Prop :=
+  ∃ f n h : Nat → Nat, ∀ k, 0<n k ∧ 100≤h k ∧ f k+n k+h k=f (k+1) ∧
+    (∀ i,i<n k → c (f k+i)=true) ∧ (∀ j,j<h k → c (f k+n k+j)=false)
+
+private theorem mild_tiles (c : Trace) (f n h : Nat → Nat)
+    (w : ∀ k, 0<n k ∧ 100≤h k ∧ f k+n k+h k=f (k+1) ∧
+      (∀ i,i<n k → c (f k+i)=true) ∧ (∀ j,j<h k → c (f k+n k+j)=false)) :
+    LinearTiles c 8 f n h := by
+  intro k
+  obtain ⟨b,l,e,solid,wh⟩ := w k
+  refine ⟨by simpa using solid 0 b,b,?_,l,e,wh⟩
+  by_cases short : n k≤8
+  · exact Or.inl short
+  · exact Or.inr ⟨by omega,solid⟩
+
+/-- A true late fall in this clock class always has ten vacant head
+cells at the first white (indeed the forbidden depth is h-90). This
+tests the same first-white gate that the exceptional L1 arm must split. -/
+theorem quiet_falls (c : Trace) (ep : EventuallyPeriodic c) (mark : c 0=true)
+    (black : BlackLock c) (join : Joined c) (w : PulseWindows c) :
+    ∃ U,∀ t,U≤t → c t=true → c (t+1)=false →
+      ∀ d,0<d → d≤10 → east c (t+1) d=false := by
+  obtain ⟨f,n,h,w⟩ := w
+  have tiles := mild_tiles c f n h w
+  have adv (k : Nat) : f k<f (k+1) := by obtain ⟨p,_,eq,_⟩ := w k;omega
+  have cover (r : Nat) : ∃ k,f k≤f 0+r ∧ f 0+r<f (k+1) := by
+    induction r with
+    | zero => exact ⟨0,by simp,by simpa using adv 0⟩
+    | succ r ih =>
+      obtain ⟨k,l,u⟩ := ih
+      by_cases mid : f 0+(r+1)<f (k+1)
+      · exact ⟨k,by omega,mid⟩
+      · exact ⟨k+1,by omega,by have := adv (k+1);omega⟩
+  refine ⟨f 0,?_⟩
+  intro t late old new d dp bd
+  obtain ⟨k,lo,hi⟩ := cover (t-f 0)
+  rw [Nat.add_sub_of_le late] at lo hi
+  obtain ⟨b,l,ends,solid,wh⟩ := w k
+  have pos : t<f k+n k := by
+    by_cases lt : t<f k+n k
+    · exact lt
+    · have z := wh (t-(f k+n k)) (by omega)
+      rw [Nat.add_sub_of_le (by omega)] at z
+      simp_all
+  have e : t+1=f k+n k := by
+    by_cases before : t+1<f k+n k
+    · have z := solid (t+1-f k) (by omega)
+      rw [Nat.add_sub_of_le (by omega)] at z;simp_all
+    · omega
+  rw [e]
+  cases val : east c (f k+n k) d
+  · rfl
+  · exact False.elim (reject_early c ep mark black join 8 f n h tiles k d dp (by omega) val)
+
 
 end RenewalFront
 
@@ -1959,17 +2046,39 @@ theorem L1 (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
       need c (t+1)≠guess (seven c (t+2)) := by
   sorry
 
+def CollisionStop (c : Trace) (T P n : Nat) : Prop :=
+  ∀ t v,n≤t → Arm c T P n n t v → c t=true → c (t+1)=false → east c t 1=false →
+      let w := seven c (t+2)
+      (code w=67 ∨ code w=91) → BlackCut c t w → Bracket c P t w →
+      xor (west c t 2) (east c t 2)=c (t+2) → east c (t+2) 8=true →
+      reset w (east c (t+2) 8)=false → east c (t+1) 1=guess w
+
+/-- Discharge the actual two-arm case 67/91 on every pulse window:
+both matched eastern heads have to be quiet at their first whites,
+whereas the same joined western histories require opposite bits. -/
+theorem windows_stop (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
+    (period : ∀ t,T≤t → c (t+P)=c t) (black : BlackLock c) (join : Joined c)
+    (w : RenewalFront.PulseWindows c) : ∃ n,CollisionStop c T P n := by
+  obtain ⟨U,quiet⟩ := RenewalFront.quiet_falls c ⟨T,P,hp,period⟩ mark black join w
+  refine ⟨U+2,?_⟩
+  intro t v late arm bw white _ _ _ _ _ _ _
+  obtain ⟨same,_,_,ow,split⟩ := arm_stamp c T P (U+2) (U+2) t v period arm
+  have lv : U≤v := by
+    obtain ⟨s,u,k,r,pair⟩ := arm
+    have dep := r.deep
+    rcases pair with ⟨rfl,rfl⟩|⟨rfl,rfl⟩ <;> omega
+  have z := quiet t (by omega) bw white 1 (by decide) (by decide)
+  have zv := quiet v lv (same.symm.trans bw) ow 1 (by decide) (by decide)
+  exact False.elim (split ((join _ white).trans (z.trans (zv.symm.trans (join _ ow).symm))))
+
 /-- L2: exclude the two surviving actual escape classes on an arm
 from sufficiently deep matched reset starts. It says nothing about
 unmatched cuts, bounded source collars, or any other phase or word. -/
 theorem L2 (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
     (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
-    (past : Prefix c T) (black : BlackLock c) (outside : ¬PulseBasin c ∧ ¬RenewalFront.SparsePulseClock c ∧ ¬RenewalFront.Bridged c) :
-    ∃ n, ∀ t v,n≤t → Arm c T P n n t v → c t=true → c (t+1)=false → east c t 1=false →
-      let w := seven c (t+2)
-      (code w=67 ∨ code w=91) → BlackCut c t w → Bracket c P t w →
-      xor (west c t 2) (east c t 2)=c (t+2) → east c (t+2) 8=true →
-      reset w (east c (t+2) 8)=false → east c (t+1) 1=guess w := by
+    (past : Prefix c T) (black : BlackLock c) (outside : ¬PulseBasin c ∧ ¬RenewalFront.SparsePulseClock c ∧ ¬RenewalFront.Bridged c)
+    (short : ¬RenewalFront.PulseWindows c) :
+    ∃ n,CollisionStop c T P n := by
   sorry
 
 private theorem stays_high (c : Trace) (t : Nat) (white : c t=false) (old : east c t 1=true) :
@@ -1984,7 +2093,10 @@ theorem collision (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
   have outside := And.intro (excludes_pulse_basin c mark ⟨T,P,hp,period⟩ black join)
     (And.intro (RenewalFront.excludes_sparse c ⟨T,P,hp,period⟩ mark black join)
       (RenewalFront.excludes_bridged c ⟨T,P,hp,period⟩ mark black join))
-  obtain ⟨n,stop⟩ := L2 c T P hp mark period mixed past black outside
+  obtain ⟨n,stop⟩ : ∃ n,CollisionStop c T P n := by
+    by_cases w : RenewalFront.PulseWindows c
+    · exact windows_stop c T P hp mark period black join w
+    · exact L2 c T P hp mark period mixed past black outside w
   obtain ⟨t,v,late,arm,cap,bad⟩ := L1 c T P hp mark period mixed past black outside
     (reset_starts c T P hp mark period black join) (n+T+P+6) n n
   obtain ⟨last,shared,white,other,unequal⟩ := arm_stamp c T P n n t v period arm
@@ -2076,6 +2188,7 @@ theorem close_step4 (hcenter : EventuallyPeriodic center) : False := by
 end OpenProblem.AncestryBlueprint
 #print axioms OpenProblem.AncestryBlueprint.decoder_bound
 #print axioms OpenProblem.AncestryBlueprint.reset_starts
+#print axioms OpenProblem.AncestryBlueprint.windows_stop
 #print axioms OpenProblem.AncestryBlueprint.RenewalFront.excludes_bridged
 #print axioms OpenProblem.AncestryBlueprint.RenewalFront.excludes_sparse
 #print axioms OpenProblem.AncestryBlueprint.excludes_pulse_basin
