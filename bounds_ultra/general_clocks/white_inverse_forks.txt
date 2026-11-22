@@ -1,0 +1,14 @@
+each 4 physical edges includes a certified white q; clock 01 rule 30 Nsites 12
+ambiguous-forever possible 01 rule 90 Nsites 8 temporal SCC sizes [np.int64(512)]
+each 9 physical edges includes a certified white q; clock 011 rule 30 Nsites 12
+ambiguous-forever possible 011 rule 90 Nsites 8 temporal SCC sizes [np.int64(768)]
+each 5 physical edges includes a certified white q; clock 0011 rule 30 Nsites 12
+ambiguous-forever possible 0011 rule 90 Nsites 8 temporal SCC sizes [np.int64(1024)]
+each 4 physical edges includes a certified white q; clock 00101 rule 30 Nsites 12
+ambiguous-forever possible 00101 rule 90 Nsites 8 temporal SCC sizes [np.int64(1280)]
+each 7 physical edges includes a certified white q; clock 01011 rule 30 Nsites 12
+ambiguous-forever possible 01011 rule 90 Nsites 8 temporal SCC sizes [np.int64(1280)]
+each 6 physical edges includes a certified white q; clock 0110000000110000001 rule 30 Nsites 12
+ambiguous-forever possible 0110000000110000001 rule 90 Nsites 8 temporal SCC sizes [np.int64(4864)]
+free previous-white ambiguous r 30 width 12 SCC distributions {(1369, 'mixed branching', 2143): 1, (3, 'constant', '{1}'): 1, (4, 'constant', '{1}'): 1, (1, 'constant', '{1}'): 1}
+free previous-white ambiguous r 90 width 8 SCC distributions {(256, 'mixed branching', 1024): 1}

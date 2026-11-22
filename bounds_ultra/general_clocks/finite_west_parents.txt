@@ -1,0 +1,11 @@
+finite-west roots singleton 30 fully predecessor-flexible ages 8..500 493 outer cap max resolution 8 certified free (center,head)-pair past depths at 100,200,300,400,500 [9, 17, 29, 41, 45]
+finite-west roots singleton 90 fully predecessor-flexible ages 8..500 0 outer cap max resolution 500 certified free (center,head)-pair past depths at 100,200,300,400,500 [0, 0, 0, 0, 0]
+finite-west roots 01 30 fully predecessor-flexible ages 8..500 493 outer cap max resolution 8 certified free (center,head)-pair past depths at 100,200,300,400,500 [6, 18, 30, 42, 46]
+finite-west roots 01 90 fully predecessor-flexible ages 8..500 0 outer cap max resolution 500 certified free (center,head)-pair past depths at 100,200,300,400,500 [0, 0, 0, 0, 0]
+finite-west roots 011 30 fully predecessor-flexible ages 8..500 492 outer cap max resolution 9 certified free (center,head)-pair past depths at 100,200,300,400,500 [8, 20, 33, 37, 49]
+finite-west roots 011 90 fully predecessor-flexible ages 8..500 0 outer cap max resolution 500 certified free (center,head)-pair past depths at 100,200,300,400,500 [0, 0, 0, 0, 0]
+finite-west roots 0011 30 fully predecessor-flexible ages 8..500 493 outer cap max resolution 8 certified free (center,head)-pair past depths at 100,200,300,400,500 [5, 17, 29, 33, 45]
+finite-west roots 0011 90 fully predecessor-flexible ages 8..500 0 outer cap max resolution 500 certified free (center,head)-pair past depths at 100,200,300,400,500 [0, 0, 0, 0, 0]
+finite-west roots 00101 30 fully predecessor-flexible ages 8..500 493 outer cap max resolution 8 certified free (center,head)-pair past depths at 100,200,300,400,500 [8, 21, 32, 37, 49]
+finite-west roots 00101 90 fully predecessor-flexible ages 8..500 0 outer cap max resolution 500 certified free (center,head)-pair past depths at 100,200,300,400,500 [0, 0, 0, 0, 0]
+universal finite-parent rim masks: low 6=0x13 or low 8=0x7b; all four entering pairs pass

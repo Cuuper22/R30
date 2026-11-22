@@ -1,0 +1,12 @@
+wall 01 rule 30 width 16 bad row states 8426 nilpotent: at most 8 consecutive all-unsynchronized rows
+wall 01 rule 90 width 8 bad row states 256 temporal cyclic SCCs 1 sizes [512]
+wall 011 rule 30 width 16 bad row states 8426 nilpotent: at most 12 consecutive all-unsynchronized rows
+wall 011 rule 90 width 8 bad row states 256 temporal cyclic SCCs 1 sizes [768]
+wall 0011 rule 30 width 16 bad row states 8426 nilpotent: at most 9 consecutive all-unsynchronized rows
+wall 0011 rule 90 width 8 bad row states 256 temporal cyclic SCCs 1 sizes [1024]
+wall 00101 rule 30 width 16 bad row states 8426 nilpotent: at most 7 consecutive all-unsynchronized rows
+wall 00101 rule 90 width 8 bad row states 256 temporal cyclic SCCs 1 sizes [1280]
+wall 00111 rule 30 width 16 bad row states 8426 nilpotent: at most 8 consecutive all-unsynchronized rows
+wall 00111 rule 90 width 8 bad row states 256 temporal cyclic SCCs 1 sizes [1280]
+wall 0110000000110000001 rule 30 width 16 bad row states 8426 nilpotent: at most 12 consecutive all-unsynchronized rows
+wall 0110000000110000001 rule 90 width 8 bad row states 256 temporal cyclic SCCs 1 sizes [4864]
