@@ -2034,6 +2034,136 @@ theorem quiet_falls (c : Trace) (ep : EventuallyPeriodic c) (mark : c 0=true)
   · exact False.elim (reject_early c ep mark black join 8 f n h tiles k d dp (by omega) val)
 
 
+private def record (c : Trace) (t : Nat) : Nat → List Bool
+  | 0 => []
+  | n+1 => east c t (n+1)::record c t n
+
+private def reverseRecord : List Bool → Mem → List Bool × Bool
+  | [],z => ([],z.2)
+  | q::w,z =>
+    let (row,wall) := reverseRecord w (read q z)
+    (z.2::row,wall)
+
+private theorem reverse_real (c : Trace) (t n : Nat) :
+    reverseRecord (record c (t+1) n) (east c t (n+1),east c t n)=(record c t n,c t) := by
+  induction n with
+  | zero => simp [reverseRecord,record,east0]
+  | succ n ih => simp only [record,reverseRecord,east,undo,ih]
+
+private def precursors (v : Bool) (land : List (List Bool)) : List (List Bool) :=
+  (land.flatMap (fun w =>
+    ([(false,false),(false,true),(true,false),(true,true)] : List Mem).filterMap
+      (fun z => let p := reverseRecord w z; if p.2=v then some p.1 else none))).eraseDups
+
+private theorem precursor_real (c : Trace) (t n : Nat) (land : List (List Bool))
+    (v : Bool) (wall : c t=v) (mem : record c (t+1) n ∈ land) :
+    record c t n ∈ precursors v land := by
+  rw [precursors,List.mem_eraseDups,List.mem_flatMap]
+  refine ⟨_,mem,List.mem_filterMap.mpr ⟨(east c t (n+1),east c t n),?_,?_⟩⟩
+  · cases east c t (n+1) <;> cases east c t n <;> decide
+  · rw [reverse_real,wall];simp
+
+private def back : Nat → Bool → List (List Bool) → List (List Bool)
+  | 0,_,land => land
+  | k+1,v,land => if land.isEmpty then [] else back k v (precursors v land)
+
+private theorem back_real (c : Trace) (s width k : Nat) (v : Bool) (land : List (List Bool))
+    (clock : ∀ i,i<k → c (s+i)=v) (mem : record c (s+k) width∈land) :
+    record c s width∈back k v land := by
+  induction k generalizing land with
+  | zero => exact mem
+  | succ k ih =>
+    cases land with
+    | nil => contradiction
+    | cons w ws =>
+      simp only [back,List.isEmpty_cons,Bool.false_eq_true,ite_false]
+      exact ih _ (fun i lt => clock i (by omega))
+        (precursor_real _ _ _ _ _ (clock k (by omega)) mem)
+
+private theorem blank_record (c : Trace) (t n : Nat)
+    (quiet : ∀ d,0<d → d≤n → east c t d=false) : record c t n=List.replicate n false := by
+  induction n with
+  | zero => rfl
+  | succ n ih =>
+    rw [record,quiet _ (by omega) (by omega),ih (fun i pos le => quiet _ pos (by omega)),List.replicate_succ]
+
+private def compatible (h b d : Nat) : Bool :=
+  !(back h false (back b true [List.replicate d false])).isEmpty
+
+private theorem true_bridge (c : Trace) (s h b d : Nat)
+    (white : ∀ i,i<h → c (s+i)=false) (black : ∀ i,i<b → c (s+h+i)=true)
+    (quiet : ∀ j,0<j → j≤d → east c (s+h+b) j=false) : compatible h b d=true := by
+  have land : record c (s+h+b) d∈[List.replicate d false] := by simp [blank_record c _ _ quiet]
+  have had := back_real c _ d b true _ black land
+  have past := back_real c s d h false _ white had
+  unfold compatible;cases e : back h false (back b true [List.replicate d false]) <;> simp_all
+
+/- The finite inverse calculation is the literal four-possible-carry
+reader above. No precomputed image or host table enters the proof. -/
+set_option maxHeartbeats 5000000 in
+set_option maxRecDepth 8000 in
+private theorem first_width : ∀ b : Fin 9, 0<b.val → b.val≠3 → b.val≠7 →
+    compatible 100 b.val 10=false := by decide
+
+set_option maxHeartbeats 3000000 in
+set_option maxRecDepth 8000 in
+private theorem second_width : compatible 13 3 19=false ∧ compatible 13 7 19=false := by decide
+
+/-- The two forced widths reinforce each other. Ten forced vacancies
+allow bridge lengths 3 and 7 at most. The new seven-cell bridge cap
+forces nineteen vacancies; neither length can then occur. -/
+theorem excludes_windows (c : Trace) (ep : EventuallyPeriodic c) (mark : c 0=true)
+    (black : BlackLock c) (join : Joined c) : ¬PulseWindows c := by
+  rintro ⟨f,n,h,w⟩
+  have tiles := mild_tiles c f n h w
+  have zero10 (k d : Nat) (dp : 0<d) (bound : d≤10) : east c (f k+n k) d=false := by
+    cases e : east c (f k+n k) d
+    · rfl
+    · exact False.elim (reject_early c ep mark black join 8 f n h tiles k d dp
+        (by have := (w k).2.1;omega) e)
+  have predecessor (k a d : Nat) (length : a≤h k)
+      (quiet : ∀ j,0<j → j≤d → east c (f (k+1)+n (k+1)) j=false) :
+      compatible a (n (k+1)) d=true := by
+    obtain ⟨_,_,ends,_,white⟩ := w k
+    obtain ⟨_,_,_,solid,_⟩ := w (k+1)
+    let s := f (k+1)-a
+    have align : s+a=f (k+1) := by dsimp [s];omega
+    apply true_bridge c s a (n (k+1)) d
+    · intro i lt;have z := white (h k-a+i) (by omega)
+      rwa [show f k+n k+(h k-a+i)=s+i by omega] at z
+    · rwa [align]
+    · rwa [align]
+  have lengths (k : Nat) : n (k+1)=3 ∨ n (k+1)=7 := by
+    obtain ⟨pos,_,_,solid,_⟩ := w (k+1)
+    by_cases tooLong : 9≤n (k+1)
+    · have hot := (after_solid c (f (k+1)) _ tooLong solid).2
+      rw [zero10 _ _ (by decide) (by decide)] at hot;contradiction
+    · have real := predecessor k 100 10 (w k).2.1 (zero10 (k+1))
+      by_cases three : n (k+1)=3
+      · exact Or.inl three
+      · by_cases seven : n (k+1)=7
+        · exact Or.inr seven
+        · have no := first_width ⟨n (k+1),by omega⟩ pos three seven
+          exact False.elim (Bool.noConfusion (real.symm.trans no))
+  let g k := f (k+1)
+  let b k := n (k+1)
+  let z k := h (k+1)
+  have sevenTiles : LinearTiles c 7 g b z := by
+    intro k
+    obtain ⟨pos,sz,ends,solid,white⟩ := w (k+1)
+    refine ⟨by simpa [g] using solid 0 pos,pos,Or.inl ?_,by change 90≤h (k+1);omega,
+      by simpa [g,b,z,Nat.add_assoc] using ends,white⟩
+    change n (k+1)≤7;have := lengths k;omega
+  have newzero (d : Nat) (dp : 0<d) (le : d≤19) : east c (f 1+n 1) d=false := by
+    cases e : east c (f 1+n 1) d
+    · rfl
+    · exact False.elim (reject_early c ep mark black join 7 g b z sevenTiles 0 d dp
+        (by change d+81≤h 1;have := (w 1).2.1;omega) e)
+  have real := predecessor 0 13 19 (by have := (w 0).2.1;omega) newzero
+  rcases lengths 0 with e|e
+  · rw [e,second_width.1] at real;contradiction
+  · rw [e,second_width.2] at real;contradiction
+
 end RenewalFront
 
 /-- L1: at least ONE arm of an actual marked collision challenges the
@@ -2041,7 +2171,7 @@ inverse predictor on a capable label. This does not require either
 recurrence of the endpoint word or coincidence of the two endpoint words. -/
 theorem L1 (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
     (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
-    (past : Prefix c T) (black : BlackLock c) (outside : ¬PulseBasin c ∧ ¬RenewalFront.SparsePulseClock c ∧ ¬RenewalFront.Bridged c) (starts : ResetStarts c T P) :
+    (past : Prefix c T) (black : BlackLock c) (outside : ¬PulseBasin c ∧ ¬RenewalFront.SparsePulseClock c ∧ ¬RenewalFront.Bridged c) (short : ¬RenewalFront.PulseWindows c) (starts : ResetStarts c T P) :
     ∀ N d h, ∃ t v,N≤t ∧ Arm c T P d h t v ∧ capable (seven c (t+2))=true ∧
       need c (t+1)≠guess (seven c (t+2)) := by
   sorry
@@ -2093,11 +2223,9 @@ theorem collision (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
   have outside := And.intro (excludes_pulse_basin c mark ⟨T,P,hp,period⟩ black join)
     (And.intro (RenewalFront.excludes_sparse c ⟨T,P,hp,period⟩ mark black join)
       (RenewalFront.excludes_bridged c ⟨T,P,hp,period⟩ mark black join))
-  obtain ⟨n,stop⟩ : ∃ n,CollisionStop c T P n := by
-    by_cases w : RenewalFront.PulseWindows c
-    · exact windows_stop c T P hp mark period black join w
-    · exact L2 c T P hp mark period mixed past black outside w
-  obtain ⟨t,v,late,arm,cap,bad⟩ := L1 c T P hp mark period mixed past black outside
+  have noWindows := RenewalFront.excludes_windows c ⟨T,P,hp,period⟩ mark black join
+  obtain ⟨n,stop⟩ := L2 c T P hp mark period mixed past black outside noWindows
+  obtain ⟨t,v,late,arm,cap,bad⟩ := L1 c T P hp mark period mixed past black outside noWindows
     (reset_starts c T P hp mark period black join) (n+T+P+6) n n
   obtain ⟨last,shared,white,other,unequal⟩ := arm_stamp c T P n n t v period arm
   have wrong : east c (t+1) 1≠guess (seven c (t+2)) := by rwa [←join (t+1) white]
@@ -2188,6 +2316,7 @@ theorem close_step4 (hcenter : EventuallyPeriodic center) : False := by
 end OpenProblem.AncestryBlueprint
 #print axioms OpenProblem.AncestryBlueprint.decoder_bound
 #print axioms OpenProblem.AncestryBlueprint.reset_starts
+#print axioms OpenProblem.AncestryBlueprint.RenewalFront.excludes_windows
 #print axioms OpenProblem.AncestryBlueprint.windows_stop
 #print axioms OpenProblem.AncestryBlueprint.RenewalFront.excludes_bridged
 #print axioms OpenProblem.AncestryBlueprint.RenewalFront.excludes_sparse
