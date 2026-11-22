@@ -1385,6 +1385,46 @@ theorem vacant_lane (j : Nat) :
   exact ⟨k,lo,hi,fun t ht => white_now side law vac k t
     (Nat.le_trans (Nat.pow_le_pow_right (by decide) (by omega : k+1≤laneCap j+1)) ht) white⟩
 
+include law vac root in
+private theorem active_lane (j : Nat) :
+    ∃ k,j≤k ∧ k≤laneCap j+2 ∧ ∀ t,2^(laneCap j+3)≤t → side t (k:Int)=true := by
+  obtain ⟨w,ws,wb,white⟩ := vacant_lane side law vac root j
+  let A := 2^(laneCap j+1)
+  have noPair (n : Nat) (zero : ∀ t,A≤t → side t (n:Int)=false)
+      (next : ∀ t,A≤t → side t ((n:Int)+1)=false) : False := by
+    induction n with
+    | zero => exact Bool.noConfusion ((root A).symm.trans (zero A (by omega)))
+    | succ n ih =>
+      have prev (t : Nat) (ht : A≤t) : side t (n:Int)=false := by
+        have e := next (t+1) (by omega)
+        rw [law,show ((↑(n+1):Int)+1)-2=n by omega,
+          show ((↑(n+1):Int)+1)-1=(n+1:Nat) by omega,zero t ht,next t ht] at e
+        simpa [rule] using e
+      exact ih prev (fun t ht => by simpa using zero t ht)
+  obtain ⟨r,rs,rh⟩ : ∃ r,A≤r ∧ side r ((w:Int)+1)=true := by
+    apply Classical.byContradiction
+    intro missing
+    exact noPair w white (fun t ht => by
+      cases e : side t ((w:Int)+1)
+      · rfl
+      · exact False.elim (missing ⟨t,ht,e⟩))
+  have latch (t : Nat) (ht : A≤t) : side (t+1) ((w:Int)+2)=(side t ((w:Int)+1) || side t ((w:Int)+2)) := by
+    rw [law,show ((w:Int)+2)-2=w by omega,show ((w:Int)+2)-1=(w:Int)+1 by omega,white t ht]
+    simp [rule]
+  have on (i : Nat) : side (r+1+i) ((w:Int)+2)=true := by
+    induction i with
+    | zero => simp [latch r rs,rh]
+    | succ i ih => rw [show r+1+(i+1)=r+1+i+1 by omega,latch _ (by omega),ih,Bool.or_true]
+  refine ⟨w+2,by omega,by omega,?_⟩
+  intro t late
+  obtain ⟨p,hp,_,per⟩ := prefix_cycle side law vac (w+2)
+  have tcap : 2^(w+2+1)≤t := Nat.le_trans (Nat.pow_le_pow_right (by decide) (by omega : w+2+1≤laneCap j+3)) late
+  have eq := period_mul (fun s => side s ((w+2:Nat):Int)) _ p
+    (fun s hs => per s hs _ (by omega)) (r+1) t tcap
+  have mul : r+1≤p*(r+1) := by simpa using Nat.mul_le_mul_right (r+1) hp
+  rw [←eq,show t+p*(r+1)=r+1+(t+p*(r+1)-(r+1)) by omega]
+  simpa using on (t+p*(r+1)-(r+1))
+
 private def free (c : Trace) (s d : Nat) : Nat → Int → Bool
   | 0,j => if j<0 then false else east c s ((d:Int)+j).toNat
   | n+1,j => rule (free c s d n (j-2)) (free c s d n (j-1)) (free c s d n j)
@@ -1429,6 +1469,30 @@ private theorem compare_free (c : Trace) (s h d : Nat)
       rw [free,ih (by omega) x (by omega) (Or.inr (by omega)),
         ih (by omega) (x+1) (by omega) (Or.inl (by omega)),
         ih (by omega) (x+2) (by omega) (Or.inl (by omega))]
+      congr 1 <;> congr 1 <;> omega
+
+/-- Compare past the end of the white run while the changed wall is
+outside the backward cone. The later bridge may have any bit pattern. -/
+private theorem bridge_free (c : Trace) (s h d : Nat)
+    (wh : ∀ j,j<h → c (s+j)=false)
+    (clear : ∀ y,0<y → y<d → east c s y=false) :
+    ∀ i x,i<d+x → i<h+x →
+      east c (s+i) x=free c s d i ((x:Int)+i-d) := by
+  intro i
+  induction i with
+  | zero =>
+    intro x bound safe
+    exact compare_free c s h d wh clear 0 (by omega) x bound (by omega)
+  | succ i ih =>
+    intro x bound safe
+    cases x with
+    | zero =>
+      rw [east0,free_vac _ _ _ _ _ (by omega)]
+      exact wh _ (by omega)
+    | succ x =>
+      change rule (east c (s+i) x) (east c (s+i) (x+1)) (east c (s+i) (x+2))=_
+      rw [free,ih x (by omega) (by omega),ih (x+1) (by omega) (by omega),
+        ih (x+2) (by omega) (by omega)]
       congr 1 <;> congr 1 <;> omega
 
 private theorem early_ready (c : Trace) (s h d : Nat) (pos : 0<d) (room : d+8≤h)
@@ -1560,6 +1624,282 @@ theorem excludes_sparse (c : Trace) (ep : EventuallyPeriodic c) (mark : c 0=true
   rintro ⟨f,z⟩
   exact excludes_pulse_basin _ mark ep black join (enter_sparse 24 (Nat.le_refl _) c f z)
 
+/-- Behind a high head the stationary checker grows two cells per
+nine ticks. This statement applies at any physical column. -/
+private theorem checker (c : Trace) (x s h n : Nat)
+    (held : ∀ i,i≤h → east c (s+i) x=true) :
+    ∀ i,9*n≤i → i≤h →
+      east c (s+i) (x+2*n)=true ∧
+        (0<n → east c (s+i) (x+2*n-1)=false) := by
+  induction n with
+  | zero => intro i lo hi;exact ⟨by simpa using held i hi,by omega⟩
+  | succ n ih =>
+    intro i lo hi
+    have z := black_pair c (x+2*n) (s+i-9) (fun a ha => by
+      rw [show s+i-9+a=s+(i-9+a) by omega]
+      exact (ih _ (by omega) (by omega)).1)
+    rw [show s+i-9+9=s+i by omega] at z
+    exact ⟨by simpa [Nat.mul_succ,Nat.add_assoc] using z.2,fun _ => by
+      rw [show x+2*(n+1)-1=x+2*n+1 by omega];exact z.1⟩
+
+private def CheckerAt (c : Trace) (t width : Nat) : Prop :=
+  ∀ k,0<k → k≤width → east c t k=decide (k%2=1)
+
+private theorem early_checker (c : Trace) (s h d m : Nat) (pos : 0<d)
+    (room : d+9*(m+2)≤h) (wh : ∀ j,j<h → c (s+j)=false)
+    (clear : ∀ y,0<y → y<d → east c s y=false) (hit : east c s d=true) :
+    CheckerAt c (s+h) (2*m+4) := by
+  have arrive := compare_free c s h d wh clear (d-1) (by omega) 1 (by omega) (Or.inl (by omega))
+  rw [show ((1:Nat):Int)+(d-1:Nat)-d=0 by omega,free_mark c s d hit] at arrive
+  have high (i : Nat) (ls : i≤h-(d-1)) : east c (s+(d-1)+i) 1=true := by
+    exact head_hold c (s+(d-1)) i arrive (fun j hj => by
+      rw [show s+(d-1)+j=s+(d-1+j) by omega];exact wh _ (by omega))
+  intro k pk uk
+  have eq := checker c 1 (s+(d-1)) (h-(d-1)) (k/2) high (h-(d-1)) (by omega) (by omega)
+  rw [show s+(d-1)+(h-(d-1))=s+h by omega] at eq
+  by_cases odd : k%2=1
+  · rw [decide_eq_true odd,show k=1+2*(k/2) by omega];exact eq.1
+  · rw [decide_eq_false odd,show k=1+2*(k/2)-1 by omega];exact eq.2 (by omega)
+
+private theorem checker_survives (c : Trace) (t width : Nat) (ch : CheckerAt c t width) :
+    ∀ i x,i<x → x+i≤width → east c (t+i) x=decide (x%2=1) := by
+  intro i
+  induction i with
+  | zero => intro x pos lim;exact ch x pos lim
+  | succ i ih =>
+    intro x pos lim
+    obtain ⟨k,rfl⟩ := Nat.exists_eq_succ_of_ne_zero (show x≠0 by omega)
+    change rule (east c (t+i) k) (east c (t+i) (k+1)) (east c (t+i) (k+2))=_
+    rw [ih k (by omega) (by omega),ih (k+1) (by omega) (by omega),ih (k+2) (by omega) (by omega)]
+    by_cases odd : k%2=1
+    · simp [rule,odd,show ¬(k+1)%2=1 by omega,show (k+2)%2=1 by omega]
+    · simp [rule,odd,show (k+1)%2=1 by omega]
+
+private theorem checker_content (c : Trace) (t m : Nat) (ch : CheckerAt c t (2*m+4)) :
+    ∃ y,0<y ∧ y≤m+2 ∧ east c (t+m) y=true := by
+  let y := if m%2=0 then m+1 else m+2
+  have z := checker_survives c t _ ch m y (by dsimp [y];split <;> omega)
+    (by dsimp [y];split <;> omega)
+  refine ⟨y,by dsimp [y];split <;> omega,by dsimp [y];split <;> omega,?_⟩
+  rw [z];apply decide_eq_true;dsimp [y];split <;> omega
+
+private theorem first_flash (c : Trace) (t m : Nat)
+    (black : c t=true) (empty : ∀ i,0<i → i≤2*m → east c t i=false) :
+    east c (t+m) m=true := by
+  have triangle (k : Nat) (small : k≤m) :
+      east c (t+k) k=true ∧ ∀ i,k<i → i+k≤2*m → east c (t+k) i=false := by
+    induction k with
+    | zero => exact ⟨by simpa [east0] using black,fun i ip sz => empty i ip sz⟩
+    | succ k ih =>
+      obtain ⟨mark,z⟩ := ih (by omega)
+      constructor
+      · change rule (east c (t+k) k) (east c (t+k) (k+1)) (east c (t+k) (k+2))=true
+        rw [mark,z _ (by omega) (by omega),z _ (by omega) (by omega)];rfl
+      · intro i lo hi
+        obtain ⟨j,rfl⟩ := Nat.exists_eq_succ_of_ne_zero (show i≠0 by omega)
+        change rule (east c (t+k) j) (east c (t+k) (j+1)) (east c (t+k) (j+2))=false
+        rw [z _ (by omega) (by omega),z _ (by omega) (by omega),z _ (by omega) (by omega)];rfl
+  exact (triangle m (by omega)).1
+
+def bridgeJ (m : Nat) := 24*m+48
+def bridgeK (m : Nat) := laneCap (bridgeJ m)+2*m+4
+def bridgeH (m : Nat) := 2^(laneCap (bridgeJ m)+3)+bridgeK m+9*(m+2)+1
+
+/-- All m-bit bridges beginning black qualify, not just isolated
+black pulses. No value of any other bridge bit is assumed. -/
+theorem renewal (c : Trace) (s h m : Nat) (ml : 0<m) (long : bridgeH m≤h)
+    (wh : ∀ j,j<h → c (s+j)=false) (black : c (s+h)=true) :
+    ∃ y,0<y ∧ y≤bridgeK m ∧ east c (s+h+m) y=true := by
+  have mcap : m+2≤bridgeK m := by unfold bridgeK;omega
+  by_cases any : ∃ k,0<k ∧ k≤h+2*m ∧ east c s k=true
+  · obtain ⟨d,pos,le,hit,clear⟩ := first_in c s (h+2*m) any
+    by_cases early : d+9*(m+2)≤h
+    · obtain ⟨y,p,k,e⟩ := checker_content _ _ m (early_checker c s h d m pos early wh clear hit)
+      exact ⟨y,p,by omega,e⟩
+    · obtain ⟨j,lo,hi,on⟩ := active_lane (free c s d) (fun _ _ => rfl)
+        (free_vac c s d) (free_mark c s d hit) (bridgeJ m)
+      have cap : 2^(laneCap (bridgeJ m)+3)≤h :=
+        Nat.le_trans (Nat.le_trans (Nat.le_trans (Nat.le_add_right _ _) (Nat.le_add_right _ _)) (Nat.le_add_right _ _)) long
+      have now := on (h+m) (by omega)
+      let x := j+d-(h+m)
+      have bound : 24*m+48≤j := lo
+      have eq := bridge_free c s h d wh clear (h+m) x (by dsimp [x];omega) (by dsimp [x];omega)
+      rw [show ((x:Int)+(h+m:Nat)-d)=(j:Int) by dsimp [x];omega,now] at eq
+      exact ⟨x,by dsimp [x];omega,by dsimp [x,bridgeK];omega,by simpa [Nat.add_assoc] using eq⟩
+  · have empty (i : Nat) (pi : 0<i) (u : i≤h+2*m) : east c s i=false := by
+      cases z : east c s i
+      · rfl
+      · exact False.elim (any ⟨i,pi,u,z⟩)
+    have zero := white_triangle c s h (h+2*m) wh empty h (by omega)
+    exact ⟨m,ml,by omega,first_flash c (s+h) m black (fun i pi z => zero _ pi (by omega))⟩
+
+private theorem cap_mono {a b : Nat} (le : a≤b) : laneCap a≤laneCap b := by
+  have low := Nat.pow_le_pow_right (by decide : 0<2) (Nat.add_le_add_right le 2)
+  exact Nat.add_le_add (Nat.add_le_add_right le 2)
+    (Nat.pow_le_pow_right (by decide) (Nat.add_le_add low low))
+
+private theorem k_mono {a b : Nat} (le : a≤b) : bridgeK a≤bridgeK b := by
+  have z := cap_mono (a:=bridgeJ a) (b:=bridgeJ b) (by unfold bridgeJ;omega)
+  unfold bridgeK;omega
+
+private theorem h_mono {a b : Nat} (le : a≤b) : bridgeH a≤bridgeH b := by
+  have z := cap_mono (a:=bridgeJ a) (b:=bridgeJ b) (by unfold bridgeJ;omega)
+  have p := Nat.pow_le_pow_right (by decide : 0<2) (Nat.add_le_add_right z 3)
+  exact Nat.add_le_add_right (Nat.add_le_add (Nat.add_le_add p (k_mono le))
+    (Nat.mul_le_mul_left _ (Nat.add_le_add_right le 2))) 1
+
+private theorem space {m : Nat} : bridgeK m+9*(m+2)≤bridgeH m :=
+  Nat.le_trans (Nat.add_le_add_right (Nat.le_add_left _ _) _) (Nat.le_add_right _ _)
+
+private theorem white_profile (c : Trace) (s h d : Nat) (pos : 0<d)
+    (wh : ∀ j,j<h → c (s+j)=false) (clear : ∀ y,0<y → y<d → east c s y=false)
+    (hit : east c s d=true) (i : Nat) (il : i≤h) :
+    east c (s+i) 1=decide (d≤i+1) := by
+  by_cases arrived : d≤i+1
+  · rw [decide_eq_true arrived]
+    have first := compare_free c s h d wh clear (d-1) (by omega) 1 (by omega) (Or.inl (by omega))
+    rw [show ((1:Nat):Int)+(d-1:Nat)-d=0 by omega,free_mark c s d hit] at first
+    have z := head_hold c (s+(d-1)) (i-(d-1)) first (fun j lt => by
+      rw [show s+(d-1)+j=s+(d-1+j) by omega];exact wh _ (by omega))
+    rwa [show s+(d-1)+(i-(d-1))=s+i by omega] at z
+  · rw [decide_eq_false arrived]
+    exact (compare_free c s h d wh clear i il 1 (by omega) (Or.inl (by omega))).trans
+      (free_vac c s d i _ (by omega))
+
+private theorem compare_band (c : Trace) (s u width : Nat)
+    (clk : ∀ i,c (s+i)=c (u+i)) (old : CheckerAt c s width) (newer : CheckerAt c u width) :
+    ∀ i x,x+i≤width → east c (s+i) x=east c (u+i) x := by
+  intro i
+  induction i with
+  | zero =>
+    intro x le
+    cases x with
+    | zero => simpa [east0] using clk 0
+    | succ x => exact (old _ (by omega) le).trans (newer _ (by omega) le).symm
+  | succ i ih =>
+    intro x le
+    cases x with
+    | zero => simpa [east0] using clk (i+1)
+    | succ x =>
+      change rule (east c (s+i) x) (east c (s+i) (x+1)) (east c (s+i) (x+2))=
+        rule (east c (u+i) x) (east c (u+i) (x+1)) (east c (u+i) (x+2))
+      rw [ih x (by omega),ih (x+1) (by omega),ih (x+2) (by omega)]
+
+/-- Only the shorter bridge consumes checker width. The following long
+white interval can then have any length: its first occupied position
+determines all of its raw head reads and restores the whole checker. -/
+private theorem paired_bridge (c : Trace) (m s u n h : Nat) (bound : n≤m)
+    (long : bridgeH m≤h) (wh : ∀ j,j<h → c (s+n+j)=false)
+    (clk : ∀ i,c (s+i)=c (u+i))
+    (old : CheckerAt c s (2*m+4)) (newer : CheckerAt c u (2*m+4)) :
+    (CheckerAt c (s+n+h) (2*m+4) ∧ CheckerAt c (u+n+h) (2*m+4)) ∧
+    ∀ i,i<n+h → east c (s+i) 1=east c (u+i) 1 := by
+  have band := compare_band c s u _ clk old newer
+  obtain ⟨x,xp,xb,hit⟩ := checker_content c s n (fun k pk le => old k pk (by omega))
+  obtain ⟨d,dp,dx,yes,zero⟩ := first_in c (s+n) x ⟨x,xp,by omega,hit⟩
+  have right : east c (u+n) d=true := (band n d (by omega)).symm.trans yes
+  have zeros (y : Nat) (yp : 0<y) (yl : y<d) : east c (u+n) y=false :=
+    (band n y (by omega)).symm.trans (zero _ yp yl)
+  have whites (j : Nat) (lt : j<h) : c (u+n+j)=false := by
+    rw [Nat.add_assoc,←clk,←Nat.add_assoc];exact wh j lt
+  have kbound : m+2≤bridgeK m := by unfold bridgeK;omega
+  have room : d+9*(m+2)≤h := by have := Nat.le_trans (space (m:=m)) long;omega
+  refine ⟨⟨early_checker c (s+n) h d m dp room wh zero yes,
+    early_checker c (u+n) h d m dp room whites zeros right⟩,?_⟩
+  intro i lt
+  by_cases before : i<n
+  · exact band i 1 (by omega)
+  · have a := white_profile c (s+n) h d dp wh zero yes (i-n) (by omega)
+    have b := white_profile c (u+n) h d dp whites zeros right (i-n) (by omega)
+    rw [show s+n+(i-n)=s+i by omega] at a
+    rw [show u+n+(i-n)=u+i by omega] at b
+    exact a.trans b.symm
+
+/-- A clock language, not an east-state hypothesis. Each arbitrary
+positive bridge begins black. Widths and white gaps may vary at every
+occurrence; no periodicity of the chosen decomposition is assumed. -/
+def Bridged (c : Trace) : Prop :=
+  ∃ m : Nat, ∃ f n h : Nat → Nat, ∀ k,c (f k)=true ∧ 0<n k ∧ n k≤m ∧
+    bridgeH m≤h k ∧ f k+n k+h k=f (k+1) ∧ ∀ j,j<h k → c (f k+n k+j)=false
+
+theorem excludes_bridged (c : Trace) (ep : EventuallyPeriodic c) (mark : c 0=true)
+    (black : BlackLock c) (join : Joined c) : ¬Bridged c := by
+  rintro ⟨m,f,n,h,seq⟩
+  have advance (k : Nat) : f k<f (k+1) := by
+    obtain ⟨_,p,_,_,ends,_⟩ := seq k;omega
+  have many (a k : Nat) : f a+k≤f (a+k) := by
+    induction k with
+    | zero => simp
+    | succ k ih =>
+      change f a+k+1≤f (a+k+1)
+      exact Nat.le_trans (Nat.succ_le_succ ih) (advance (a+k))
+  have allcheck (k : Nat) : CheckerAt c (f (k+2)) (2*m+4) := by
+    obtain ⟨_,_,_,long,ends,wh⟩ := seq k
+    obtain ⟨bk,l,b,long',ends',wh'⟩ := seq (k+1)
+    have longn := Nat.le_trans (h_mono b) long
+    obtain ⟨y,yp,yb,hit⟩ := renewal c (f k+n k) (h k) (n (k+1)) l longn wh (by rw [ends];exact bk)
+    rw [ends] at hit
+    obtain ⟨d,dp,dy,yes,zero⟩ := first_in c _ y ⟨y,yp,by omega,hit⟩
+    have total : d+9*(m+2)≤h (k+1) := by have := k_mono b;have := Nat.le_trans (space (m:=m)) long';omega
+    rw [←ends'];exact early_checker _ _ _ _ _ dp total wh' zero yes
+  obtain ⟨T,P,hp,per⟩ := ep
+  let idx (i : Nat) := T+i+2
+  obtain ⟨a,b,lt,_,ph⟩ := QuantifiedSplit.repeat_le P (fun i => (f (idx i)-T)%P) (fun i _ => Nat.mod_lt _ hp)
+  let A := f (idx a)
+  let B := f (idx b)
+  let Q := B-A
+  have tA : T≤A := by have := many 0 (idx a);dsimp [A,idx] at *;simp at *;omega
+  have ab : A<B := by
+    have z := many (idx a) (idx b-idx a)
+    have eq : idx a+(idx b-idx a)=idx b := by dsimp [idx];omega
+    rw [eq] at z;dsimp [A,B];have lt' : idx a<idx b := by dsimp [idx];omega
+    omega
+  have atB : A+Q=B := by dsimp [Q];omega
+  have align := same_clock c T P per A B tA (by omega) ph
+  have later (t : Nat) (late : A≤t) : c t=c (t+Q) := by
+    have z := align (t-A);rwa [show A+(t-A)=t by omega,show B+(t-A)=t+Q by omega] at z
+  have older (k : Nat) := allcheck (T+a+k)
+  have shift (k : Nat) : T+a+k+2=idx a+k := by dsimp [idx];omega
+  have joinedChecks (k : Nat) : CheckerAt c (f (idx a+k)+Q) (2*m+4) := by
+    induction k with
+    | zero => change CheckerAt c (A+Q) _;rw [atB];exact allcheck (T+b)
+    | succ k ih =>
+      let q := idx a+k
+      obtain ⟨_,_,bound,long,ends,wh⟩ := seq q
+      have ca : CheckerAt c (f q) (2*m+4) := by simpa [shift k,q] using older k
+      have start : A≤f q := by have := many (idx a) k;dsimp [q,A] at *;omega
+      have step := paired_bridge c m (f q) (f q+Q) (n q) (h q) bound long wh
+        (fun i => by rw [show f q+Q+i=f q+i+Q by omega];exact later _ (by omega)) ca ih
+      rw [show f q+Q+n q+h q=f (q+1)+Q by omega] at step
+      exact step.1.2
+  have cover (t : Nat) (late : A≤t) : ∃ k,f (idx a+k)≤t ∧ t<f (idx a+k+1) := by
+    have all (r : Nat) : ∃ k,f (idx a+k)≤A+r ∧ A+r<f (idx a+k+1) := by
+      induction r with
+      | zero => exact ⟨0,by simp [A],by simpa [A] using advance (idx a)⟩
+      | succ r ih =>
+        obtain ⟨k,l,u⟩ := ih
+        by_cases ok : A+(r+1)<f (idx a+k+1)
+        · exact ⟨k,by omega,ok⟩
+        · exact ⟨k+1,by rw [←Nat.add_assoc];omega,by
+            have := advance (idx a+k+1);rw [←Nat.add_assoc (idx a) k 1];omega⟩
+    simpa [Nat.add_sub_of_le late] using all (t-A)
+  apply west_rich c mark ⟨T,P,hp,per⟩ black
+  refine ⟨A,Q,by dsimp [Q];omega,?_⟩
+  intro t late
+  have ct := later t late
+  obtain ⟨k,lo,hi⟩ := cover t late
+  let q := idx a+k
+  obtain ⟨_,_,bound,long,ends,wh⟩ := seq q
+  have start : A≤f q := by have := many (idx a) k;dsimp [q,A] at *;omega
+  have ca : CheckerAt c (f q) (2*m+4) := by simpa [shift k,q] using older k
+  have step := paired_bridge c m (f q) (f q+Q) (n q) (h q) bound long wh
+    (fun i => by rw [show f q+Q+i=f q+i+Q by omega];exact later _ (by omega)) ca (joinedChecks k)
+  change f q≤t at lo;change t<f (q+1) at hi
+  have e := step.2 (t-f q) (by omega)
+  rw [show f q+(t-f q)=t by omega,show f q+Q+(t-f q)=t+Q by omega] at e
+  cases val : c t <;> simp [whiteNeed,←ct,val,join t,join (t+Q),ct.symm.trans val,e]
+
+
 end RenewalFront
 
 /-- L1: at least ONE arm of an actual marked collision challenges the
@@ -1567,7 +1907,7 @@ inverse predictor on a capable label. This does not require either
 recurrence of the endpoint word or coincidence of the two endpoint words. -/
 theorem L1 (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
     (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
-    (past : Prefix c T) (black : BlackLock c) (outside : ¬PulseBasin c ∧ ¬RenewalFront.SparsePulseClock c) (starts : ResetStarts c T P) :
+    (past : Prefix c T) (black : BlackLock c) (outside : ¬PulseBasin c ∧ ¬RenewalFront.SparsePulseClock c ∧ ¬RenewalFront.Bridged c) (starts : ResetStarts c T P) :
     ∀ N d h, ∃ t v,N≤t ∧ Arm c T P d h t v ∧ capable (seven c (t+2))=true ∧
       need c (t+1)≠guess (seven c (t+2)) := by
   sorry
@@ -1577,7 +1917,7 @@ from sufficiently deep matched reset starts. It says nothing about
 unmatched cuts, bounded source collars, or any other phase or word. -/
 theorem L2 (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
     (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
-    (past : Prefix c T) (black : BlackLock c) (outside : ¬PulseBasin c ∧ ¬RenewalFront.SparsePulseClock c) :
+    (past : Prefix c T) (black : BlackLock c) (outside : ¬PulseBasin c ∧ ¬RenewalFront.SparsePulseClock c ∧ ¬RenewalFront.Bridged c) :
     ∃ n, ∀ t v,n≤t → Arm c T P n n t v → c t=true → c (t+1)=false → east c t 1=false →
       let w := seven c (t+2)
       (code w=67 ∨ code w=91) → BlackCut c t w → Bracket c P t w →
@@ -1595,7 +1935,8 @@ theorem collision (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
     (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
     (past : Prefix c T) (black : BlackLock c) (join : Joined c) : False := by
   have outside := And.intro (excludes_pulse_basin c mark ⟨T,P,hp,period⟩ black join)
-    (RenewalFront.excludes_sparse c ⟨T,P,hp,period⟩ mark black join)
+    (And.intro (RenewalFront.excludes_sparse c ⟨T,P,hp,period⟩ mark black join)
+      (RenewalFront.excludes_bridged c ⟨T,P,hp,period⟩ mark black join))
   obtain ⟨n,stop⟩ := L2 c T P hp mark period mixed past black outside
   obtain ⟨t,v,late,arm,cap,bad⟩ := L1 c T P hp mark period mixed past black outside
     (reset_starts c T P hp mark period black join) (n+T+P+6) n n
@@ -1688,6 +2029,7 @@ theorem close_step4 (hcenter : EventuallyPeriodic center) : False := by
 end OpenProblem.AncestryBlueprint
 #print axioms OpenProblem.AncestryBlueprint.decoder_bound
 #print axioms OpenProblem.AncestryBlueprint.reset_starts
+#print axioms OpenProblem.AncestryBlueprint.RenewalFront.excludes_bridged
 #print axioms OpenProblem.AncestryBlueprint.RenewalFront.excludes_sparse
 #print axioms OpenProblem.AncestryBlueprint.excludes_pulse_basin
 #print axioms OpenProblem.AncestryBlueprint.west_rich
