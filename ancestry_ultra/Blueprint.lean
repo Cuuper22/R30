@@ -204,6 +204,54 @@ private theorem older_escape (c : Trace) (t : Nat) (w : Seven) (word : seven c (
   rw [old] at hv
   exact hv
 
+/-- The earlier black cut is an absolute source fixture, not an
+unconstrained eighth-bit transfer. In the 67 case the OLD ninth cell is
+specified because it was the true input to the eighth update. -/
+def BlackCut (c : Trace) (t : Nat) (w : Seven) : Prop :=
+  (code w=67 ∧ code (seven c t)=0 ∧ east c t 8=false ∧ east c t 9=true) ∨
+  (code w=91 ∧ east c t 2=true)
+
+set_option synthInstance.maxSize 2800 in
+set_option maxHeartbeats 12000000 in
+set_option maxRecDepth 15000 in
+private theorem cut_cert : ∀ a b d e f g h z x y X Y : Bool,
+    let w : Seven := ⟨a,b,d,e,f,g,h⟩
+    let v := rewind w z (x,y)
+    let k := rewind v y (X,Y)
+    (code w=67 ∨ code w=91) → (scan w z (x,y)).2=false → (scan w z (x,y)).1≠guess w →
+      scan v y (X,Y)=(false,true) →
+      ((code w=67 ∧ code k=0 ∧ Y=false ∧ X=true) ∨ (code w=91 ∧ k.b=true)) := by decide
+
+private theorem physical_cut (c : Trace) (t : Nat) (w : Seven) (word : seven c (t+2)=w)
+    (white : c (t+1)=false) (special : code w=67 ∨ code w=91)
+    (bad : east c (t+1) 1≠guess w) (back : (east c t 1,c t)=(false,true)) :
+    BlackCut c t w := by
+  subst w
+  let w := seven c (t+2)
+  let z := east c (t+2) 8
+  let x := (east c (t+1) 9,east c (t+1) 8)
+  let y := (east c t 9,east c t 8)
+  have now : scan w z x=(east c (t+1) 1,c (t+1)) := physical_scan c (t+1)
+  have old : rewind w z x=seven c (t+1) := physical_rewind c (t+1)
+  have prev : scan (rewind w z x) x.2 y=(false,true) := by
+    rw [old]; exact (physical_scan c t).trans back
+  have readback : rewind (rewind w z x) x.2 y=seven c t := by rw [old];exact physical_rewind c t
+  have H := cut_cert w.a w.b w.c w.d w.e w.f w.g z x.1 x.2 y.1 y.2 special
+    (by rw [now];exact white) (by rw [now];exact bad) prev
+  change (code w=67 ∧ code (rewind (rewind w z x) x.2 y)=0 ∧ y.2=false ∧ y.1=true) ∨
+    (code w=91 ∧ (rewind (rewind w z x) x.2 y).b=true) at H
+  rw [readback] at H
+  exact H
+
+private theorem mirrored (c : Trace) (t : Nat) (bw : c t=true) (white : c (t+1)=false)
+    (zero : east c t 1=false) (join : Joined c) :
+    xor (west c t 2) (east c t 2)=c (t+2) := by
+  have q := join (t+1) white
+  change xor (rule (west c t 2) (west c t 1) (west c t 0)) (c (t+2)) =
+    rule (east c t 0) (east c t 1) (east c t 2) at q
+  rw [west0,east0,bw,zero] at q
+  cases u : west c t 2 <;> cases v : east c t 2 <;> cases b : c (t+2) <;> simp_all [rule]
+
 def Visit (c : Trace) (P p : Nat) (w : Seven) (t : Nat) : Prop :=
   t%P=p ∧ c t=false ∧ seven c (t+1)=w
 
@@ -245,7 +293,7 @@ theorem L2 (c : Trace) (T P p : Nat) (w : Seven) (hp : 0<P) (ph : p<P)
     (past : Prefix c T) (black : BlackLock c) (cap : capable w=true)
     (special : code w=67 ∨ code w=91) (fork : WesternFork c P p w (true,false)) :
     ∃ N, ∀ t, N≤t → Visit c P p w (t+1) → c t=true → east c t 1=false →
-      east c (t+2) 8=true → reset w (east c (t+2) 8)=false → east c (t+1) 1=guess w := by
+      BlackCut c t w → xor (west c t 2) (east c t 2)=c (t+2) → east c (t+2) 8=true → reset w (east c (t+2) 8)=false → east c (t+1) 1=guess w := by
   sorry
 
 private theorem stays_high (c : Trace) (t : Nat) (white : c t=false) (old : east c t 1=true) :
@@ -289,8 +337,9 @@ theorem collision (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
   obtain ⟨_,_,_,stampEq,_,_,special,_,_,_⟩ := escaped 0
   rw [stampEq] at fork
   obtain ⟨N,stop⟩ := L2 c T P p w hp ph mark period mixed past black cap special fork
-  obtain ⟨t,late,v,_,bw,zero,_,bit,unsync,different⟩ := escaped N
-  exact different (stop t late v bw zero bit unsync)
+  obtain ⟨t,late,v,_,bw,zero,spec,bit,unsync,different⟩ := escaped N
+  have cut := physical_cut c t w v.2.2 v.2.1 spec different (Prod.ext zero bw)
+  exact different (stop t late v bw zero cut (mirrored c t bw v.2.1 zero join) bit unsync)
 
 private theorem halves_actual (t d : Nat) :
     east center t d=cell t (d:Int) ∧ west center t d=cell t (-(d:Int)) := by
