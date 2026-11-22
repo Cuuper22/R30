@@ -236,6 +236,115 @@ theorem common_strobe (c : Trace) (j N k : Nat) (hj : j ≤ N) (hk : 0 < k) :
       show (↑(2^N*k:Nat):Int)-(j:Int)=((2^N*k-j:Nat):Int) by omega] at h
   exact h
 
+/-- Independent west half. Unlike pair, it is initialized white on every
+strict-west site even when the supplied candidate has a bad inverse seed. -/
+def west (c : Trace) : Nat → Nat → Bool
+  | 0, 0 => c 0
+  | 0, _+1 => false
+  | t+1, 0 => c (t+1)
+  | t+1, d+1 => rule (west c t (d+2)) (west c t (d+1)) (west c t d)
+
+private theorem west_wall (c : Trace) (t : Nat) : west c t 0 = c t := by cases t <;> rfl
+
+private theorem west_vac (c : Trace) (t d : Nat) (h : t < d) : west c t d = false := by
+  induction t generalizing d with
+  | zero => cases d <;> simp_all [west]
+  | succ t ih =>
+    obtain ⟨j,rfl⟩ := Nat.exists_eq_succ_of_ne_zero (show d ≠ 0 by omega)
+    change rule (west c t (j+2)) (west c t (j+1)) (west c t j) = false
+    rw [ih _ (by omega),ih _ (by omega),ih _ (by omega)]
+    rfl
+
+theorem west_tip (c : Trace) (mark : c 0 = true) (t : Nat) : west c t t = true := by
+  induction t with
+  | zero => exact mark
+  | succ t ih =>
+    change rule (west c t (t+2)) (west c t (t+1)) (west c t t) = true
+    rw [west_vac _ _ _ (by omega),west_vac _ _ _ (by omega),ih]
+    rfl
+
+private theorem pair_step (c : Trace) (t d : Nat) :
+    (pair c (d+1)).1 (t+1) =
+    rule ((pair c (d+2)).1 t) ((pair c (d+1)).1 t) ((pair c d).1 t) := by
+  exact (reapply _ _ _).symm
+
+/-- Finite anchoring, not an assumption that the inverse seed vanishes
+at all depths. It suffices to check through the far endpoint of this cone. -/
+theorem finite_west (c : Trace) (t d : Nat)
+    (blank : ∀ j, 0<j → j≤t+d → origin c j=false) :
+    (pair c d).1 t = west c t d := by
+  induction t generalizing d with
+  | zero =>
+    cases d with
+    | zero => rfl
+    | succ d => exact blank (d+1) (by omega) (by omega)
+  | succ t ih =>
+    cases d with
+    | zero => exact (west_wall c (t+1)).symm
+    | succ d =>
+      rw [pair_step]
+      change rule _ _ _ = rule (west c t (d+2)) (west c t (d+1)) (west c t d)
+      rw [ih (d+2) (by intro j j0 jj; exact blank j j0 (by omega)),
+          ih (d+1) (by intro j j0 jj; exact blank j j0 (by omega)),
+          ih d (by intro j j0 jj; exact blank j j0 (by omega))]
+
+def gate (c : Trace) (t : Nat) : Bool := c t || east c t 1
+
+/-- A finite vertical gate record decodes the whole west end of a chosen
+sideways diagonal. Black-wall times require no strict east information. -/
+theorem finite_decode (c : Trace) (d s u : Nat)
+    (wall : ∀ i, i≤d → c (s+i)=c (u+i))
+    (gates : ∀ i, i<d → gate c (s+i)=gate c (u+i)) :
+    (pair c d).1 s = (pair c d).1 u := by
+  induction d using Nat.strongRecOn generalizing s u with
+  | ind d ih =>
+    cases d with
+    | zero => simpa [pair] using wall 0 (by omega)
+    | succ d =>
+      cases d with
+      | zero =>
+        change xor (c (s+1)) (gate c s) = xor (c (u+1)) (gate c u)
+        rw [wall 1 (by omega),show gate c s = gate c u by simpa using gates 0 (by omega)]
+      | succ d =>
+        change xor ((pair c (d+1)).1 (s+1)) ((pair c (d+1)).1 s || (pair c d).1 s) =
+          xor ((pair c (d+1)).1 (u+1)) ((pair c (d+1)).1 u || (pair c d).1 u)
+        rw [ih (d+1) (by omega) (s+1) (u+1)
+              (by intro i hi; simpa [Nat.add_assoc] using wall (1+i) (by omega))
+              (by intro i hi; simpa [Nat.add_assoc] using gates (1+i) (by omega)),
+            ih (d+1) (by omega) s u
+              (by intro i hi; exact wall i (by omega))
+              (by intro i hi; exact gates i (by omega)),
+            ih d (by omega) s u
+              (by intro i hi; exact wall i (by omega))
+              (by intro i hi; exact gates i (by omega))]
+
+/-- Two separately initialized, finite certificates on opposite sides give
+a positive right strobe. The match lasts d samples, ending at ANY later
+black strictly beyond the older rim, not necessarily the later rim u. -/
+theorem crossing_strobe (c : Trace) (s u d k : Nat) (su : s < u) (old : s < d)
+    (newer : west c u d = true) (hk : 0<k)
+    (wall : ∀ i, i≤d → c (s+i)=c (u+i))
+    (gates : ∀ i, i<d → gate c (s+i)=gate c (u+i)) :
+    ∃ j, 0<j ∧ j≤u+d ∧ east c (2^(u+d)*k) (2^(u+d)*k-j)=true := by
+  by_cases hit : ∃ j, 0<j ∧ j≤u+d ∧ origin c j=true
+  · obtain ⟨j,hj,hn,h⟩ := hit
+    exact ⟨j,hj,hn,(common_strobe c j (u+d) k hn hk).trans h⟩
+  · have blank (j : Nat) (p : 0<j) (n : j≤u+d) : origin c j=false := by
+      cases e : origin c j with
+      | false => rfl
+      | true => exact False.elim (hit ⟨j,p,n,e⟩)
+    have same := finite_decode c d s u wall gates
+    rw [finite_west c s d (by intro j p n; exact blank j p (by omega)),
+      finite_west c u d blank,west_vac _ _ _ old,newer] at same
+    contradiction
+
+/-- A marked finite crossing uses equality at two actual phases of the
+candidate gate stream. No repetition of full rows or masks is posited. -/
+def Seam (c : Trace) : Prop :=
+  ∃ s u d, s<u ∧ s<d ∧ west c u d=true ∧
+    (∀ i, i≤d → c (s+i)=c (u+i)) ∧
+    (∀ i, i<d → gate c (s+i)=gate c (u+i))
+
 /-- Every putative periodic wall can be specified by a finite onset/period word.
 This is a sequence on TIME, never a spatial periodicization of a genuine age row. -/
 def repeatWord (c : Trace) (T P i : Nat) : Bool :=
@@ -249,7 +358,13 @@ theorem L1 (c : Trace) (hmark : c 0 = true) (T P : Nat) (hp : 0 < P)
   -- at once. Its tip is already marked. Show there is a SECOND black in a
   -- growing outer collar; no agreement/return of full rows is assumed.
   have hit : ∃ N j, 0 < j ∧ j ≤ N ∧ east w (2^N*P) (2^N*P-j) = true := by
-    sorry
+    by_cases seam : Seam w
+    · obtain ⟨s,u,d,su,old,newer,wall,gates⟩ := seam
+      obtain ⟨j,pos,le,hit⟩ := crossing_strobe w s u d P su old newer hp wall gates
+      exact ⟨u+d,j,pos,le,hit⟩
+    · -- Remaining case: every common finite gate record forces the later
+      -- independently initialized west row blank throughout its excess.
+      sorry
   obtain ⟨N,j,pos,hj,one⟩ := hit
   rw [common_strobe w j N P hj hp] at one
   refine ⟨j,?_,one⟩
