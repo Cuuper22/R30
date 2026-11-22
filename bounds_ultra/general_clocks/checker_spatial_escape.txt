@@ -1,0 +1,16 @@
+east-to-west checker pair masks 30 0 [11, 6, 10, 4, 2]
+east-to-west checker pair masks 30 1 [7, 11, 6, 10, 4]
+east-to-west checker pair masks 90 0 [15, 15, 15, 15, 15]
+east-to-west checker pair masks 90 1 [15, 15, 15, 15, 15]
+clock 01 rule 30 checker-island eligible 8591 max (b−4a) 2
+clock 01 rule 90 checker-island eligible 8232 max (b−4a) 0
+clock 011 rule 30 checker-island eligible 8493 max (b−4a) 1
+clock 011 rule 90 checker-island eligible 8489 max (b−4a) 1
+clock 0011 rule 30 checker-island eligible 9403 max (b−4a) 1
+clock 0011 rule 90 checker-island eligible 5827 max (b−4a) 0
+clock 00101 rule 30 checker-island eligible 8469 max (b−4a) 2
+clock 00101 rule 90 checker-island eligible 8562 max (b−4a) 1
+R90 entire-checker eastern landing, mixed past explicitly lifted 01 tested 40 ticks 80 sites
+R90 entire-checker eastern landing, mixed past explicitly lifted 011 tested 40 ticks 80 sites
+R90 entire-checker eastern landing, mixed past explicitly lifted 0011 tested 40 ticks 80 sites
+R90 entire-checker eastern landing, mixed past explicitly lifted 00101 tested 40 ticks 80 sites

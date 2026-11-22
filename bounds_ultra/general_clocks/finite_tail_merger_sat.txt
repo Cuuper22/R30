@@ -1,0 +1,2 @@
+011 0 30 28 24 6fdb unknown
+00101 1 30 28 24 6063b UNSAT for d,m only
