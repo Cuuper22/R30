@@ -377,13 +377,87 @@ theorem shell_cut (k b : Nat) (hb : 0<b) :
   rw [idx] at h
   simpa [gap] using h
 
-/-- Hard arithmetic link. On one sufficiently late dyadic shell, a Mersenne
-coefficient and a non-Mersenne odd multiple have the SAME interior parity.
-The multiple may be chosen after the shell; no periodicity or recurrence
-of a guessed finite-state source is assumed. -/
-theorem L1 (P N : Nat) (hP : 0 < P) :
-    ∃ k j : Nat, 0 < j ∧ N < 2^(k+1) ∧
-      core k (2^(k+1) - 1) 0 = core k ((2 * (P*j) + 1) * 2^(k+1) - 1) 0 := by
+private theorem leftVac (t : Nat) (x : Int) (h : x < -(t:Int)) : cell t x=false := by
+  induction t generalizing x with
+  | zero => simp [cell];omega
+  | succ t ih =>
+    simp only [cell,rule]
+    rw [ih (x-1) (by omega),ih x (by omega),ih (x+1) (by omega)]
+    rfl
+
+private theorem core_vac (k t : Nat) (x : Int) (out : x < -(t:Int) ∨ (t:Int)<x) :
+    core k t x=false := by
+  induction t generalizing x with
+  | zero => rfl
+  | succ t ih =>
+    have v : cell t x=false := by
+      rcases out with h|h
+      · exact leftVac t x (by omega)
+      · exact rightVac t x (by omega)
+    simp [core, coreSource,interiorSource,v,ih (x-1) (by omega),ih (x+1) (by omega)]
+
+/-- Fresh moving-core response: only genuine events from ages s through
+s+r−1 are read. Coordinate d is normalized from the true east mark. -/
+def fresh (k s : Nat) : Nat → Int → Bool
+  | 0, _ => false
+  | r+1, d => xor (xor (fresh k s r d) (fresh k s r (d-2)))
+      (coreSource k (s+r) ((s:Int)+(r:Int)+1-d))
+
+private theorem fresh_decomp (k s r : Nat) (d : Int) :
+    core k (s+r) ((s:Int)+(r:Int)-d) =
+      xor (walk r (fun y => core k s ((s:Int)-y)) d) (fresh k s r d) := by
+  induction r generalizing d with
+  | zero => simp [walk,fresh]
+  | succ r ih =>
+    rw [show s+(r+1)=s+r+1 by omega]
+    simp only [core,walk,fresh,Int.natCast_succ]
+    rw [show (s:Int)+((r:Int)+1)-d-1=(s:Int)+(r:Int)-d by omega,
+        show (s:Int)+((r:Int)+1)-d+1=(s:Int)+(r:Int)-(d-2) by omega,
+        show (s:Int)+((r:Int)+1)-d=(s:Int)+(r:Int)+1-d by omega,ih,ih]
+    generalize walk r (fun y => core k s ((s:Int)-y)) d=a
+    generalize walk r (fun y => core k s ((s:Int)-y)) (d-2)=b
+    generalize fresh k s r d=c;generalize fresh k s r (d-2)=e
+    generalize coreSource k (s+r) ((s:Int)+(r:Int)+1-d)=f
+    cases a <;> cases b <;> cases c <;> cases e <;> cases f <;> rfl
+
+/-- At the top of a dyadic cone, the input row enters only at its two
+extremal sites. For the true finite singleton, both lie outside the mark. -/
+theorem fresh_reset (k s h : Nat) (early : s<2^h) :
+    core k (s+2^h) 0 = fresh k s (2^h) ((s+2^h:Nat):Int) := by
+  let d : Int := ((s+2^h:Nat):Int)
+  have e := fresh_decomp k s (2^h) d
+  have z : (s:Int)+((2^h:Nat):Int)-d=0 := by dsimp [d];omega
+  rw [z] at e
+  have f := walk_pow h 0 (fun y => core k s ((s:Int)-y)) d
+  simp only [Nat.zero_add,walk] at f
+  have hd : d=(s:Int)+((2^h:Nat):Int) := by dsimp [d]
+  rw [core_vac k s _ (Or.inl (by omega)),core_vac k s _ (Or.inr (by omega))] at f
+  rw [f] at e
+  simpa [d] using e
+
+/-- The finite triangle needed for a shell coefficient n: discard all
+source ages below n−2^⌊log₂ n⌋, including their accumulated state. -/
+def shellRead (k n : Nat) : Bool :=
+  fresh k (n-2^n.log2) (2^n.log2) (n:Int)
+
+theorem shellRead_eq (k n : Nat) (pos : 0<n) : core k n 0=shellRead k n := by
+  have lo := Nat.log2_self_le (Nat.ne_of_gt pos)
+  have hi := Nat.lt_log2_self (n:=n)
+  rw [Nat.pow_succ] at hi
+  have h := fresh_reset k (n-2^n.log2) n.log2 (by omega)
+  rwa [show n-2^n.log2+2^n.log2=n by omega] at h
+
+def shellAge (k b : Nat) : Nat := b*2^(k+1)-1
+
+/-- Hard arithmetic link: an equal-parity pair of fresh, genuinely evolved
+endpoint triangles in one residue class. One multiplier is a pure power of
+two, the other has nontrivial odd part. Either can come first, with no
+lower bound on their relative separation. Both excised collars grow. -/
+theorem L1 (P N : Nat) (hP : 0<P) :
+    ∃ k a v d : Nat, 0<d ∧ N<2^(k+1) ∧
+      let A := shellAge k (2^a)
+      let B := shellAge k ((2*d+1)*2^v)
+      A%P=B%P ∧ shellRead k A=shellRead k B := by
   sorry
 
 private theorem repeat_add {f : Nat → Bool} {T P : Nat}
@@ -394,25 +468,44 @@ private theorem repeat_add {f : Nat → Bool} {T P : Nat}
   | succ m ih =>
     rw [Nat.mul_succ, ← Nat.add_assoc, h (t+P*m) (by omega), ih]
 
+private theorem repeat_mod {f : Nat→Bool} {P T A B : Nat} (h : ∀ t,T≤t → f (t+P)=f t)
+    (a : T≤A) (b : T≤B) (same : A%P=B%P) : f A=f B := by
+  have a' := Nat.mod_add_div A P
+  have b' := Nat.mod_add_div B P
+  have eq : A+P*(B/P)=B+P*(A/P) := by omega
+  exact (repeat_add h A a (B/P)).symm.trans ((congrArg f eq).trans (repeat_add h B b (A/P)))
+
 theorem close_step4 (hcenter : EventuallyPeriodic center) : False := by
   obtain ⟨T,P,hP,period⟩ := hcenter
-  obtain ⟨k,j,hj,ht,he⟩ := L1 P T hP
-  have hpow : 0 < 2^(k+1) := Nat.pow_pos (by decide)
-  have hd : 0 < P*j := Nat.mul_pos hP hj
-  obtain ⟨h₁,h₂⟩ := L2 (k+1) (P*j) hd
-  have halg : (2*(P*j)+1)*2^(k+1) = P*((2*j)*2^(k+1)) + 2^(k+1) := by
-    rw [Nat.add_mul, Nat.one_mul]
-    congr 1
-    ac_rfl
-  have hindex : (2^(k+1) - 1) + P*((2*j)*2^(k+1)) = (2*(P*j)+1)*2^(k+1) - 1 := by
-    rw [halg]; omega
-  have ca : interior (2^(k+1)-1) 0 = core k (2^(k+1)-1) 0 := by
-    simpa using shell_cut k 1 (by decide)
-  have cb := shell_cut k (2*(P*j)+1) (by omega)
-  have htime := repeat_add period (2^(k+1)-1) (by omega) ((2*j)*2^(k+1))
-  rw [hindex] at htime
-  unfold center at htime
-  rw [row_split _ 0, row_split (2^(k+1)-1) 0, h₁, h₂, ca, cb, ← he] at htime
-  cases hh : core k (2^(k+1)-1) 0 <;> simp [hh] at htime
+  obtain ⟨k,a,v,d,hd,ht,hs,he⟩ := L1 P T hP
+  let A := shellAge k (2^a)
+  let B := shellAge k ((2*d+1)*2^v)
+  change A%P=B%P at hs
+  change shellRead k A=shellRead k B at he
+  have va : 0<2^a := Nat.pow_pos (by decide)
+  have vb : 0<(2*d+1)*2^v := Nat.mul_pos (by omega) (Nat.pow_pos (by decide))
+  have hv : 1<2^(k+1) := Nat.one_lt_two_pow (by omega)
+  have large (b : Nat) (hb : 0<b) : 2^(k+1)-1≤shellAge k b := by
+    have le := Nat.mul_le_mul_right (2^(k+1)) hb
+    simp only [Nat.one_mul] at le;unfold shellAge;omega
+  have al := large (2^a) va
+  have bl := large ((2*d+1)*2^v) vb
+  change 2^(k+1)-1≤A at al
+  change 2^(k+1)-1≤B at bl
+  have fa : fringe A 0=true := by
+    change fringe (2^a*2^(k+1)-1) 0=true
+    rw [←Nat.pow_add]
+    exact (L2 (a+(k+1)) 1 (by decide)).1
+  have fb : fringe B 0=false := by
+    change fringe ((2*d+1)*2^v*2^(k+1)-1) 0=false
+    rw [Nat.mul_assoc,←Nat.pow_add]
+    exact (L2 (v+(k+1)) d hd).2
+  have ca : interior A 0=core k A 0 := shell_cut k _ va
+  have cb : interior B 0=core k B 0 := shell_cut k _ vb
+  have hpair : center A=center B := repeat_mod period (by omega) (by omega) hs
+  unfold center at hpair
+  rw [row_split A 0,row_split B 0,fa,fb,ca,cb,shellRead_eq k A (by omega),
+      shellRead_eq k B (by omega),←he] at hpair
+  cases hh : shellRead k A <;> simp [hh] at hpair
 
 end OpenProblem.BoundsBlueprint
