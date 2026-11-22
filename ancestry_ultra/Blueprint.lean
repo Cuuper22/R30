@@ -209,7 +209,9 @@ unconstrained eighth-bit transfer. In the 67 case the OLD ninth cell is
 specified because it was the true input to the eighth update. -/
 def BlackCut (c : Trace) (t : Nat) (w : Seven) : Prop :=
   (code w=67 ∧ code (seven c t)=0 ∧ east c t 8=false ∧ east c t 9=true) ∨
-  (code w=91 ∧ east c t 2=true)
+  (code w=91 ∧ east c t 2=true ∧
+    let v := code (seven c t) + 128*(east c t 8).toNat
+    v=6 ∨ v=122 ∨ v=186)
 
 set_option synthInstance.maxSize 2800 in
 set_option maxHeartbeats 12000000 in
@@ -220,7 +222,9 @@ private theorem cut_cert : ∀ a b d e f g h z x y X Y : Bool,
     let k := rewind v y (X,Y)
     (code w=67 ∨ code w=91) → (scan w z (x,y)).2=false → (scan w z (x,y)).1≠guess w →
       scan v y (X,Y)=(false,true) →
-      ((code w=67 ∧ code k=0 ∧ Y=false ∧ X=true) ∨ (code w=91 ∧ k.b=true)) := by decide
+      ((code w=67 ∧ code k=0 ∧ Y=false ∧ X=true) ∨ (code w=91 ∧ k.b=true ∧
+        let v := code k+128*Y.toNat
+        v=6 ∨ v=122 ∨ v=186)) := by decide
 
 private theorem physical_cut (c : Trace) (t : Nat) (w : Seven) (word : seven c (t+2)=w)
     (white : c (t+1)=false) (special : code w=67 ∨ code w=91)
@@ -239,7 +243,9 @@ private theorem physical_cut (c : Trace) (t : Nat) (w : Seven) (word : seven c (
   have H := cut_cert w.a w.b w.c w.d w.e w.f w.g z x.1 x.2 y.1 y.2 special
     (by rw [now];exact white) (by rw [now];exact bad) prev
   change (code w=67 ∧ code (rewind (rewind w z x) x.2 y)=0 ∧ y.2=false ∧ y.1=true) ∨
-    (code w=91 ∧ (rewind (rewind w z x) x.2 y).b=true) at H
+    (code w=91 ∧ (rewind (rewind w z x) x.2 y).b=true ∧
+    let v := code (rewind (rewind w z x) x.2 y)+128*y.2.toNat
+    v=6 ∨ v=122 ∨ v=186) at H
   rw [readback] at H
   exact H
 
@@ -322,6 +328,130 @@ private theorem r8maskPeriod (c : Trace) (T : Nat) (h : ∀ t, T ≤ t → nores
          _ = r8turn (r8state c t) := by rw [e0.1]; rfl
          _ = r8state c t := e0.2.2
   rw [e5.2.1,ret,← e0.2.1]
+
+private theorem next_reset_of_dead (c : Trace) (t : Nat) (nr : noreset c t=true)
+    (floor : r8rank (r8state c t)=0) (dead : r8turn (r8state c t)≠r8state c t) :
+    noreset c (t+1)=false := by
+  cases next : noreset c (t+1)
+  · rfl
+  · have edge := r8local c t nr next
+    exact False.elim (dead ((edge.2 (Nat.le_antisymm edge.1 (by omega))).2.2))
+
+private theorem zero_only (s : Nat) (fixed : r8turn s=s) (hi : 10≤r8rank s) : s=0 := by
+  by_cases a : s=57 <;> try (subst s;contradiction)
+  by_cases b : s=206 <;> try (subst s;contradiction)
+  by_cases d : s=115 <;> try (subst s;contradiction)
+  by_cases e : s=156 <;> try (subst s;contradiction)
+  by_cases f : s=231 <;> try (subst s;contradiction)
+  have next : r8next s=0 := by unfold r8next; split <;> simp_all
+  simpa [r8turn,next,r8next] using fixed.symm
+
+private theorem rank_le_range (c : Trace) (a t : Nat)
+    (all : ∀i,a≤i → i≤t → noreset c i=true) (i j : Nat) (ai : a≤i) (ij : i≤j) (jt : j≤t) :
+    r8rank (r8state c j)≤r8rank (r8state c i) := by
+  obtain ⟨k,rfl⟩ := Nat.exists_eq_add_of_le ij
+  induction k with
+  | zero => exact Nat.le_refl _
+  | succ k ih => exact Nat.le_trans (r8local c (i+k) (all _ (by omega) (by omega))
+      (all _ (by omega) (by omega))).1 (ih (by omega) (by omega))
+
+/-- A nonreset path ending in old east8=0 cannot idle anywhere
+except zero (the competing 5-cycle lies below rank ten). At most five
+strict decreases fit above rank ten. A black drive P ticks earlier
+then forces escape from zero, which cannot return on this path. -/
+private theorem prior_zero_reset (c : Trace) (T P t : Nat) (hp : 0<P)
+    (period : ∀i,T≤i → c (i+P)=c i) (late : T+P+6≤t)
+    (black : c t=true) (zero : r8state c t=0) :
+    ∃ i,i≤t ∧ t≤i+P+6 ∧ noreset c i=false := by
+  classical
+  apply Classical.byContradiction
+  intro none
+  let a := t-(P+6)
+  let b := t-P
+  have ab : a+6=b := by dsimp [a,b];omega
+  have final : b+P=t := by dsimp [b];omega
+  have all (i : Nat) (ai : a≤i) (it : i≤t) : noreset c i=true := by
+    cases atI : noreset c i
+    · exact False.elim (none ⟨i,it,by dsimp [a] at ai;omega,atI⟩)
+    · rfl
+  let R i := r8rank (r8state c i)
+  have bottom : R t=10 := by dsimp [R];rw [zero];decide
+  have low (i : Nat) (ai : a≤i) (it : i≤t) : 10≤R i := by
+    rw [←bottom];exact rank_le_range c a t all i t ai it (Nat.le_refl _)
+  have pers (i : Nat) (ai : a≤i) (it : i≤t) (z : r8state c i=0)
+      (j : Nat) (ij : i≤j) (jt : j≤t) : r8state c j=0 := by
+    obtain ⟨k,rfl⟩ := Nat.exists_eq_add_of_le ij
+    induction k with
+    | zero => simpa using z
+    | succ k ih =>
+      have old := ih (by omega) (by omega)
+      have r : R (i+k)=10 := by dsimp [R];rw [old];decide
+      have e := r8local c (i+k) (all _ (by omega) (by omega)) (all _ (by omega) jt)
+      have lo := low (i+k+1) (by omega) jt
+      have eq : R (i+k+1)=R (i+k) := Nat.le_antisymm e.1 (by omega)
+      rw [←Nat.add_assoc,(e.2 eq).1,old];rfl
+  have zb : r8state c b=0 := by
+    apply Classical.byContradiction
+    intro nz
+    have strict (i : Nat) (ai : a≤i) (ib : i<b) : R (i+1)<R i := by
+      have endle : i+1≤t := by omega
+      have e := r8local c i (all _ ai (by omega)) (all _ (by omega) endle)
+      by_cases eq : R (i+1)=R i
+      · have z := zero_only _ ((e.2 eq).2.2) (low i ai (by omega))
+        exact False.elim (nz (pers i ai (by omega) z b (by omega) (by omega)))
+      · exact Nat.lt_of_le_of_ne e.1 eq
+    have drops (k : Nat) (kb : k≤6) : R (a+k)+k≤R a := by
+      induction k with
+      | zero => simp
+      | succ k ih =>
+        have := ih (by omega)
+        have s := strict (a+k) (by omega) (by omega)
+        rw [show a+(k+1)=a+k+1 by omega];omega
+    have upper : R a<16 := Nat.mod_lt _ (by decide)
+    have limit := drops 6 (by decide)
+    rw [ab] at limit
+    have lo := low b (by omega) (by omega)
+    omega
+  have zn := pers b (by omega) (by omega) zb (b+1) (by omega) (by omega)
+  have bt : c b=true := by rw [←period b (by dsimp [b];omega),final,black]
+  have raise : ∀ a b d e f g h z : Bool,
+      r8code a b d e f g h z=0 → rule true a b=true := by decide
+  have one : east c (b+1) 1=true := by
+    change rule (east c b 0) (east c b 1) (east c b 2)=true
+    rw [east0,bt]
+    exact raise _ _ _ _ _ _ _ _ zb
+  have clear : ∀ a b d e f g h z : Bool,r8code a b d e f g h z=0 → a=false := by decide
+  have zz : east c (b+1) 1=false := clear _ _ _ _ _ _ _ _ zn
+  rw [one] at zz
+  contradiction
+
+/-- The two possible wrong arms occupy short gaps BETWEEN actual
+resets, with an exact post-reset one tick after their exceptional
+eight-bit state. For 91 the prior reset is at one of two named ticks. -/
+def Bracket (c : Trace) (P t : Nat) (w : Seven) : Prop :=
+  noreset c (t+3)=false ∧
+    (code w=67 → ∃ i,i≤t ∧ t≤i+P+6 ∧ noreset c i=false) ∧
+    (code w=91 → noreset c t=false ∨ noreset c (t+1)=false)
+
+private theorem actual_bracket (c : Trace) (T P t : Nat) (hp : 0<P)
+    (period : ∀i,T≤i → c (i+P)=c i) (late : T+P+6≤t) (black : c t=true)
+    (w : Seven) (word : seven c (t+2)=w) (cut : BlackCut c t w)
+    (bit : east c (t+2) 8=true) (unsync : reset w (east c (t+2) 8)=false) : Bracket c P t w := by
+  have nr : noreset c (t+2)=true := by simp only [noreset,word,unsync,Bool.not_false]
+  have st : r8state c (t+2)=code w+128 := by simp [r8state,word,bit]
+  rcases cut with ⟨id,old,old8,_⟩|⟨id,_,prior⟩
+  · rw [id] at st
+    have after := next_reset_of_dead c (t+2) nr (by rw [st];decide) (by rw [st];decide)
+    have zero : r8state c t=0 := by simp [r8state,old,old8]
+    exact ⟨after,fun _ => prior_zero_reset c T P t hp period late black zero,fun h => by omega⟩
+  · rw [id] at st
+    have after := next_reset_of_dead c (t+2) nr (by rw [st];decide) (by rw [st];decide)
+    refine ⟨after,fun h => by omega,fun _ => ?_⟩
+    cases h : noreset c t
+    · exact Or.inl rfl
+    · apply Or.inr
+      change r8state c t=6 ∨ r8state c t=122 ∨ r8state c t=186 at prior
+      rcases prior with s|s|s <;> exact next_reset_of_dead c t h (by rw [s];decide) (by rw [s];decide)
 
 private theorem cofinal_resets (c : Trace) (rich : ¬EventuallyPeriodic (whiteNeed c))
     (join : Joined c) : ∀ N, ∃ t, N≤t ∧ noreset c t=false := by
@@ -521,7 +651,7 @@ recurrence of the endpoint word or coincidence of the two endpoint words. -/
 theorem L1 (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
     (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
     (past : Prefix c T) (black : BlackLock c) (starts : ResetStarts c T P) :
-    ∀ n, ∃ t v,n≤t ∧ Arm c T P n n t v ∧ capable (seven c (t+2))=true ∧
+    ∀ N d h, ∃ t v,N≤t ∧ Arm c T P d h t v ∧ capable (seven c (t+2))=true ∧
       need c (t+1)≠guess (seven c (t+2)) := by
   sorry
 
@@ -533,7 +663,7 @@ theorem L2 (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
     (past : Prefix c T) (black : BlackLock c) :
     ∃ n, ∀ t v,n≤t → Arm c T P n n t v → c t=true → c (t+1)=false → east c t 1=false →
       let w := seven c (t+2)
-      (code w=67 ∨ code w=91) → BlackCut c t w →
+      (code w=67 ∨ code w=91) → BlackCut c t w → Bracket c P t w →
       xor (west c t 2) (east c t 2)=c (t+2) → east c (t+2) 8=true →
       reset w (east c (t+2) 8)=false → east c (t+1) 1=guess w := by
   sorry
@@ -549,7 +679,7 @@ theorem collision (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
     (past : Prefix c T) (black : BlackLock c) (join : Joined c) : False := by
   obtain ⟨n,stop⟩ := L2 c T P hp mark period mixed past black
   obtain ⟨t,v,late,arm,cap,bad⟩ := L1 c T P hp mark period mixed past black
-    (reset_starts c T P hp mark period black join) n
+    (reset_starts c T P hp mark period black join) (n+T+P+6) n n
   obtain ⟨last,shared,white,other,unequal⟩ := arm_stamp c T P n n t v period arm
   have wrong : east c (t+1) 1≠guess (seven c (t+2)) := by rwa [←join (t+1) white]
   obtain ⟨spec,bit,unsync⟩ := decoder_bound c (t+1) white cap wrong
@@ -566,7 +696,8 @@ theorem collision (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
   · have bw : c t=true := congrArg Prod.snd back
     have zero : east c t 1=false := congrArg Prod.fst back
     have cut := physical_cut c t _ rfl white words wrong back
-    exact wrong (stop t v late arm bw white zero words cut (mirrored c t bw white zero join) bit unsync)
+    have br := actual_bracket c T P t hp period (by omega) bw _ rfl cut bit unsync
+    exact wrong (stop t v (by omega) arm bw white zero words cut br (mirrored c t bw white zero join) bit unsync)
 
 private theorem halves_actual (t d : Nat) :
     east center t d=cell t (d:Int) ∧ west center t d=cell t (-(d:Int)) := by
