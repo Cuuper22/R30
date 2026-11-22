@@ -1,5 +1,5 @@
-Warning: truncated output (original token count: 31216)
-Total output lines: 2604
+Warning: truncated output (original token count: 32902)
+Total output lines: 2749
 
 import Statement
 import MaskedRightRigidity
@@ -1265,147 +1265,7 @@ private theorem periodic_pair_width_bound (m A p : Nat) (hp : 0<p)
 
 
 include law vac in
-open FiniteWindowRecurrence Quantified…1216 tokens truncated…_add_right j 2) (Nat.le_add_right _ _)
-    have ed : j+(D-j)=D := Nat.add_sub_of_le lowD
-    obtain ⟨⟨a,pa⟩,⟨b,pb⟩⟩ := all (D-j) (by rw [ed];omega)
-    rw [ed] at pa pb
-    have lim := periodic_pair_width_bound side law vac root D (max a b) p hp
-      (fun n hn => pa n (by omega)) (fun n hn => pb n (by omega))
-    have mono := Nat.pow_le_pow_right (by decide : 0<2) (Nat.add_le_add pbound pbound)
-    have bound : 2^(p+p)≤D := Nat.le_trans mono (Nat.le_add_left _ _)
-    exact Nat.not_lt_of_ge bound lim
-  obtain ⟨k,lo,hi,white⟩ := badRange
-  exact ⟨k,lo,hi,fun t ht => white_now side law vac k t
-    (Nat.le_trans (Nat.pow_le_pow_right (by decide) (by omega : k+1≤laneCap j+1)) ht) white⟩
-
-include law vac root in
-private theorem active_lane (j : Nat) :
-    ∃ k,j≤k ∧ k≤laneCap j+2 ∧ ∀ t,2^(laneCap j+3)≤t → side t (k:Int)=true := by
-  obtain ⟨w,ws,wb,white⟩ := vacant_lane side law vac root j
-  let A := 2^(laneCap j+1)
-  have noPair (n : Nat) (zero : ∀ t,A≤t → side t (n:Int)=false)
-      (next : ∀ t,A≤t → side t ((n:Int)+1)=false) : False := by
-    induction n with
-    | zero => exact Bool.noConfusion ((root A).symm.trans (zero A (by omega)))
-    | succ n ih =>
-      have prev (t : Nat) (ht : A≤t) : side t (n:Int)=false := by
-        have e := next (t+1) (by omega)
-        rw [law,show ((↑(n+1):Int)+1)-2=n by omega,
-          show ((↑(n+1):Int)+1)-1=(n+1:Nat) by omega,zero t ht,next t ht] at e
-        simpa [rule] using e
-      exact ih prev (fun t ht => by simpa using zero t ht)
-  obtain ⟨r,rs,rh⟩ : ∃ r,A≤r ∧ side r ((w:Int)+1)=true := by
-    apply Classical.byContradiction
-    intro missing
-    exact noPair w white (fun t ht => by
-      cases e : side t ((w:Int)+1)
-      · rfl
-      · exact False.elim (missing ⟨t,ht,e⟩))
-  have latch (t : Nat) (ht : A≤t) : side (t+1) ((w:Int)+2)=(side t ((w:Int)+1) || side t ((w:Int)+2)) := by
-    rw [law,show ((w:Int)+2)-2=w by omega,show ((w:Int)+2)-1=(w:Int)+1 by omega,white t ht]
-    simp [rule]
-  have on (i : Nat) : side (r+1+i) ((w:Int)+2)=true := by
-    induction i with
-    | zero => simp [latch r rs,rh]
-    | succ i ih => rw [show r+1+(i+1)=r+1+i+1 by omega,latch _ (by omega),ih,Bool.or_true]
-  refine ⟨w+2,by omega,by omega,?_⟩
-  intro t late
-  obtain ⟨p,hp,_,per⟩ := prefix_cycle side law vac (w+2)
-  have tcap : 2^(w+2+1)≤t := Nat.le_trans (Nat.pow_le_pow_right (by decide) (by omega : w+2+1≤laneCap j+3)) late
-  have eq := period_mul (fun s => side s ((w+2:Nat):Int)) _ p
-    (fun s hs => per s hs _ (by omega)) (r+1) t tcap
-  have mul : r+1≤p*(r+1) := by simpa using Nat.mul_le_mul_right (r+1) hp
-  rw [←eq,show t+p*(r+1)=r+1+(t+p*(r+1)-(r+1)) by omega]
-  simpa using on (t+p*(r+1)-(r+1))
-
-private def free (c : Trace) (s d : Nat) : Nat → Int → Bool
-  | 0,j => if j<0 then false else east c s ((d:Int)+j).toNat
-  | n+1,j => rule (free c s d n (j-2)) (free c s d n (j-1)) (free c s d n j)
-
-private theorem free_vac (c : Trace) (s d t : Nat) (j : Int) (hj : j<0) :
-    free c s d t j=false := by
-  induction t generalizing j with
-  | zero => simp [free,hj]
-  | succ t ih => rw [free,ih (j-2) (by omega),ih (j-1) (by omega),ih j hj];rfl
-
-private theorem free_mark (c : Trace) (s d : Nat) (hit : east c s d=true) (t : Nat) :
-    free c s d t 0=true := by
-  induction t with
-  | zero => simpa [free] using hit
-  | succ t ih => rw [free,free_vac _ _ _ _ _ (by decide),free_vac _ _ _ _ _ (by decide),ih];rfl
-
-/-- The actual white-clamped east and the normalized free front coincide
-until the disturbance of the wall can reach the indicated coordinate. -/
-private theorem compare_free (c : Trace) (s h d : Nat)
-    (wh : ∀ j,j<h → c (s+j)=false)
-    (clear : ∀ y,0<y → y<d → east c s y=false) :
-    ∀ i,i≤h → ∀ x,i<d+x → (0<x ∨ i<h) →
-      east c (s+i) x=free c s d i ((x:Int)+i-d) := by
-  intro i
-  induction i with
-  | zero =>
-    intro _ x _ visible
-    by_cases neg : (x:Int)-d<0
-    · rw [free_vac _ _ _ _ _ (by omega)]
-      cases x with
-      | zero => simpa [east0] using wh 0 (by rcases visible with a|a <;> omega)
-      | succ x => exact clear _ (by omega) (by omega)
-    · simp [free,show (d:Int)+((x:Int)-d)=x by omega] <;> omega
-  | succ i ih =>
-    intro lim x bound visible
-    cases x with
-    | zero =>
-      rw [east0,free_vac _ _ _ _ _ (by omega)]
-      apply wh;rcases visible with h|h <;> omega
-    | succ x =>
-      change rule (east c (s+i) x) (east c (s+i) (x+1)) (east c (s+i) (x+2))=_
-      rw [free,ih (by omega) x (by omega) (Or.inr (by omega)),
-        ih (by omega) (x+1) (by omega) (Or.inl (by omega)),
-        ih (by omega) (x+2) (by omega) (Or.inl (by omega))]
-      congr 1 <;> congr 1 <;> omega
-
-/-- Compare past the end of the white run while the changed wall is
-outside the backward cone. The later bridge may have any bit pattern. -/
-private theorem bridge_free (c : Trace) (s h d : Nat)
-    (wh : ∀ j,j<h → c (s+j)=false)
-    (clear : ∀ y,0<y → y<d → east c s y=false) :
-    ∀ i x,i<d+x → i<h+x →
-      east c (s+i) x=free c s d i ((x:Int)+i-d) := by
-  intro i
-  induction i with
-  | zero =>
-    intro x bound safe
-    exact compare_free c s h d wh clear 0 (by omega) x bound (by omega)
-  | succ i ih =>
-    intro x bound safe
-    cases x with
-    | zero =>
-      rw [east0,free_vac _ _ _ _ _ (by omega)]
-      exact wh _ (by omega)
-    | succ x =>
-      change rule (east c (s+i) x) (east c (s+i) (x+1)) (east c (s+i) (x+2))=_
-      rw [free,ih x (by omega) (by omega),ih (x+1) (by omega) (by omega),
-        ih (x+2) (by omega) (by omega)]
-      congr 1 <;> congr 1 <;> omega
-
-private theorem early_ready (c : Trace) (s h d : Nat) (pos : 0<d) (room : d+8≤h)
-    (wh : ∀ j,j<h → c (s+j)=false) (clear : ∀ y,0<y → y<d → east c s y=false)
-    (hit : east c s d=true) : Ready c (s+h) := by
-  have arrive := compare_free c s h d wh clear (d-1) (by omega) 1 (by omega) (Or.inl (by omega))
-  rw [show ((1:Nat):Int)+(d-1:Nat)-d=0 by omega,free_mark c s d hit] at arrive
-  have high (i : Nat) (lo : d-1≤i) (hi : i≤h) : east c (s+i) 1=true := by
-    have held := head_hold c (s+(d-1)) (i-(d-1)) arrive (fun j hj => by
-      rw [show s+(d-1)+j=s+(d-1+j) by omega];exact wh _ (by omega))
-    rwa [show s+(d-1)+(i-(d-1))=s+i by omega] at held
-  have lock := black_pair c 1 (s+h-9) (fun i hi => by
-    rw [show s+h-9+i=s+(h-9+i) by omega];exact high _ (by omega) (by omega))
-  rw [show s+h-9+9=s+h by omega] at lock
-  exact ⟨high h (by omega) (by omega),lock⟩
-
-private theorem white_triangle (c : Trace) (s h w : Nat)
-    (wh : ∀ j,j<h → c (s+j)=false)
-    (clear : ∀ i,0<i → i≤w → east c s i=false) :
-    ∀ k,k≤h → ∀ i,0<i → i+k≤w → east c (s+k) i=false := by
+open FiniteWindowRecurrence Quantified…2902 tokens truncated…y
   intro k
   induction k with
   | zero => intro hk i ip ls;exact clear i ip (by omega)
@@ -2203,6 +2063,128 @@ theorem marked_fall_alternative (c : Trace) (mark : c 0=true) (ep : EventuallyPe
   rw [decomp _ (by omega),decomp t (by omega),fr,same t (by omega),
     show t+P*Q-1=(t-1)+P*Q by omega,same (t-1) (by omega)]
 
+private def rim (d : Nat) : Bool := decide (d%2=0)
+
+private theorem rim_next (d : Nat) : rim (d+1)= !rim d := by
+  unfold rim
+  by_cases p : d%2=0
+  · simp [p,show ¬(d+1)%2=0 by omega]
+  · simp [p,show (d+1)%2=0 by omega]
+
+private theorem held_west (c : Trace) (lock : BlackLock c) (s n : Nat)
+    (held : ∀i,i<n → c (s+i)=true) (fall : c (s+n)=false) :
+    ∀ d i,i+d≤n → west c (s+i) d=(if i+d=n then !rim d else rim d) := by
+  intro d
+  induction d using Nat.strongRecOn with
+  | ind d ih =>
+    intro i lim
+    rcases d with _|d
+    · rw [west0];by_cases eq : i=n
+      · simpa [eq,rim] using fall
+      · simpa [eq,rim] using held i (by omega)
+    rcases d with _|d
+    · rw [lock (s+i) (held i (by omega)),Nat.add_assoc]
+      by_cases e : i+1=n
+      · simp [e,fall,rim]
+      · simp [e,held (i+1) (by omega),rim]
+    · have inv : west c (s+i) (d+2)=xor (west c (s+i+1) (d+1))
+          (west c (s+i) (d+1) || west c (s+i) d) := (left_inv _ _ _).symm
+      rw [inv,Nat.add_assoc,ih (d+1) (by omega) (i+1) (by omega),
+        ih (d+1) (by omega) i (by omega),ih d (by omega) i (by omega)]
+      rw [ite_eq_right (by omega : i+(d+1)≠n),ite_eq_right (by omega : i+d≠n),
+        show i+1+(d+1)=i+(d+2) by omega,rim_next (d+1),rim_next d]
+      by_cases e : i+(d+2)=n <;> cases rim d <;> simp [e]
+
+private theorem parity_next (k : Nat) : decide ((k+1)%2=1) = !decide (k%2=1) := by
+  by_cases p : k%2=1
+  · simp [p,show ¬(k+1)%2=1 by omega]
+  · simp [p,show (k+1)%2=1 by omega]
+
+/-- The western bit one place behind the failed checker front toggles
+once per two black updates, independently of all farther western cells. -/
+private theorem even_wire (c : Trace) (lock : BlackLock c) (s k : Nat)
+    (held : ∀i,i<2*k → c (s+i)=true) (fall : c (s+2*k)=false) :
+    west c (s+2*k) 1=xor (west c s (2*k+1)) (decide (k%2=1)) := by
+  induction k generalizing s with
+  | zero => simp
+  | succ k ih =>
+    have pat := held_west c lock s (2*(k+1)) held fall
+    have a := pat (2*k+2) 0 (by omega)
+    have b := pat (2*k+1) 0 (by omega)
+    have d := pat (2*k+1) 1 (by omega)
+    have e0 : west c s (2*k+2)=false := by
+      simpa [rim,show 2*k+2=2*(k+1) by omega,show (2*(k+1))%2=0 by omega] using a
+    have e1 : west c s (2*k+1)=false := by
+      simpa [rim,show 2*k+1≠2*(k+1) by omega,show ¬(2*k+1)%2=0 by omega] using b
+    have e2 : west c (s+1) (2*k+1)=true := by
+      simpa [rim,show 1+(2*k+1)=2*(k+1) by omega,show ¬(2*k+1)%2=0 by omega] using d
+    have r1 : west c (s+1) (2*k+2)=west c s (2*k+3) := by
+      change rule _ _ _=_
+      rw [e0,e1];cases west c s (2*k+3) <;> rfl
+    have r2 : west c (s+2) (2*k+1)= !west c s (2*k+3) := by
+      change rule _ _ _=_
+      rw [r1,e2];cases west c s (2*k+3) <;> rfl
+    have eq := ih (s+2) (fun i li => by
+      rw [show s+2+i=s+(i+2) by omega];exact held _ (by omega)) (by
+      rw [show s+2+2*k=s+2*(k+1) by omega];exact fall)
+    rw [show s+2+2*k=s+2*(k+1) by omega,r2] at eq
+    rw [eq,show 2*(k+1)+1=2*k+3 by omega,parity_next]
+    cases west c s (2*k+3) <;> cases decide (k%2=1) <;> rfl
+
+def survivesGate (c : Trace) (s : Nat) : Nat → Bool
+  | 0 => true
+  | k+1 => (east c s 2 || east c s 3) && survivesGate c (s+2) k
+
+private theorem locked_pair (c : Trace) (s n : Nat)
+    (held : ∀i,i<n → c (s+i)=true) (lo : east c s 1=false) (hi : east c s 2=true) :
+    east c (s+n) 1=false ∧ east c (s+n) 2=true := by
+  induction n with
+  | zero => exact ⟨lo,hi⟩
+  | succ n ih =>
+    obtain ⟨a,b⟩ := ih (fun i li => held i (by omega))
+    constructor <;> change rule _ _ _=_ <;> simp [east0,held n (by omega),a,b,rule]
+
+private theorem real_gate (c : Trace) (s k : Nat)
+    (held : ∀i,i<2*k → c (s+i)=true) (start : east c s 1=true) :
+    east c (s+2*k) 1=survivesGate c s k := by
+  induction k generalizing s with
+  | zero => exact start
+  | succ k ih =>
+    have b : c s=true := by simpa using held 0 (by omega)
+    have b' := held 1 (by omega)
+    have off : east c (s+1) 1=false := by change rule (east c s 0) _ _=_;rw [east0,b,start];rfl
+    have next : east c (s+1) 2= !(east c s 2 || east c s 3) := by
+      change rule (east c s 1) (east c s 2) (east c s 3)=_;rw [start];simp [rule]
+    cases g : east c s 2 || east c s 3 with
+    | true =>
+      have on : east c (s+2) 1=true := by
+        change rule (east c (s+1) 0) _ _=_;rw [east0,b',off,next,g];rfl
+      have z := ih (s+2) (fun i li => by
+        rw [show s+2+i=s+(i+2) by omega];exact held _ (by omega)) on
+      rw [show s+2+2*k=s+2*(k+1) by omega] at z
+      simpa [survivesGate,g] using z
+    | false =>
+      have z := locked_pair c (s+1) (2*k+1) (fun i li => by
+        rw [show s+1+i=s+(i+1) by omega];exact held _ (by omega)) off (by rw [next,g];rfl)
+      rw [show s+1+(2*k+1)=s+2*(k+1) by omega] at z
+      simpa [survivesGate,g] using z.1
+
+def SignedGate (c : Trace) (s n : Nat) : Prop :=
+  xor (west c s (n+1)) (decide ((n/2)%2=1))=xor (c (s+n+1)) (survivesGate c s (n/2))
+
+private theorem join_gate (c : Trace) (black : BlackLock c) (join : Joined c)
+    (s n : Nat) (ev : n%2=0) (held : ∀i,i<n → c (s+i)=true)
+    (fall : c (s+n)=false) (hot : east c s 1=true) : SignedGate c s n := by
+  have len : 2*(n/2)=n := by omega
+  have wire := even_wire c black s (n/2) (by rwa [len]) (by rwa [len])
+  have gate := real_gate c s (n/2) (by rwa [len]) hot
+  rw [len] at wire gate
+  have eq := join (s+n) fall
+  simp only [need,gate,wire] at eq
+  unfold SignedGate
+  rw [←eq]
+  cases xor (west c s (n+1)) (decide (n/2%2=1)) <;> cases c (s+n+1) <;> rfl
+
 /-- A single anchored physical lag fork. Its incoming white run is
 too short to force the checker over its actual black predecessor cone. -/
 structure EvenFork (c : Trace) (Q w n : Nat) : Prop where
@@ -2214,6 +2196,10 @@ structure EvenFork (c : Trace) (Q w n : Nat) : Prop where
   even : n%2=0
   starving : ∃i,i≤9*(n/2) ∧ c (w-i)=true
   delta : east c (w+1+n+Q) 1≠east c (w+1+n) 1
+  leftWire : west c (w+1+Q) (n+1)≠west c (w+1) (n+1)
+  oldGate : SignedGate c (w+1) n
+  newGate : SignedGate c (w+1+Q) n
+  splitGate : survivesGate c (w+1+Q) (n/2)≠survivesGate c (w+1) (n/2)
 
 private theorem low_even (c : Trace) (s k : Nat) (low : east c s 1=false)
     (bl : ∀ i,i<2*k → c (s+i)=true) : east c (s+2*k) 1=false := by
@@ -2321,7 +2307,26 @@ theorem marked_supply (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
       rw [date] at one;rw [ending] at two
       exact False.elim (split (two.trans one.symm))
     · omega
-  refine ⟨w,n,by omega,wh,hb,date ▸ ww,len,small,ev,?_,by simpa [date] using split⟩
+  have hot := lit_white c w wh (cap _ (by omega) wh)
+  have hot' := lit_white c (w+Q) zw (cap _ (by omega) zw)
+  have eqn : 2*(n/2)=n := by omega
+  have a1 := join_gate c black join (w+1) n ev hb (date ▸ ww) hot
+  have a2 := join_gate c black join (w+Q+1) n ev twin (ending ▸ now.trans ww) hot'
+  have g1 := real_gate c (w+1) (n/2) (by rwa [eqn]) hot
+  have g2 := real_gate c (w+Q+1) (n/2) (by rwa [eqn]) hot'
+  rw [eqn,date] at g1;rw [eqn,ending] at g2
+  have gates : survivesGate c (w+Q+1) (n/2)≠survivesGate c (w+1) (n/2) := by rwa [←g1,←g2]
+  have westFork : west c (w+Q+1) (n+1)≠west c (w+1) (n+1) := by
+    intro same
+    unfold SignedGate at a1 a2
+    have cn : c (w+Q+1+n+1)=c (w+1+n+1) := by
+      rw [show w+Q+1+n+1=w+1+n+1+Q by omega,eq _ (by omega)]
+    rw [same,cn,a1] at a2
+    exact gates (by cases c (w+1+n+1) <;>
+      cases survivesGate c (w+1) (n/2) <;> cases survivesGate c (w+Q+1) (n/2) <;> simp_all)
+  have comm : w+1+Q=w+Q+1 := by omega
+  refine ⟨w,n,by omega,wh,hb,date ▸ ww,len,small,ev,?_,by simpa [date] using split,
+    comm ▸ westFork,a1,comm ▸ a2,comm ▸ gates⟩
   apply Classical.byContradiction;intro no
   have whites (i : Nat) (il : i≤9*(n/2)) : c (w-i)=false := by
     cases z : c (w-i)
