@@ -1,0 +1,9 @@
+genuine checker erosion 2 lambda4 sat 0xb71
+genuine checker erosion 3 lambda4 sat 0x1ccf1
+genuine checker erosion 4 lambda4 sat 0x7384f1
+genuine checker erosion 5 lambda4 sat 0xce7d971
+genuine checker erosion 8 lambda4 sat 0x7f0480f84f1
+genuine checker erosion 11 lambda4 sat 0x3f8e6161b38b4f1
+genuine checker erosion 16 lambda4 sat 0x2e01f4f37559e6d784f1
+genuine checker erosion 25 lambda4 sat 0x5a858322b178545da5ce4a8f167a3971
+genuine checker erosion 40 lambda4 sat 0x22e489fc3c758ec37f6ab8cc31ea995054a1351d784f1

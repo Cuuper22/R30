@@ -1,0 +1,1 @@
+R30 permanent rigorous invisible perturbations of full checker 3 local XOR masks 0x14 0x5 difference endpoints -3 1 permanent checker times 3 3 early center 100

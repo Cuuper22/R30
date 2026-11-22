@@ -139,7 +139,7 @@
   "bounds_ultra/general_clocks/cyclic_gap.cpp": "afbeebc42aa27f525f0355f8c49e06b0c30dea84",
   "bounds_ultra/general_clocks/finite_west_parents.py": "9db6ba93d4f95879a052d2ede15cd144a515ef8a",
   "bounds_ultra/general_clocks/white_inverse_forks.txt": "a73ffb44a5b7c5898d9e979e58dcfcdeb215e282",
-  "bounds_ultra/general_clocks/MARKED_GAP_AND_RESET.md": "a69d30a4f734960a6e8f491796af828576e12f74",
+  "bounds_ultra/general_clocks/MARKED_GAP_AND_RESET.md": "5335c766c5ed8b2ff61059cf037a4e19d0970ab4",
   "bounds_ultra/general_clocks/noreset_driver.py": "ad5a5d28c8d0088f5adad992aa4301fdab55bfb3",
   "bounds_ultra/general_clocks/noreset_bulk.py": "18e5673e6bcd4a887263bb7a56271f9bf49ab67f",
   "bounds_ultra/general_clocks/noreset_driver.txt": "fe22661633644914bbf7deee427e4f188bc357db",
@@ -175,5 +175,10 @@
   "bounds_ultra/general_clocks/finite_tail_merger_sat.py": "7e236442cd0065389ba14bcf2166621b0a998908",
   "bounds_ultra/general_clocks/finite_tail_merger_sat.txt": "3ddea5f3e3d6b69807b211906526d87477d21389",
   "bounds_ultra/general_clocks/checker_spatial_escape.py": "f71d6790d6899b7e753e11d49b1e0325d4727ce2",
-  "bounds_ultra/general_clocks/checker_spatial_escape.txt": "f8bf84d00513a5d6cb88c87d4711ca071c598583"
+  "bounds_ultra/general_clocks/checker_spatial_escape.txt": "f8bf84d00513a5d6cb88c87d4711ca071c598583",
+  "bounds_ultra/general_clocks/checker_pulse_pairs.txt": "51dde0625365954d4cd1f60c00d81a427834a57e",
+  "bounds_ultra/general_clocks/checker_pulse_pairs.py": "4abe65c9028a069be58d47ff6b46eb7647bf2a78",
+  "bounds_ultra/general_clocks/checker_erosion.py": "df6f04dffc4599d7389e8b9b3f93a85d200dd276",
+  "bounds_ultra/general_clocks/checker_erosion.txt": "a0d94debcab4b1c92e2df99fd4e16b12e9b05750",
+  "bounds_ultra/general_clocks/__pycache__/finite_tail_merger_sat.cpython-312.pyc": "49772c5aae7389972ce92582bd0dcce79825b38f"
 }
