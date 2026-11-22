@@ -1815,11 +1815,53 @@ private theorem paired_bridge (c : Trace) (m s u n h : Nat) (bound : n≤m)
     rw [show u+n+(i-n)=u+i by omega] at b
     exact a.trans b.symm
 
+private def ShortOrSolid (c : Trace) (m s n : Nat) : Prop :=
+  n≤m ∨ (9≤n ∧ ∀ i,i<n → c (s+i)=true)
+
+private theorem after_solid (c : Trace) (s n : Nat) (long : 9≤n)
+    (solid : ∀ i,i<n → c (s+i)=true) :
+    east c (s+n) 1=false ∧ east c (s+n) 2=true := by
+  have p := black_pair c 0 (s+n-9) (fun i lt => by
+    rw [east0,show s+n-9+i=s+(n-9+i) by omega];exact solid _ (by omega))
+  rwa [show s+n-9+9=s+n by omega] at p
+
+private theorem paired_span (c : Trace) (m s u n h : Nat) (kind : ShortOrSolid c m s n)
+    (long : bridgeH m≤h) (wh : ∀ j,j<h → c (s+n+j)=false)
+    (clk : ∀ i,c (s+i)=c (u+i))
+    (old : CheckerAt c s (2*m+4)) (newer : CheckerAt c u (2*m+4)) :
+    (CheckerAt c (s+n+h) (2*m+4) ∧ CheckerAt c (u+n+h) (2*m+4)) ∧
+    ∀ i,i<n+h → c (s+i)=false → east c (s+i) 1=east c (u+i) 1 := by
+  rcases kind with bound|⟨sz,solid⟩
+  · obtain ⟨r,eq⟩ := paired_bridge c m s u n h bound long wh clk old newer
+    exact ⟨r,fun i hi _ => eq i hi⟩
+  have first := after_solid c s n sz solid
+  have twin := after_solid c u n sz (fun j lj => (clk j).symm.trans (solid j lj))
+  have whites (j : Nat) (lt : j<h) : c (u+n+j)=false := by
+    rw [Nat.add_assoc,←clk,←Nat.add_assoc];exact wh j lt
+  have room : 2+9*(m+2)≤h := by
+    have a : 2≤bridgeK m := by unfold bridgeK;omega
+    have := Nat.le_trans (space (m:=m)) long;omega
+  have z (s' : Nat) (v : east c s' 1=false) (y : Nat) (yp : 0<y) (yl : y<2) :
+      east c s' y=false := by rwa [show y=1 by omega]
+  refine ⟨⟨early_checker c (s+n) h 2 m (by decide) room wh (z _ first.1) first.2,
+    early_checker c (u+n) h 2 m (by decide) room whites (z _ twin.1) twin.2⟩,?_⟩
+  intro i lt white
+  have after : n≤i := by
+    by_cases before : i<n
+    · have z := solid i before;simp_all
+    · omega
+  have a := white_profile c (s+n) h 2 (by decide) wh (z _ first.1) first.2 (i-n) (by omega)
+  have b := white_profile c (u+n) h 2 (by decide) whites (z _ twin.1) twin.2 (i-n) (by omega)
+  rw [show s+n+(i-n)=s+i by omega] at a
+  rw [show u+n+(i-n)=u+i by omega] at b
+  exact a.trans b.symm
+
 /-- A clock language, not an east-state hypothesis. Each arbitrary
-positive bridge begins black. Widths and white gaps may vary at every
+positive bridge begins black; solid-black bridges of at least nine
+steps may have unbounded length. Widths and white gaps may vary at every
 occurrence; no periodicity of the chosen decomposition is assumed. -/
 def Bridged (c : Trace) : Prop :=
-  ∃ m : Nat, ∃ f n h : Nat → Nat, ∀ k,c (f k)=true ∧ 0<n k ∧ n k≤m ∧
+  ∃ m : Nat, ∃ f n h : Nat → Nat, ∀ k,c (f k)=true ∧ 0<n k ∧ ShortOrSolid c m (f k) (n k) ∧
     bridgeH m≤h k ∧ f k+n k+h k=f (k+1) ∧ ∀ j,j<h k → c (f k+n k+j)=false
 
 theorem excludes_bridged (c : Trace) (ep : EventuallyPeriodic c) (mark : c 0=true)
@@ -1836,11 +1878,14 @@ theorem excludes_bridged (c : Trace) (ep : EventuallyPeriodic c) (mark : c 0=tru
   have allcheck (k : Nat) : CheckerAt c (f (k+2)) (2*m+4) := by
     obtain ⟨_,_,_,long,ends,wh⟩ := seq k
     obtain ⟨bk,l,b,long',ends',wh'⟩ := seq (k+1)
-    have longn := Nat.le_trans (h_mono b) long
-    obtain ⟨y,yp,yb,hit⟩ := renewal c (f k+n k) (h k) (n (k+1)) l longn wh (by rw [ends];exact bk)
-    rw [ends] at hit
+    obtain ⟨y,yp,yb,hit⟩ : ∃ y,0<y ∧ y≤bridgeK m ∧ east c (f (k+1)+n (k+1)) y=true := by
+      rcases b with b|⟨sz,solid⟩
+      · have longn := Nat.le_trans (h_mono b) long
+        obtain ⟨y,p,le,e⟩ := renewal c (f k+n k) (h k) (n (k+1)) l longn wh (by rw [ends];exact bk)
+        rw [ends] at e;exact ⟨y,p,Nat.le_trans le (k_mono b),e⟩
+      · exact ⟨2,by decide,by unfold bridgeK;omega,(after_solid c _ _ sz solid).2⟩
     obtain ⟨d,dp,dy,yes,zero⟩ := first_in c _ y ⟨y,yp,by omega,hit⟩
-    have total : d+9*(m+2)≤h (k+1) := by have := k_mono b;have := Nat.le_trans (space (m:=m)) long';omega
+    have total : d+9*(m+2)≤h (k+1) := by have := Nat.le_trans (space (m:=m)) long';omega
     rw [←ends'];exact early_checker _ _ _ _ _ dp total wh' zero yes
   obtain ⟨T,P,hp,per⟩ := ep
   let idx (i : Nat) := T+i+2
@@ -1868,7 +1913,7 @@ theorem excludes_bridged (c : Trace) (ep : EventuallyPeriodic c) (mark : c 0=tru
       obtain ⟨_,_,bound,long,ends,wh⟩ := seq q
       have ca : CheckerAt c (f q) (2*m+4) := by simpa [shift k,q] using older k
       have start : A≤f q := by have := many (idx a) k;dsimp [q,A] at *;omega
-      have step := paired_bridge c m (f q) (f q+Q) (n q) (h q) bound long wh
+      have step := paired_span c m (f q) (f q+Q) (n q) (h q) bound long wh
         (fun i => by rw [show f q+Q+i=f q+i+Q by omega];exact later _ (by omega)) ca ih
       rw [show f q+Q+n q+h q=f (q+1)+Q by omega] at step
       exact step.1.2
@@ -1892,12 +1937,14 @@ theorem excludes_bridged (c : Trace) (ep : EventuallyPeriodic c) (mark : c 0=tru
   obtain ⟨_,_,bound,long,ends,wh⟩ := seq q
   have start : A≤f q := by have := many (idx a) k;dsimp [q,A] at *;omega
   have ca : CheckerAt c (f q) (2*m+4) := by simpa [shift k,q] using older k
-  have step := paired_bridge c m (f q) (f q+Q) (n q) (h q) bound long wh
+  have step := paired_span c m (f q) (f q+Q) (n q) (h q) bound long wh
     (fun i => by rw [show f q+Q+i=f q+i+Q by omega];exact later _ (by omega)) ca (joinedChecks k)
   change f q≤t at lo;change t<f (q+1) at hi
   have e := step.2 (t-f q) (by omega)
   rw [show f q+(t-f q)=t by omega,show f q+Q+(t-f q)=t+Q by omega] at e
-  cases val : c t <;> simp [whiteNeed,←ct,val,join t,join (t+Q),ct.symm.trans val,e]
+  cases val : c t with
+  | false => simp [whiteNeed,←ct,val,join t,join (t+Q),e val]
+  | true => simp [whiteNeed,←ct,val]
 
 
 end RenewalFront
