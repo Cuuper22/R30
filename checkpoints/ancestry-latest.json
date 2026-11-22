@@ -58,5 +58,6 @@
   "ancestry_ultra/checker_compact.cpp": "d8636f28a7ee77388f39b65e95bf5ddff6f5e8a6",
   "ancestry_ultra/checker_compact.py": "3236d926e2835ddfd1330ad5845fbf79ecb5a080",
   "ancestry_ultra/checker_host_ancestry.py": "058a47fdcaea267ecd4d4912dcf926a34827716e",
-  "ancestry_ultra/checker_host_ancestry.txt": "626855514346f1cf956a34ff7dd94db85588de85"
+  "ancestry_ultra/checker_host_ancestry.txt": "626855514346f1cf956a34ff7dd94db85588de85",
+  "ancestry_ultra/TRUE_LAG_CHAIN.md": "b05c3c46854cf202b9c251e3071e1eb18ebdd130"
 }
