@@ -157,52 +157,140 @@ theorem decoder_bound (c : Trace) (t : Nat) (white : c t=false)
   change scan w _ _ = _ at old
   exact e capableHere (by rw [old];exact white) (by rw [old];exact wrong)
 
+/-- Read all older interior cells of the same inverse scan. The end
+state supplied by the real east half includes the older eighth bit. -/
+def rewind (w : Seven) (z : Bool) (s : Mem) : Seven :=
+  let h := read z s
+  let g := read w.g h
+  let f := read w.f g
+  let e := read w.e f
+  let d := read w.d e
+  let b := read w.c d
+  let a := read w.b b
+  ⟨a.2,b.2,d.2,e.2,f.2,g.2,h.2⟩
+
+theorem physical_rewind (c : Trace) (t : Nat) :
+    rewind (seven c (t+1)) (east c (t+1) 8) (east c t 9,east c t 8)=seven c t := by
+  simp only [rewind,seven,east,undo]
+
+private def escapeClass (w : Seven) (past : Mem) : Prop :=
+  (past=(true,false) ∧ (code w=67 ∨ code w=95 ∨ code w=123)) ∨
+  (past=(false,true) ∧ (code w=67 ∨ code w=91))
+
+set_option synthInstance.maxSize 2800 in
+set_option maxHeartbeats 12000000 in
+set_option maxRecDepth 15000 in
+private theorem older_cert : ∀ a b d e f g h z x y X Y : Bool,
+    let w : Seven := ⟨a,b,d,e,f,g,h⟩
+    exceptional w=true → (scan w z (x,y)).2=false → (scan w z (x,y)).1≠guess w →
+      ((scan (rewind w z (x,y)) y (X,Y)=(true,false) ∧ (code w=67 ∨ code w=95 ∨ code w=123)) ∨
+       (scan (rewind w z (x,y)) y (X,Y)=(false,true) ∧ (code w=67 ∨ code w=91))) := by decide
+
+private theorem older_escape (c : Trace) (t : Nat) (w : Seven) (word : seven c (t+2)=w)
+    (white : c (t+1)=false) (special : exceptional w=true) (bad : east c (t+1) 1≠guess w) :
+    escapeClass w (east c t 1,c t) := by
+  subst w
+  let w := seven c (t+2)
+  let z := east c (t+2) 8
+  let x := (east c (t+1) 9,east c (t+1) 8)
+  let y := (east c t 9,east c t 8)
+  have now : scan w z x=(east c (t+1) 1,c (t+1)) := physical_scan c (t+1)
+  have old : scan (rewind w z x) x.2 y=(east c t 1,c t) := by
+    rw [show rewind w z x=seven c (t+1) by exact physical_rewind c (t+1)]
+    exact physical_scan c t
+  have hv := older_cert w.a w.b w.c w.d w.e w.f w.g z x.1 x.2 y.1 y.2 special
+    (by rw [now];exact white) (by rw [now];exact bad)
+  change escapeClass w (scan (rewind w z x) x.2 y) at hv
+  rw [old] at hv
+  exact hv
+
 def Visit (c : Trace) (P p : Nat) (w : Seven) (t : Nat) : Prop :=
   t%P=p ∧ c t=false ∧ seven c (t+1)=w
 
-def WesternFork (c : Trace) (P p : Nat) (w : Seven) : Prop :=
-  ∀ N (b : Bool), ∃ t, N≤t ∧ Visit c P p w t ∧ need c t=b
+/-- The stamp contains the preceding wall and preceding masked WEST
+request. Opposite current requests are therefore fresh forks. -/
+def WesternFork (c : Trace) (P p : Nat) (w : Seven) (stamp : Mem) : Prop :=
+  ∀ N (b : Bool), ∃ t, N≤t ∧ Visit c P p w (t+1) ∧
+    (c t,whiteNeed c t)=stamp ∧ need c (t+1)=b
 
-/-- L1: only a seven-bit projection is tagged. It is enough that some
-eighth extension resets; neither actual eighth input is required to reset.
-The entire white stream is not assumed correct: only the pre-onset
-prefix and the exact black locks are given. -/
+/-- The western marked tip forces arbitrarily late fresh demand forks
+on a common clock phase, before any eastern word has been selected. -/
+private theorem untagged_forks (c : Trace) (T P : Nat) (hp : 0<P)
+    (rich : ¬EventuallyPeriodic (whiteNeed c)) :
+    ∀ N, ∃ t u, N≤t ∧ N≤u ∧ t%P=u%P ∧ whiteNeed c t=whiteNeed c u ∧
+      whiteNeed c (t+1)≠whiteNeed c (u+1) := by
+  intro N
+  obtain ⟨t,u,lt,lu,ph,word,diff⟩ := FiniteWindowRecurrence.same_phase_branch
+    (whiteNeed c) rich P hp 1 (N+T)
+  have bit := congrArg (fun w : List Bool => w[0]?) word
+  simp [FiniteWindowRecurrence.window] at bit
+  exact ⟨t,u,by omega,by omega,ph,bit,diff⟩
+
+/-- L1 selects one of the western fresh forks on a reset-capable
+seven-word actually reached by the independently initialized east half.
+It requires neither actual eighth extension to reset. -/
 theorem L1 (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
     (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
-    (past : Prefix c T) (black : BlackLock c) (rich : ¬EventuallyPeriodic (whiteNeed c)) :
-    ∃ p w, p<P ∧ capable w=true ∧ WesternFork c P p w := by
+    (past : Prefix c T) (black : BlackLock c)
+    (fresh : ∀ N, ∃ t u, N≤t ∧ N≤u ∧ t%P=u%P ∧ whiteNeed c t=whiteNeed c u ∧
+      whiteNeed c (t+1)≠whiteNeed c (u+1)) :
+    ∃ p w stamp, p<P ∧ capable w=true ∧ WesternFork c P p w stamp := by
   sorry
 
-/-- L2 is restricted to the four physical escape words. It only bars
-cofinal joint use of the nonreset, high-eighth escape with the opposite
-old head IN A western-fork class, not arbitrary right words or clocks.
-No late white agreement is assumed. -/
+/-- L2 concerns only the 67/91 high-eighth escape, at the FIRST
+white tick after a black with raw eastern head zero. No other class
+or phase, and no assumption of eventual white agreement. -/
 theorem L2 (c : Trace) (T P p : Nat) (w : Seven) (hp : 0<P) (ph : p<P)
     (mark : c 0=true) (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
     (past : Prefix c T) (black : BlackLock c) (cap : capable w=true)
-    (special : exceptional w=true) (fork : WesternFork c P p w) :
-    ∃ N, ∀ t, N≤t → Visit c P p w t → east c (t+1) 8=true →
-      reset w (east c (t+1) 8)=false → east c t 1=guess w := by
+    (special : code w=67 ∨ code w=91) (fork : WesternFork c P p w (true,false)) :
+    ∃ N, ∀ t, N≤t → Visit c P p w (t+1) → c t=true → east c t 1=false →
+      east c (t+2) 8=true → reset w (east c (t+2) 8)=false → east c (t+1) 1=guess w := by
   sorry
+
+private theorem stays_high (c : Trace) (t : Nat) (white : c t=false) (old : east c t 1=true) :
+    east c (t+1) 1=true := by
+  change rule (east c t 0) (east c t 1) (east c t 2)=true
+  rw [east0,white,old]
+  simp [rule]
 
 theorem collision (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
     (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
     (past : Prefix c T) (black : BlackLock c) (join : Joined c) : False := by
   have rich := west_rich c mark ⟨T,P,hp,period⟩ black
-  obtain ⟨p,w,ph,cap,fork⟩ := L1 c T P hp mark period mixed past black rich
-  have escaped (N : Nat) : ∃t, N≤t ∧ Visit c P p w t ∧ east c t 1≠guess w ∧
-      exceptional w=true ∧ east c (t+1) 8=true ∧ reset w (east c (t+1) 8)=false := by
-    obtain ⟨t,late,v,needOpp⟩ := fork N (!guess w)
-    have outside : east c t 1≠guess w := by
-      rw [←join t v.2.1,needOpp]
-      simp
-    obtain ⟨spec,bit,unsync⟩ := decoder_bound c t v.2.1 (by rwa [v.2.2]) (by rwa [v.2.2])
+  obtain ⟨p,w,stamp,ph,cap,fork⟩ := L1 c T P hp mark period mixed past black
+    (untagged_forks c T P hp rich)
+  have escaped (N : Nat) : ∃ t, N≤t ∧ Visit c P p w (t+1) ∧
+      stamp=(true,false) ∧ c t=true ∧ east c t 1=false ∧ (code w=67 ∨ code w=91) ∧
+      east c (t+2) 8=true ∧ reset w (east c (t+2) 8)=false ∧ east c (t+1) 1≠guess w := by
+    obtain ⟨t,late,v,tag,needOpp⟩ := fork N (!guess w)
+    have outside : east c (t+1) 1≠guess w := by
+      rw [←join (t+1) v.2.1,needOpp];simp
+    obtain ⟨spec,bit,unsync⟩ := decoder_bound c (t+1) v.2.1 (by rwa [v.2.2]) (by rwa [v.2.2])
     rw [v.2.2] at spec unsync
-    exact ⟨t,late,v,outside,spec,bit,unsync⟩
-  obtain ⟨_,_,_,_,special,_,_⟩ := escaped 0
+    have shape := older_escape c t w v.2.2 v.2.1 spec outside
+    rcases shape with ⟨back,words⟩|⟨back,words⟩
+    · have oldW : c t=false := congrArg Prod.snd back
+      have old1 : east c t 1=true := congrArg Prod.fst back
+      have stampEq : stamp=(false,true) := by rw [←tag];simp [oldW,whiteNeed,join t oldW,old1]
+      obtain ⟨u,_,visit,ts,zero⟩ := fork N false
+      rw [stampEq] at ts
+      have uw : c u=false := congrArg Prod.fst ts
+      have u1 : east c u 1=true := by
+        have masked : whiteNeed c u=true := congrArg Prod.snd ts
+        simpa [whiteNeed,uw,join u uw] using masked
+      have high := stays_high c u uw u1
+      rw [←join (u+1) visit.2.1,zero] at high
+      contradiction
+    · have bw : c t=true := congrArg Prod.snd back
+      have zero : east c t 1=false := congrArg Prod.fst back
+      have stampEq : stamp=(true,false) := by rw [←tag];simp [bw,whiteNeed]
+      exact ⟨t,late,v,stampEq,bw,zero,words,bit,unsync,outside⟩
+  obtain ⟨_,_,_,stampEq,_,_,special,_,_,_⟩ := escaped 0
+  rw [stampEq] at fork
   obtain ⟨N,stop⟩ := L2 c T P p w hp ph mark period mixed past black cap special fork
-  obtain ⟨t,late,v,different,_,bit,unsync⟩ := escaped N
-  exact different (stop t late v bit unsync)
+  obtain ⟨t,late,v,_,bw,zero,_,bit,unsync,different⟩ := escaped N
+  exact different (stop t late v bw zero bit unsync)
 
 private theorem halves_actual (t d : Nat) :
     east center t d=cell t (d:Int) ∧ west center t d=cell t (-(d:Int)) := by
