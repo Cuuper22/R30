@@ -256,3 +256,56 @@ cylinder in positive time by minimality, making its future periodic
 and the entire minimal system periodic. Take the countable union
 over tapes and times. Thus matching all dyadic source lanes cannot
 by itself license replacing a limiting west by a finite tape.
+
+**A compulsory black block on the genuine later orbit (finite-cut transfer).**
+Fix an actual cut s with strict-west tape of finite positive width d. Suppose
+at u the same clock phase and the next r>=d heads agree with those at s.
+The previous d+P+1 ticks at u must also be inside the mixed period-P wall.
+There exists b in [1,d+P+1] for which the genuine strict-west row at u-b
+has at least r-d consecutive black bits, beginning at inner-to-outer bit
+index at most d+1 (physical distance at most d+2). This conclusion uses
+no return of the complete physical or normalized row.
+
+Start with the *exact* finite tape at s, not a limit. Rewind it by the old
+centers and heads supplied by the genuine later history at u. After b such
+steps its reconstructed tape agrees with the true one at u-b on the first
+r+b bits: at the first step the supplied head gives bit 0 and r common
+output bits give old bits 1 through r by the scanner. Iterate. Until the
+first nonfinite rewind, each nonzero finite parent drops one bit in width.
+An old zero remains zero at the next tick only with old center zero;
+with center one its next tape has width one, and all subsequent widths
+increase by one. Thus at most d+P+1 backward steps can precede the first
+nonfinite tape. At that first step let w be the width of the finite target,
+allowing w=0. After scanning its last black, the input is all zeros and
+the nonzero pair enters 11 within two transitions (10 -> 01 -> 11).
+Therefore every reconstructed old bit of index at least w+1 is black.
+The genuine row at u-b inherits this assertion through bit r+b-1. While
+w>0 we have w=d-b+1, giving length at least r+2b-d-2; for w=0 the length
+is at least r+b-1. Both imply the stated bound. At true age s>=8 the
+known universal mark reset excludes b=1; the maximum starting physical
+distance then improves to d+1. In particular a fixed genuine cut which
+returns to arbitrary precision on the periodic tail forces arbitrarily
+long solid-black intervals on genuine earlier rows with their near ends
+in a *fixed* spatial window. Choosing a subsequence fixes b and the start
+index. No fixed-cut arbitrary-precision recurrence has been assumed for
+an arbitrary nonperiodic q, and the lag-dependent late cuts of the fork
+theorem do not supply it.
+
+The inverse tails farther back also have a genuine finite-window implication.
+After leaving the vacuum class the first tail is all black, its predecessor
+has spatial primitive period three, and every subsequent primitive period
+is the old value or its double (the spatial preimage theorem). These
+periods diverge on every infinite such past: otherwise the periodic far
+fields would belong to a finite deterministic forward system, and an
+arbitrarily long transient ending at vacuum cannot visit a state twice.
+More quantitatively, a spatially periodic far field first entering vacuum
+k ticks later with current primitive period m must have k+1<=2^m,
+by considering those distinct aligned states on the m-site circle. For
+any *fixed* rewind length k and fixed original d the finite set of possible
+old heads has a finite maximum spatial transient and period. Hence if r
+tends to infinity at a fixed s, genuine earlier rows contain arbitrarily
+long blocks of the prescribed periodic ancestor tails; subsequences fix
+the prior heads. No uniform bound on the spatial transients as k grows
+is asserted. The unsolved estimate remains an incompatibility for these
+blocks on the marked approximants, or an argument furnishing a sufficiently
+long recurrence relative to the varying genuine cut.
