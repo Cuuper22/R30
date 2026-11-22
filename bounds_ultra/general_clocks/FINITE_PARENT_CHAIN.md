@@ -576,3 +576,44 @@ The covered path need not be the extremal founder for this exclusion. In
 particular every bounded head-supplying spine has a genuinely aperiodic
 position sequence. The selection of its actual next step from earlier
 heads alone, or the impossibility of such an aperiodic spine, remains open.
+
+The aperiodic geometry alternative is real for the west-only relaxation,
+even with genuine same-history comparison and extremal founder selection.
+Clamp center identically white; fix P>=3. Set h_(kP+j) to k mod 2 on
+every phase j != i, for i=P-1; at i use a non-eventually-periodic
+binary sequence a_k with no adjacent ones. Thus d_t=h_t XOR h_(t+P)
+is 1 except for the isolated times t=kP+i with a_k=a_(k+1)=0 (at
+least P ticks apart). The causal inverse triangle reconstructs a single
+genuine west half-history, though not necessarily a finite whole west.
+The physical material path stays at -1, except that around every such
+zero its positions at t-2,t-1,t,t+1 are -1,-2,-2,-1. Indeed the raw
+depth-two bit y_s=h_s XOR h_(s+1). At t-2 it is common white, so the
+new depth-two disagreement takes the old head; at t-1 both raw pairs
+(y,h) are 00 versus 11 since h_t=0, so the new depth-two difference
+takes old depth two; at t the new head takes depth two since h_t agrees.
+All other successive differing heads take the previous one. The omitted
+head at each t-1 is also a child of the spine's head at t-2. Thus this
+is exactly the stabilized head-supplying founder, with aperiodic bounded
+position. Any finite prefix is also compatible with an ordinary finite
+initial west, by truncation beyond its inverse triangle. No infinite
+finite-west realization or physical east is asserted. The true white
+wall's eastern latch forbids this entire example.
+
+There is also a sharp local obstruction to replacing the moving geometry
+by a fixed two-lag path. If p is bounded but not eventually P-periodic,
+p(t+P)-p(t) has both signs cofinally by telescoping: if eventually
+one-signed, each residue subsequence would stabilize. Thus AB and BC
+meet or pass on opposed neighboring edges repeatedly. On a meeting A=C
+differs from B. A strict swap need not transport AC to either target:
+take the old words at x-1..x+2 to be A=1110,B=0010,C=0000. The new
+bits at x,x+1 are respectively 00,11,00. AB takes x->x+1 while BC
+takes x+1->x. Three such window prescriptions can be realized in one
+west-clamped lag-P history whenever the three needed finite head windows
+are disjoint; the true singleton prehistory is not asserted. For the
+real mixed wall there is a recurring two-site cut: whenever c_t=1 and
+c_(t+1)=0, h_t=1 in both copies, so no D exists at -1 at t. The old
+OR at -2 at t-1 is common (if c_(t-1)=0, y_(t-1) and h_(t-1) are
+complements; if c_(t-1)=1 both agree pairwise). Thus any D at -2 at
+t has its material parent at -3; no path is confined forever to these
+first two cells. The fixed-Q bridge still requires a growing depth or a
+strict source loss; the free-geometry west countermodel does not provide it.
