@@ -429,3 +429,32 @@ easterly founder while the actual center never differs. This identifies
 the source exactly but does not bound repetitions by siblings of the
 same surviving mark. Neither does the square-root-width basin by itself
 reach the physically fixed wall, whose normalized lane grows linearly.
+
+Genuine symbolic Rule 90 control: take any odd Q in its single-seed
+orbit. Each raw row is white at every odd normalized lane. In the newer
+frame lane Q is therefore always the older mark alone, with D_Q=1 there
+and zero at lane Q-2 (negative older coordinate, odd newer coordinate).
+The Rule 90 update at lane Q takes the preceding same-lane discrepancy
+at every tick. This second founder stays at fixed lane Q forever, directly
+violating the Rule 30 attraction conclusion. The middle input in the
+Rule 30 OR gate is necessary for the adjacent zero-pair reconstruction.
+
+**Fixed-lag ceiling for this particular founder test.** At fixed Q the
+true normalized rim of the smaller age cannot reappear at offset Q in
+the larger age on unbounded widths at arbitrarily late cuts. Otherwise
+subsequence compactness at the older marked edge gives an entire marked
+normalized front F with F(0,n)=F(Q,n+Q) for all n>=0. Unnormalize the
+Q rows on the eastern ray. This equation lets them repeat as a lawful
+temporal Q-cylinder, away from its left boundary. Adjacent physical
+Q-bit columns determine the preceding column by Rule 30's west
+permutivity. The entire eastern ray supplies arbitrarily long inverses
+under this finite column-pair map, hence each pair is on a cycle. The
+original marked front would have a spatially periodic eastern tail in
+one phase, which the marked-front theorem forbids. In particular the
+below-width test cannot be obtained cofinally for fixed Q just by
+waiting longer: when e grows, its conclusion already yields these
+impossible embedded matches. The still-needed implication is that the
+actual periodic center (in particular Q=P), together with its coupled
+physical pedigree and eastern past, forces such growing widths or an
+equivalent loss of the persistent founder. No recurrence of clipped
+physical observations establishes that implication.
