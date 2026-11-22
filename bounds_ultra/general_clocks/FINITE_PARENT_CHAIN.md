@@ -769,3 +769,36 @@ the actual eastern source of a first fresh fork bit avoids x=1 AND x=2
 through the matched-past interior (discard a bounded cap at either end).
 This is a conditional depth result for the marked lag, not P=2 closure
 or an induction across arbitrary successive drivers.
+
+### Coupling a bounded physical lag path to actual checker material
+
+Use the stationary checker with even raw black. Its genuine material paths
+move east between boxes {y-1,y} (y even). Write L,M for those two raw
+columns. A permanent material resident there forces M<=L and L with no
+successive ones, as in `ancestry_ultra/TRUE_LAG_CHAIN.md`. A physical lag-P
+material path can then never take the WEST edge within that same box: such
+an OR edge needs both L bits white and the M bits unequal. Neither can the
+physical path remain forever inside that very box. Common L=0 gives no D in
+either cell; common L=1 gives common L'=0 at the next cut, also no D there.
+Thus a forever path would force L(t+P)=1-L(t) eventually, making this true
+western column periodic together with the center, excluded by the mark.
+
+More generally an intrabox west step M->L in the physical D genealogy
+compares the true checker box state empty (raw 01) versus occupied (00).
+Infinitely many such steps at a fixed box force cofinally many absolute
+cut intervals of length P with different occupancy at their ends. Both
+directions of occupancy change occur cofinally in the full lag record
+(by telescoping each residue mod P). Every empty-to-occupied interval
+requires a fresh material arrival from a strictly western checker box.
+This rules out feeding the required box forever by one resident's stay;
+repeated admissions from descendants of one upstream founder remain possible.
+On the other orientation of physical west step, from odd y+1 to even y,
+the two actual copies have y commonly white and y-1 common (OR-parent
+condition). When y-1 is white, both histories have the old even checker
+vacancy at y. When y-1 is black both contain the odd checker defect at y-1.
+The new even vacancy in the one copy retaining it has this already-shared
+western-box material parent, rather than an arriving eastern checker
+particle. Thus the two types of west move cannot both be charged as fresh
+admissions. A bounded path visiting at least three sites infinitely often
+crosses an intrabox edge west infinitely often; the exceptional two-site
+range across a box boundary requires the second, shared-donor accounting.
