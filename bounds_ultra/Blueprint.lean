@@ -648,6 +648,64 @@ theorem pulse_filters (hc : EventuallyPeriodic center) : IrregularPulse := by
   exact pulse_nonperiodic hc k
     (FiniteWindowRecurrence.eventuallyPeriodic_of_xor_polynomial (pulse k) coeff hh)
 
+private theorem head_by_pulse (k t : Nat) (ht : k+3≤t) :
+    cell t (-1) = if center t then !(center (t+1)) else pulse k t := by
+  have nw : ¬(2≤t ∧ (-1:Int)=1-(t:Int)) := by omega
+  have nx : (-1:Int)≠(t:Int) := by omega
+  have raw (a b c : Bool) : a=(if b then !(rule a b c) else a && !b) := by
+    cases a <;> cases b <;> cases c <;> rfl
+  simpa [pulse,coreSource,interiorSource,westSatellite,nw,nx,
+    show (k:Int)<(t:Int)+1 by omega,center,cell] using raw (cell t (-1)) (cell t 0) (cell t 1)
+
+private theorem inverse_law (t : Nat) (x : Int) :
+    cell t (x-1)=xor (cell (t+1) x) (cell t x || cell t (x+1)) := by
+  simp [cell,rule]
+
+/-- Every multiplicative-scale time window must contain a true signed
+difference of the seam source at the prescribed lag, not merely a difference
+some arbitrarily long time later. -/
+def AnnularPulse (P N : Nat) : Prop := ∀ (k s m : Nat), N≤s → k+3≤s → 0<m →
+    ∃ t : Nat, s≤t ∧ t<2*s+P*m ∧ pulse k (t+P*m)≠pulse k t
+
+theorem pulse_annuli (P N : Nat) (hp : 0<P)
+    (per : ∀ t, N≤t → center (t+P)=center t) : AnnularPulse P N := by
+  intro k s m hs early hm
+  let Q := P*m
+  have hq : 0<Q := Nat.mul_pos hp hm
+  apply Classical.byContradiction
+  intro no
+  have agree (n : Nat) (hn : n<s+Q) :
+      pulse k (s+Q+n)=pulse k (s+n) := by
+    rw [show s+Q+n=(s+n)+P*m by dsimp [Q];omega]
+    apply Classical.byContradiction
+    intro ne;exact no ⟨s+n,by omega,by change s+n<2*s+Q;omega,ne⟩
+  have wall (n : Nat) : center (s+Q+n)=center (s+n) := by
+    rw [show s+Q+n=(s+n)+P*m by dsimp [Q];omega]
+    exact repeat_add per (s+n) (by omega) m
+  have heads (n : Nat) (hn : n<s+Q) : cell (s+Q+n) (-1)=cell (s+n) (-1) := by
+    rw [head_by_pulse k _ (by omega),head_by_pulse k _ (by omega),wall n,
+      show s+Q+n+1=s+Q+(n+1) by omega,show s+n+1=s+(n+1) by omega,wall (n+1),agree n hn]
+  have west (j : Nat) : ∀ n, n+j≤s+Q →
+      cell (s+Q+n) (-(j:Int))=cell (s+n) (-(j:Int)) := by
+    induction j using Nat.strongRecOn with
+    | ind j ih =>
+      cases j with
+      | zero => intro n _;exact wall n
+      | succ j =>
+        cases j with
+        | zero => intro n hn;exact heads n (by omega)
+        | succ j =>
+          intro n hn
+          have z0 := ih (j+1) (by omega) n (by omega)
+          have z1 := ih (j+1) (by omega) (n+1) (by omega)
+          have z2 := ih j (by omega) n (by omega)
+          rw [show -((j+1+1:Nat):Int)= -((j+1:Nat):Int)-1 by omega,inverse_law,inverse_law,
+            show -((j+1:Nat):Int)+1= -(j:Int) by omega,show s+Q+n+1=s+Q+(n+1) by omega,
+            show s+n+1=s+(n+1) by omega,z0,z1,z2]
+  have impossible := west (s+Q) 0 (by omega)
+  simp only [Nat.add_zero] at impossible
+  rw [leftMark,leftVac s _ (by omega)] at impossible;contradiction
+
 /-- Explicit transfer from the one marked source. The oldest pulse has
 kernel weight wave r (x+1); the remaining terms use later epochs. -/
 def taps (k : Nat) : Nat → Nat → Int → Bool
@@ -754,7 +812,7 @@ The targets may choose their checkerboard tags separately. k=0 is legal:
 all sufficiently late noncritical ages are then available; higher k retains
 the exact growing-collar deletion when it helps. There is no independence
 assumption between pulses or cones. -/
-theorem L1 (P N : Nat) (hP : 0<P) (marked : IrregularPulse) :
+theorem L1 (P N : Nat) (hP : 0<P) (marked : IrregularPulse) (annuli : AnnularPulse P N) :
     ∃ (k a v d : Nat) (evA evB : Bool), 0<d ∧
       let A := tagAge k (2^a) evA
       let B := tagAge k ((2*d+1)*2^v) evB
@@ -763,7 +821,7 @@ theorem L1 (P N : Nat) (hP : 0<P) (marked : IrregularPulse) :
 
 theorem close_step4 (hcenter : EventuallyPeriodic center) : False := by
   obtain ⟨T,P,hP,period⟩ := hcenter
-  obtain ⟨k,a,v,d,evA,evB,hd,earlyA,earlyB,hs,he⟩ := L1 P T hP (pulse_filters ⟨T,P,hP,period⟩)
+  obtain ⟨k,a,v,d,evA,evB,hd,earlyA,earlyB,hs,he⟩ := L1 P T hP (pulse_filters ⟨T,P,hP,period⟩) (pulse_annuli P T hP period)
   let A := tagAge k (2^a) evA
   let B := tagAge k ((2*d+1)*2^v) evB
   change A%P=B%P at hs
