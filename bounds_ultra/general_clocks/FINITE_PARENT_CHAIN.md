@@ -483,3 +483,37 @@ the mark-backbone case the head-supplying launch ages tend to infinity:
 for every fixed S, all sufficiently late heads descend from the specific
 outer mark at S. Different generations of that true mark can supply
 different head bursts. No periodicity of their arrival times follows.
+
+**Real three-row source gate.** At lag P>=2 write A,B,C for the genuine
+rows of ages t,t+P,t+2P. In the newest normalized coordinates BC and AC
+have identical local pedigree upstream of the B mark, since both older
+rows are vacuum there. Lanes P,P+1 of B are both black after maturity,
+while A is still vacuum at both. Hence the AC and BC discrepancies are
+complements on two consecutive whole lanes. A material edge increments
+lane by at most two. No one chronological path from the C mark can pass
+that doublet in both pedigrees. Traffic across it is partitioned: for
+k=P or P+1, if the old C bit at k-2 is black, it differs in both pairs.
+The next discrepancy at k exists in exactly one pair, and in that pair
+its active parent is k-2. AC receives this child when the old C bits at
+k-1 and k have OR zero; BC receives it when their OR is one.
+
+There is a single birth-parity restriction for every P>=2. For Q=P>=4,
+lane 2 of the newer comparison is permanently clear, and positive lane
+1 comes freshly from the mark. Every family leaving the first two lanes
+must take 1->3 exactly when the actual newer lane 3 is zero. Its last
+mark time n (in the older comparison clock) therefore has n+Q odd. At
+Q=3 the middle mark reverses this condition, and n is odd. At Q=2 the
+two actual eight-bit rim phases give D_5=0; D_4 is always from D_2 and
+D_2 from the mark, and 4->6 passes exactly at odd t, again n odd. This
+tracks actual source generations, not the parity of a later head.
+
+For P=3 the newborn C bud must pass newest lane 2 by its single 1->3
+edge. The two comparisons select opposite raw phases on that edge, so
+one such bud cannot enter the interior in both. This disjointness of
+families does not generalize: for P=5 choose the genuine even C rim
+phase 0x13. Its lane 4 is black, lanes 3,5,6 are white, and both older
+copies are vacuum at lane 4. The common lane-4 individual has a staying
+lane-4 child and a direct lane-6 child in AC. At the next phase 0x7b
+the SAME staying child sends a direct lane-6 child into BC, since now
+C_5 OR C_6=1. One real family supplies both sides one tick apart.
+No XOR of parent labels or global head-routing claim is used.
