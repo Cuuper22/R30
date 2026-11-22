@@ -1,0 +1,4 @@
+01:01000 temporal 10 spatial transient 0 period 155 all phases reset K=25 (universal word bound 26) gap<=7
+011:011 temporal 9 spatial transient 14 period 135 all phases reset K=35 (universal word bound 36) gap<=7
+0011:1111133 temporal 28 spatial transient 6808 period 363832 all phases reset K=75 (universal word bound 98) gap<=17
+00101:0 temporal 5 spatial transient 0 period 25 all phases reset K=23 (universal word bound 24) gap<=5

@@ -1,0 +1,4 @@
+0011 s 4 prefix-reachable 560 nonlocking 468 sync depth 15 rival [(0, 0)]
+0011 s 4 prefix-reachable 560 nonlocking 451 sync depth 17 rival [(0, 0)]
+0011 s 8 prefix-reachable 20412 nonlocking 19715 sync depth 29 rival [(0, 0)]
+0011 s 8 prefix-reachable 20412 nonlocking 19592 sync depth 31 rival [(0, 0)]

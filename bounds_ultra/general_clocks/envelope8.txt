@@ -1,0 +1,4 @@
+clock 01 rule 30 n 25 height 8 eventual envelope predepth/period 40 1 states/phase [2916, 2916] first all-vacuum throughout phases 29 rim excluding offsets [None, None]
+clock 011 rule 30 n 18 height 8 eventual envelope predepth/period 43 1 states/phase [2916, 2916, 2916] first all-vacuum throughout phases 43 rim excluding offsets [None, None, None]
+clock 0011 rule 30 n 18 height 8 eventual envelope predepth/period 38 1 states/phase [2916, 2916, 2916, 2916] first all-vacuum throughout phases 30 rim excluding offsets [None, None, None, None]
+clock 00101 rule 30 n 18 height 8 eventual envelope predepth/period 29 1 states/phase [2916, 2916, 2916, 2916, 2916] first all-vacuum throughout phases 28 rim excluding offsets [None, None, None, None, None]
