@@ -931,6 +931,146 @@ theorem actual_repair (c : Trace) (s Q r n : Nat) (old : s<r+1)
     rw [firstbit]
     cases h : gate c (s+r) <;> cases k : gate c (s+r%Q) <;> simp_all
 
+/-- Parity of the untouched white neighbors along one east-going
+characteristic. Reading it requires one genuine west cell per time step. -/
+def whiteParity (c : Trace) (s : Nat) : Nat → Nat → Bool
+  | _, 0 => false
+  | d, t+1 => xor (whiteParity c s (d+1) t) (!west c (s+t) d)
+
+private theorem second_xor (a b m n k : Bool) (opposite : xor m n=true) :
+    xor (rule a m k) (rule b n k)=xor (xor a b) (!k) := by
+  cases m <;> cases n <;> cases k <;> cases a <;> cases b <;> simp_all [rule]
+
+/-- One step behind the first difference, the nonlinear perturbation
+reduces exactly to a white-cell parity; d=0 is allowed at the final time,
+so this reads the gate immediately following the first tear. -/
+private theorem inv_west_second (c g : Trace) (s d t : Nat)
+    (first : ∀ j, j<d+t → invertGate (fun i => c (s+i)) g j 0=west c s j)
+    (front : xor (invertGate (fun i => c (s+i)) g (d+t) 0) (west c s (d+t))=true) :
+    xor (invertGate (fun i => c (s+i)) g (d+1) t) (west c (s+t) (d+1)) =
+    xor (xor (invertGate (fun i => c (s+i)) g (d+t+1) 0) (west c s (d+t+1)))
+      (whiteParity c s d t) := by
+  induction t generalizing d with
+  | zero => simp [whiteParity]
+  | succ t ih =>
+    let m := fun i => c (s+i)
+    have lt (j : Nat) (h : j<d+1+t) : invertGate m g j 0=west c s j := first j (by omega)
+    have fr : xor (invertGate m g (d+1+t) 0) (west c s (d+1+t))=true := by
+      rw [show d+1+t=d+(t+1) by omega]
+      exact front
+    have edge := (inv_west_tip c g s (d+1) t (by omega) lt).trans fr
+    have forward := inv_west_cone c g s d t (fun j hj => first j (by omega))
+    have prev := ih (d+1) lt fr
+    rw [invert_step]
+    change xor (rule _ _ _) (rule (west c (s+t) (d+2)) (west c (s+t) (d+1))
+      (west c (s+t) d)) = _
+    rw [forward,second_xor _ _ _ _ _ edge,prev]
+    rw [show d+1+t+1=d+(t+1)+1 by omega,whiteParity,Bool.xor_assoc]
+
+/-- The next bit after the synthetic mark has TWO readings: the
+initialized eastern gate at the next tick, or the parity of a single
+genuine west characteristic and the measured cyclic gate. -/
+theorem next_tear_bit (c : Trace) (s Q r : Nat) (old : s<r+1)
+    (extra : cyclicWest c s Q (r+1) 0=true)
+    (first : ∀ j, j<r+1 → cyclicWest c s Q j 0=west c s j)
+    (blank : ∀ j, 0<j → j≤s+r+2 → origin c j=false) :
+    xor (cyclicWest c s Q (r+2) 0) (whiteParity c s 0 (r+1)) =
+      xor (gate c (s+(r+1)%Q)) (gate c (s+(r+1))) := by
+  let g := fun i => gate c (s+i%Q)
+  have E := inv_west_second c g s 0 (r+1)
+    (by intro j le; exact first j (by omega))
+    (by simp only [Nat.zero_add]
+        change xor (cyclicWest c s Q (r+1) 0) (west c s (r+1))=true
+        rw [extra,west_vac c s (r+1) old]; rfl)
+  simp only [Nat.zero_add] at E
+  rw [west_vac c s (r+1+1) (by omega),Bool.xor_false] at E
+  rw [←finite_west c (s+(r+1)) 1 (fun j p le => blank j p (by omega))] at E
+  have bx (x y z : Bool) : xor (xor x y) (xor x z)=xor y z := by
+    cases x <;> cases y <;> cases z <;> rfl
+  change xor (xor (c (s+(r+1+1))) (g (r+1))) (xor (c (s+(r+1)+1)) (gate c (s+(r+1)))) = _ at E
+  rw [show s+(r+1+1)=s+(r+1)+1 by omega,bx] at E
+  exact E.symm
+
+/-- Prefix parity of whites on the ray x=t−J, starting at row zero. -/
+def markParity (c : Trace) (J : Nat) : Nat → Bool
+  | 0 => false
+  | t+1 => xor (markParity c J t) (!west c t (J-t))
+
+private theorem parity_cut (c : Trace) (J s d t : Nat) (rayEq : J+1=s+d+t) :
+    whiteParity c s d t = xor (markParity c J s) (markParity c J (s+t)) := by
+  induction t generalizing d with
+  | zero => simp [whiteParity]
+  | succ t ih =>
+    rw [whiteParity,ih (d+1) (by omega),show s+(t+1)=s+t+1 by omega,markParity]
+    rw [show J-(s+t)=d by omega,Bool.xor_assoc]
+
+private theorem parity_void (c : Trace) (J s : Nat) (void : 2*s≤J) :
+    markParity c J s = decide (s%2=1) := by
+  induction s with
+  | zero => rfl
+  | succ s ih =>
+    rw [markParity,west_vac c s (J-s) (by omega),ih (by omega)]
+    by_cases e : s%2=1
+    · simp [e,show ¬(s+1)%2=1 by omega]
+    · simp [e,show (s+1)%2=1 by omega]
+
+/-- For each cut this key reads only its CYCLIC probe and its first Q
+true samples. The parity adjustment accounts for the initial vacuum
+before the cut on the shared singleton characteristic. -/
+def tearKey (c : Trace) (s Q r : Nat) : Bool :=
+  xor (xor (cyclicWest c s Q (r+2) 0) (gate c (s+(r+1)%Q))) (decide (s%2=1))
+
+theorem shared_key (c : Trace) (s Q r : Nat) (cap : s≤r)
+    (extra : cyclicWest c s Q (r+1) 0=true)
+    (first : ∀ j, j<r+1 → cyclicWest c s Q j 0=west c s j)
+    (blank : ∀ j, 0<j → j≤s+r+2 → origin c j=false) :
+    tearKey c s Q r = xor (markParity c (s+r) (s+r+1)) (gate c (s+r+1)) := by
+  have e := next_tear_bit c s Q r (by omega) extra first blank
+  rw [parity_cut c (s+r) s 0 (r+1) (by omega),parity_void c (s+r) s (by omega),
+      show s+(r+1)=s+r+1 by omega] at e
+  unfold tearKey
+  generalize cyclicWest c s Q (r+2) 0=A at *
+  generalize gate c (s+(r+1)%Q)=B at *
+  generalize decide (s%2=1)=D at *
+  generalize markParity c (s+r) (s+r+1)=C at *
+  generalize gate c (s+r+1)=F at *
+  cases A <;> cases B <;> cases C <;> cases D <;> cases F <;> simp_all
+
+/-- Different lengths Q and different cuts have to yield the SAME
+second-bit key whenever their geometric mark reaches a common absolute
+time. A black wall at the next tick or a low cyclic gate at this tear
+also pins that shared key without using a later eastern observation. -/
+def KeyClass (c : Trace) (J : Nat) : Prop :=
+  ∃ K : Bool, (c (J+1)=true → K= !markParity c J (J+1)) ∧
+    ∀ s Q r, s+r=J → s≤Q → Q≤r → c (s+r)=c (s+r%Q) → cyclicWest c s Q (r+1) 0=true →
+      (∀ j, j<r+1 → cyclicWest c s Q j 0=west c s j) →
+      tearKey c s Q r=K ∧ (gate c (s+r%Q)=false → K= !markParity c J (J+1))
+
+theorem joint_key_or_strobe (c : Trace) (J k : Nat) (hk : 0<k) :
+    KeyClass c J ∨ ∃ j, 0<j ∧ j≤J+2 ∧ east c (2^(J+2)*k) (2^(J+2)*k-j)=true := by
+  by_cases positive : ∃ j, 0<j ∧ j≤J+2 ∧ origin c j=true
+  · obtain ⟨j,pos,cap,hit⟩ := positive
+    exact Or.inr ⟨j,pos,cap,(common_strobe c j (J+2) k cap hk).trans hit⟩
+  · have blank (j : Nat) (pos : 0<j) (cap : j≤J+2) : origin c j=false := by
+      cases e : origin c j with
+      | false => rfl
+      | true => exact False.elim (positive ⟨j,pos,cap,e⟩)
+    apply Or.inl
+    refine ⟨xor (markParity c J (J+1)) (gate c (J+1)), ?_, ?_⟩
+    · intro black
+      simp [gate,black]
+    · intro s Q r date small large aligned extra first
+      subst J
+      exact ⟨shared_key c s Q r (by omega) extra first blank,by
+        intro low
+        obtain ⟨_,ne⟩ := first_cyclic_tear c s Q r (by omega) extra first
+          (fun j hj le => blank j hj (by omega))
+        have current : gate c (s+r)=true := by cases e : gate c (s+r) <;> simp_all
+        by_cases white : c (s+r)=false
+        · rw [gate_latched c (s+r) white current,Bool.xor_true]
+        · have lit : c (s+r%Q)=true := by cases e : c (s+r%Q) <;> simp_all
+          simp [gate,lit] at low⟩
+
 /-- One failed run repair already returns an actual positive origin
 coefficient; no true post-Q eastern sample enters the left-hand test. -/
 theorem repair_or_strobe (c : Trace) (s Q r n k : Nat) (hk : 0<k) (old : s<r+1)
@@ -1031,7 +1171,19 @@ theorem L1 (c : Trace) (hmark : c 0 = true) (T P : Nat) (hp : 0 < P)
           by_cases all_clean : ∀ s q r, T≤s → 0<q → s≤P*q → P*q≤r →
               cyclicWest w s (P*q) (r+1) 0=true →
               (∀ j, j<r+1 → cyclicWest w s (P*q) j 0=west w s j) → Repairs w s (P*q) r
-          · sorry
+          · by_cases shared : ∀ J, KeyClass w J
+            · -- For EVERY common absolute tear time, all cyclic keys
+              -- agree across cuts and lag lengths, with one prescribed
+              -- value at forced-high eastern arrivals.
+              sorry
+            · apply Classical.byContradiction
+              intro nohit
+              apply shared
+              intro J
+              rcases joint_key_or_strobe w J P hp with ok|hit
+              · exact ok
+              · obtain ⟨j,p,cap,one⟩ := hit
+                exact False.elim (nohit ⟨J+2,j,p,cap,one⟩)
           · apply Classical.byContradiction
             intro nohit
             apply all_clean
