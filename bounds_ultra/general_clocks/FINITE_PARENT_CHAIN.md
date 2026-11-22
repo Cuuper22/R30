@@ -69,3 +69,33 @@ supplies cofinal eastern resets in the remaining Lean branch, but a
 reset determines an old pair for the common observed row; it does not
 make an entire alternative past finite back through tau=0. No entropy
 inequality or finite-horizon lower bound discharges this step.
+
+**Why an age-independent finite collar cannot provide that fork.**
+Fix M,n,r in advance. Take an admitted physical host path of length M+n
+and periodic c. Decode its initial near-west residue z modulo 2^(M+n).
+Put exactly this residue near the wall and put a single additional black at
+an arbitrarily larger depth D. Choose the intervening vacuum longer than
+r+2(M+n). The whole west is finite. Its forward Rule 30 evolution, with
+the prescribed wall, now realizes the same M+n heads. At the cut after M
+ticks, it has M ticks of finite host ancestry, n ticks of host future, and
+its outer r cells over this entire interval have followed the actual
+normalized isolated-mark rule (the domains of dependence do not meet the
+near-wall edit). If the chosen right path came from a genuine clamped
+infinite east, use precisely that initial eastern ray: the computed heads
+then produce the prescribed center in the full CA without clamping for
+the entire interval. The starting complete row need not be a singleton.
+Thus no finite M,n,r makes these hypotheses inconsistent; the spatial
+separation D is free. Any hereditary lemma using the actual single origin
+must relate the inverse depth to that separation, or use an unbounded
+right-history condition. This is a symbolic gluing construction, not an
+infinite finite-west survivor.
+
+Nor does the eventual normalized mark exclude a loss of finite parenthood
+in the remote past. Directly, Rule 30 maps the half-space x<0 to the single
+black at x=0: all interior triples give zero and the triple at zero is
+100. It also maps the all-black row with its one hole at x=-1 to this
+same singleton. Their old (center,west-head) pairs are respectively
+(0,1) and (1,0), and both old west rays are cofinite. Thus a cofinite
+parent can land in the exact marked source, with its entire ensuing rim.
+The missing implication must involve the prescribed host/read history
+or the exact joint source rather than a ban on this sign transition.
