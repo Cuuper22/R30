@@ -307,6 +307,84 @@ private theorem abMaskPeriod (hc : EventuallyPeriodic center) (hm : abMosaic) :
 
 #print axioms abMaskPeriod
 
+-- Period-blind inverse obstruction on the first eight eastern cells.
+-- Reading the eight target bits east-to-west from all four possible
+-- old pairs, a reset occurs precisely when the four old pairs coalesce.
+private def r8f (y : Bool) (s : Bool × Bool) : Bool × Bool :=
+  (s.2, xor y (s.1 || s.2))
+private def r8bad (a b c d e f g h : Bool) : Bool :=
+  let act := fun s => r8f a (r8f b (r8f c (r8f d (r8f e (r8f f (r8f g (r8f h s)))))))
+  let p := act (false,false)
+  !(p == act (false,true) && p == act (true,false) && p == act (true,true))
+private def r8no (t : Nat) : Bool := r8bad (cell t 1) (cell t 2) (cell t 3) (cell t 4) (cell t 5) (cell t 6) (cell t 7) (cell t 8)
+private def r8code (a b c d e f g h : Bool) : Nat :=
+  1*a.toNat+2*b.toNat+4*c.toNat+8*d.toNat+16*e.toNat+32*f.toNat+64*g.toNat+128*h.toNat
+private def r8state (t : Nat) : Nat := r8code (cell t 1) (cell t 2) (cell t 3) (cell t 4) (cell t 5) (cell t 6) (cell t 7) (cell t 8)
+-- Height in the condensation DAG (four bits per vertex). All arcs that
+-- preserve this height belong to just the 0-cycle or the 5-cycle.
+private def r8rank (s : Nat) : Nat := (0xb201001100001111000000005100012200000000000000003501000000000728a200001100006412000000000000000032050011000000000000000000000189b201000000005412000000006100017300000000000000000000000000000000980000520000111100000000000000000000000000000000000000000000012a >>> (4*s)) % 16
+private def r8next : Nat → Nat
+  | 57 => 206 | 206 => 115 | 115 => 156 | 156 => 231 | 231 => 57 | _ => 0
+private def r8read (s : Nat) : Bool := decide (s = 231)
+private def r8turn (s : Nat) : Nat := r8next (r8next (r8next (r8next (r8next s))))
+private abbrev r8edge (x y : Nat) (q : Bool) : Prop :=
+  r8rank y ≤ r8rank x ∧ (r8rank y = r8rank x →
+    y = r8next x ∧ q = r8read x ∧ r8turn x = x)
+set_option maxRecDepth 10000 in
+set_option maxHeartbeats 4000000 in
+private theorem r8cert : ∀ a b c d e f g h k v : Bool,
+    r8bad a b c d e f g h = true → r8bad (rule v a b) (rule a b c) (rule b c d) (rule c d e) (rule d e f) (rule e f g) (rule f g h) (rule g h k) = true →
+    r8edge (r8code a b c d e f g h) (r8code (rule v a b) (rule a b c) (rule b c d) (rule c d e) (rule d e f) (rule e f g) (rule f g h) (rule g h k)) (a && !v) := by decide
+private theorem r8local (t : Nat) (a : r8no t = true) (b : r8no (t+1) = true) :
+    r8edge (r8state t) (r8state (t+1)) (MaskedRightRigidity.maskedRight t) := by
+  exact r8cert _ _ _ _ _ _ _ _ (cell t 9) (center t) a b
+private theorem r8steady (f : Nat → Nat) (T : Nat)
+    (mono : ∀ t, T ≤ t → f (t+1) ≤ f t) :
+    ∃ s, T ≤ s ∧ ∀ t, s ≤ t → f (t+1) = f t := by
+  have later (a b : Nat) (ha : T ≤ a) (hab : a ≤ b) : f b ≤ f a := by
+    obtain ⟨d,rfl⟩ := Nat.exists_eq_add_of_le hab
+    induction d with
+    | zero => exact Nat.le_refl _
+    | succ d ih => exact Nat.le_trans (mono (a+d) (by omega)) (ih (by omega))
+  have down (m : Nat) : ∀ a, T ≤ a → f a = m →
+      ∃ s, T ≤ s ∧ ∀ t, s ≤ t → f (t+1) = f t := by
+    induction m using Nat.strongRecOn with
+    | ind m ih =>
+      intro a ha val
+      by_cases drop : ∃ b, a ≤ b ∧ f (b+1) < f b
+      · obtain ⟨b,hb,hv⟩ := drop
+        have le := later a b ha hb
+        exact ih (f (b+1)) (by omega) (b+1) (by omega) rfl
+      · refine ⟨a,ha,?_⟩
+        intro b hb
+        have no : ¬ f (b+1) < f b := fun y => drop ⟨b,hb,y⟩
+        have low := mono b (by omega)
+        omega
+  exact down (f T) T (Nat.le_refl _) rfl
+private theorem r8maskPeriod (T : Nat) (h : ∀ t, T ≤ t → r8no t = true) :
+    EventuallyPeriodic MaskedRightRigidity.maskedRight := by
+  have path (t : Nat) (ht : T ≤ t) := r8local t (h t ht) (h (t+1) (by omega))
+  obtain ⟨s,hs,eq⟩ := r8steady (fun t => r8rank (r8state t)) T
+    (fun t ht => (path t ht).1)
+  have step (t : Nat) (ht : s ≤ t) := (path t (by omega)).2 (eq t ht)
+  refine ⟨s,5,by decide,?_⟩
+  intro t ht
+  have e0 := step t ht
+  have e1 := step (t+1) (by omega)
+  have e2 := step (t+2) (by omega)
+  have e3 := step (t+3) (by omega)
+  have e4 := step (t+4) (by omega)
+  have e5 := step (t+5) (by omega)
+  have ret : r8state (t+5) = r8state t := by
+    calc r8state (t+5) = r8next (r8state (t+4)) := e4.1
+         _ = r8next (r8next (r8state (t+3))) := by rw [e3.1]
+         _ = r8next (r8next (r8next (r8state (t+2)))) := by rw [e2.1]
+         _ = r8next (r8next (r8next (r8next (r8state (t+1))))) := by rw [e1.1]
+         _ = r8turn (r8state t) := by rw [e0.1]; rfl
+         _ = r8state t := e0.2.2
+  rw [e5.2.1,ret,← e0.2.1]
+#print axioms r8maskPeriod
+
 theorem answer : Claim := by
   intro hcenter
   have nonconstant (b : Bool) : ¬ ∃ T, ∀ t ≥ T, center t = b := by
@@ -359,8 +437,26 @@ theorem answer : Claim := by
     -- This is the single unresolved mathematical subgoal.
     by_cases hab : abMosaic
     · exact abMaskPeriod hcenter hab
-    · -- Remaining mixed clocks do not have an A B⁺ A reset followed by an A/B mosaic.
-      sorry
+    · by_cases resets : ∀ k, ∃ t, k ≤ t ∧ r8no t = false
+      · -- Remaining: mixed non-mosaic wall with cofinally many genuine
+        -- right-to-left inverse-pair resets in its first eight eastern sites.
+        sorry
+      · have stop : ∃ k, ∀ t, k ≤ t → r8no t = true := by
+          apply Classical.byContradiction
+          intro none
+          apply resets
+          intro k
+          by_cases hit : ∃ t, k ≤ t ∧ r8no t = false
+          · exact hit
+          · exfalso
+            apply none
+            refine ⟨k, ?_⟩
+            intro t ht
+            cases e : r8no t with
+            | false => exact False.elim (hit ⟨t, ht, e⟩)
+            | true => rfl
+        obtain ⟨k,hk⟩ := stop
+        exact r8maskPeriod k hk
   exact MaskedRightRigidity.claim_of_periodic_mask step4_mixed_right_filter hcenter
 
 end OpenProblem
