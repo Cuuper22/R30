@@ -19,3 +19,25 @@ def main():
  for p in ('01','011','00101'):
   for r in (30,90):go(r,p)
 if __name__=='__main__':main()
+
+def period_growth():
+ # On the finite cap permutation, compute each orbit once, not once per
+ # tape. At any ore where m has odd weight over D, both phases of a' occur
+ # and weight(m') over 2D is D+weight(a). A second doubling gives the
+ # next-old a weight D, precluding a third doubling for even D.
+ for r in (30,90):
+  N=16; seen=bytearray(1<<N);per=[0]*len(seen)
+  for x in range(len(seen)):
+   if seen[x]:continue
+   y=x;orb=[]
+   while not seen[y]:
+    seen[y]=1;orb.append(y)
+    y^=((y>>1)|(y>>2))if r==30 else y>>2
+   assert y==x
+   for q in orb:per[q]=len(orb)
+  vals=[]
+  for q,D in enumerate(per):
+   if per[q>>3]>1 and D==8*per[q>>3]:vals.append(q)
+  print('all finite cap widths through',N,'rule',r,'triple dyadic period doublings above period 1:',len(vals),'max period',max(per))
+  assert not vals
+if __name__=='__main__':period_growth()
