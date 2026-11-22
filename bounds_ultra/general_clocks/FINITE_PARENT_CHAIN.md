@@ -325,3 +325,17 @@ return deficit to D>=2b+(1/2)log2(Q-P-3)-O(1). The exact interval
 statement is the useful one when constants or boundary cases matter.
 The gain 2b is allowed even when most of the older heads differ: b measures
 actual finite inverse survival, not the length of an identical past word.
+
+**Why the east restriction is necessary at halfway.** Fix a landing of
+positive width w, k<w, and all k earlier center bits. Distinct possible
+k-bit head words give distinct old tapes, by deterministic forward
+replay. Any finite one has width exactly w-k, so there are at most
+2^(w-k-1) finite choices among the 2^k words. In particular once
+2k>w-1, an assertion of finiteness for every old head word is impossible
+for *every* such landing, including every actual marked landing. The fraction
+is at most 2^(w-2k-1). Prescribing a common length-m initial head segment
+also fixes the lowest m ancestor bits by triangularity; while m<=w-k-1 it
+divides both counts by 2^m. The obstruction threshold from the first fork
+cannot be crossed by adding an all-head collar theorem. What is required
+is an additional *legal eastern* history inside the sparse finite-parent
+fiber, on top of the one true history already known.
