@@ -650,3 +650,35 @@ The physical path feeding the head has depths 3,4,3,2,1 at ages 0..4.
 This finite marked-west control does not start from the singleton and
 does not give an infinite return. The next step must control distinct
 exit episodes by the common origin, rather than prolong this diagonal.
+
+**Cofinal fork on the same marked orbit with both overlapping strips.**
+Immediately upon visiting ray g=t-x at path site x=p(t), its known
+D=1 supplies h_(g+P-1). Thus before deciding the next step the finite
+decoder knows the ENTIRE older raw west from x-P through 0 and newer
+raw west from x through 0, including center phase and all masked reads
+through that head index. On a stationary move the next real ray supplies
+one new head; on a westward move its skipped common-white ray and the next
+real ray supply two. Eastward moves use the same already decoded ray and
+can repeat only boundedly often in the band. Hence, for every finite k,
+there are two arbitrarily late true same-phase times with the same last k
+joint views and same path positions but different next moves. Otherwise a
+finite lookup table for that suffix would advance the decoder and make h
+eventually periodic. Cofinality follows by applying the argument after
+any cutoff. Past moves may also be included in the matched views.
+
+At such a fork the P-path child flags are elementary. Its east child
+exists exactly when the OR at x+1 is common; its stationary child needs
+a common west bit at x-1 and a differing OR at x; its westward child
+needs x-1 common white AND a common west bit at x-2. Therefore all
+differences between the instantaneous child sets depend on just the TWO
+newer bits x-1,x-2 still outside the decoder. If the newer x-1 differs
+between the two actual epochs, exactly one P-copy has a differing west
+neighbor and is forced east to survive. This inter-epoch difference is
+the rightmost strict-west discrepancy, travelling ballistically to the
+true white head exactly -x ticks later in the newer row. If x-1 matches
+and x-2 first differs, only the westward child can change, and the
+inter-epoch head differs one tick later. If both match, the two paths
+select different surviving children in identical current gates. The
+missing step is to rule out the fresh true-right read or this future
+branch selection on a marked bounded path; the c=0 clamp example shows
+why the selector cannot be inferred from the overlapping west alone.
