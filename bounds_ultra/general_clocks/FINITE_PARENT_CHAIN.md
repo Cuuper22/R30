@@ -517,3 +517,62 @@ lane-4 child and a direct lane-6 child in AC. At the next phase 0x7b
 the SAME staying child sends a direct lane-6 child into BC, since now
 C_5 OR C_6=1. One real family supplies both sides one tick apart.
 No XOR of parent labels or global head-routing claim is used.
+
+There is nevertheless a source-to-wall ordering consequence. At an
+actual newest-outlier western head at time v (A=B differ from C), assume
+the AC and BC parent paths each come from the newest C mark. Let n_AC
+and n_BC be their last mark times in the common oldest-row clock, both
+after the periodic onset T (as holds for late heads in the mark-spine
+case for both lags). Trace
+their common terminal path backward to its first parent split, at target
+(tau,x). The target has newest normalized index i>=P+2: the local gates
+coincide strictly upstream of P and a newest outlier cannot occupy lanes
+P,P+1. Thus max(n_AC,n_BC)+ceil((P+2)/2)<=tau. The split has exactly
+two possible mechanisms. If the old A and B west inputs differ, their
+OR outputs must differ too since their new values agree; this is an AB
+cancellation, with one of AC/BC taking the west input and the other an
+OR input. Otherwise both pairs can split only if all three old west bits
+agree, the two old C OR inputs are 00, and both older ORs are 1 with
+different westernmost black inputs. If both older ORs were 0, or both
+pairs took the west input, the parents would be the same.
+
+In either mechanism there is a genuine AB west-head mismatch at some
+t in [tau-1,v-1]. Otherwise all AB heads agree on [tau-1,v], so their
+strict-west agreement at tau-1 includes v-tau+2 sites by triangularity.
+Every old gate input at this split lies in that prefix or at the common
+center: its child (tau,x) can get to the head in v-tau unit-radius steps.
+Equal old A,B data cannot split these parents. In particular
+
+    max(n_AC,n_BC)+ceil(P/2) <= t < v.
+
+In this statement birth dates belong to actual material paths, and the
+intervening AB event belongs to a third true lag comparison. Nothing
+yet says the AB head inherits the same founder as either path.
+
+**An eventually periodic physical material path is impossible.** Work at
+fixed Q=P and after periodic onset. Let p(t)<0 be any infinite physical
+parent path in the actual lag diagram. Suppose its position is eventually
+K-periodic for some K>0, with no relation between K and P. Set
+g(t)=t-p(t); its increments are 0,1,2. A visited g has observation
+D_P(t,p(t))=1. An omitted g is g(t)+1 at a westward move p(t+1)=p(t)-1.
+At this move the eastern input p(t) was selected in the differing OR:
+the middle input p(t)-1 is common, and must be WHITE for its OR to differ.
+Thus the missing ray carries the observation D_P(t,p(t)-1)=0. Choose
+the first visit for a repeated ray; after a finite prefix these choices
+commute with (t,g)->(t+K,g+K). Every sufficiently large g now has an
+observation at (g-d,-d) of value z_g. Both d and z are K-periodic in g,
+and d is positive and bounded.
+
+Writing h_t=X_t(-1), the west inverse triangle gives
+X_t(-d)=h_(t+d-1) XOR F_d of strictly earlier heads and the prescribed
+center (for d=1 the residual is zero). Indeed the new extremal head comes
+only from X_(t+1)(-d+1) in the inverse update; neither old OR input
+reaches it. Subtracting this identity at t and t+P, the lag observation
+on ray g determines h_(g+P-1) from a bounded window of earlier h,
+the given centers, and d,z. Hence h obeys a deterministic finite-memory
+recurrence with periodic coefficients; h is eventually periodic. This
+contradicts the checked two-column consequence for the true marked west.
+The covered path need not be the extremal founder for this exclusion. In
+particular every bounded head-supplying spine has a genuinely aperiodic
+position sequence. The selection of its actual next step from earlier
+heads alone, or the impossibility of such an aperiodic spine, remains open.
