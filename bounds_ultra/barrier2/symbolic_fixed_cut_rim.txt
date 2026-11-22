@@ -1,0 +1,2 @@
+rule 30 lag power, first different right depth, checked paired ages, copies incl older full row [(1, 1, 10994, 250), (2, 3, 5497, 250), (4, 4, 2748, 125), (8, 6, 1375, 93), (16, 7, 686, 64), (32, 9, 343, 40), (64, 15, 184, 32), (128, 16, 92, 16), (256, 24, 46, 12)]
+rule 90 lag power, first different right depth, checked paired ages, copies incl older full row [(1, 2, 10994, 250), (2, 4, 5497, 250), (4, 8, 2748, 249), (8, 16, 1375, 248), (16, 32, 686, 245), (32, 64, 343, 245), (64, 128, 184, 184), (128, 256, 92, 92), (256, 512, 46, 46)]
