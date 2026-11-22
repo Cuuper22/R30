@@ -1,6 +1,7 @@
 import Statement
 import OutgoingClock
 import MaskedRightRigidity
+import FiniteWaveAnchors
 
 /-! Route A. Laurent coefficients are represented by their integer exponent.
 Multiplication by z + z⁻¹ is the linear Rule 90 propagator. Rule 30 injects
@@ -661,6 +662,32 @@ private theorem inverse_law (t : Nat) (x : Int) :
     cell t (x-1)=xor (cell (t+1) x) (cell t x || cell t (x+1)) := by
   simp [cell,rule]
 
+private theorem decodePulse (k s Q r : Nat) (early : k+3≤s)
+    (wall : ∀ n, center (s+Q+n)=center (s+n))
+    (agree : ∀ n, n<r → pulse k (s+Q+n)=pulse k (s+n)) :
+    ∀ j n, n+j≤r → cell (s+Q+n) (-(j:Int))=cell (s+n) (-(j:Int)) := by
+  have heads (n : Nat) (hn : n<r) : cell (s+Q+n) (-1)=cell (s+n) (-1) := by
+    rw [head_by_pulse k _ (by omega),head_by_pulse k _ (by omega),wall n,
+      show s+Q+n+1=s+Q+(n+1) by omega,show s+n+1=s+(n+1) by omega,wall (n+1),agree n hn]
+  have west (j : Nat) : ∀ n, n+j≤r →
+      cell (s+Q+n) (-(j:Int))=cell (s+n) (-(j:Int)) := by
+    induction j using Nat.strongRecOn with
+    | ind j ih =>
+      cases j with
+      | zero => intro n _;exact wall n
+      | succ j =>
+        cases j with
+        | zero => intro n hn;exact heads n (by omega)
+        | succ j =>
+          intro n hn
+          have z0 := ih (j+1) (by omega) n (by omega)
+          have z1 := ih (j+1) (by omega) (n+1) (by omega)
+          have z2 := ih j (by omega) n (by omega)
+          rw [show -((j+1+1:Nat):Int)= -((j+1:Nat):Int)-1 by omega,inverse_law,inverse_law,
+            show -((j+1:Nat):Int)+1= -(j:Int) by omega,show s+Q+n+1=s+Q+(n+1) by omega,
+            show s+n+1=s+(n+1) by omega,z0,z1,z2]
+  exact west
+
 /-- Every multiplicative-scale time window must contain a true signed
 difference of the seam source at the prescribed lag, not merely a difference
 some arbitrarily long time later. -/
@@ -682,29 +709,30 @@ theorem pulse_annuli (P N : Nat) (hp : 0<P)
   have wall (n : Nat) : center (s+Q+n)=center (s+n) := by
     rw [show s+Q+n=(s+n)+P*m by dsimp [Q];omega]
     exact repeat_add per (s+n) (by omega) m
-  have heads (n : Nat) (hn : n<s+Q) : cell (s+Q+n) (-1)=cell (s+n) (-1) := by
-    rw [head_by_pulse k _ (by omega),head_by_pulse k _ (by omega),wall n,
-      show s+Q+n+1=s+Q+(n+1) by omega,show s+n+1=s+(n+1) by omega,wall (n+1),agree n hn]
-  have west (j : Nat) : ∀ n, n+j≤s+Q →
-      cell (s+Q+n) (-(j:Int))=cell (s+n) (-(j:Int)) := by
-    induction j using Nat.strongRecOn with
-    | ind j ih =>
-      cases j with
-      | zero => intro n _;exact wall n
-      | succ j =>
-        cases j with
-        | zero => intro n hn;exact heads n (by omega)
-        | succ j =>
-          intro n hn
-          have z0 := ih (j+1) (by omega) n (by omega)
-          have z1 := ih (j+1) (by omega) (n+1) (by omega)
-          have z2 := ih j (by omega) n (by omega)
-          rw [show -((j+1+1:Nat):Int)= -((j+1:Nat):Int)-1 by omega,inverse_law,inverse_law,
-            show -((j+1:Nat):Int)+1= -(j:Int) by omega,show s+Q+n+1=s+Q+(n+1) by omega,
-            show s+n+1=s+(n+1) by omega,z0,z1,z2]
+  have west := decodePulse k s Q (s+Q) early wall agree
   have impossible := west (s+Q) 0 (by omega)
   simp only [Nat.add_zero] at impossible
   rw [leftMark,leftVac s _ (by omega)] at impossible;contradiction
+
+/-- Fixed-lag mismatches enter before 2s minus every fixed additive margin,
+uniformly over all sufficiently late genuine cuts. -/
+private theorem earlyPulse (P N Q D : Nat) (hq : 0<Q)
+    (clock : ∀ t, N≤t → center (t+Q)=center t) :
+    ∃ T, ∀ s≥T, ∃ t, s≤t ∧ t+D<2*s ∧ pulse P (t+Q)≠pulse P t := by
+  obtain ⟨H,T,detect⟩ := FiniteWaveAnchors.physical_lag_visible Q hq (D:Int)
+  refine ⟨N+T+H.toNat+P+D+3,?_⟩
+  intro s late
+  obtain ⟨j,jlo,jhi,ne⟩ := detect s (by omega)
+  apply Classical.byContradiction
+  intro no
+  have wall (n : Nat) : center (s+Q+n)=center (s+n) := by
+    rw [show s+Q+n=s+n+Q by omega,clock _ (by omega)]
+  have agree (n : Nat) (lt : n<s-D) : pulse P (s+Q+n)=pulse P (s+n) := by
+    rw [show s+Q+n=s+n+Q by omega]
+    exact Classical.byContradiction fun nx => no ⟨s+n,by omega,by omega,nx⟩
+  have w := decodePulse P s Q (s-D) (by omega) wall agree ((s-j).toNat) 0 (by omega)
+  simp only [Nat.add_zero] at w
+  exact ne (by simpa only [show -((s-j).toNat:Int)=j-s by omega] using w)
 
 /-- Explicit transfer from the one marked source. The oldest pulse has
 kernel weight wave r (x+1); the remaining terms use later epochs. -/
@@ -806,13 +834,192 @@ theorem two_marks (k b : Nat) (big0 : 1<b*2^k) (ev : Bool) :
     change fringe (b*2^k-1) 0=fringe (b*2^(k+1)-1) 0
     rw [strip_ones b k hb,strip_ones b (k+1) hb]
 
+private def freeMarks (n : Nat) (x : Int) : Bool :=
+  xor (xor (wave (n+2) x) (wave (n+2) (x-1))) (wave n (x+2))
+
+private theorem marks_step (n : Nat) (x : Int) :
+    freeMarks (n+1) x=xor (freeMarks n (x-1)) (freeMarks n (x+1)) := by
+  let a := wave (n+2)
+  let b := wave n
+  change xor (xor (xor (a (x-1)) (a (x+1))) (xor (a (x-1-1)) (a (x-1+1))))
+      (xor (b (x+2-1)) (b (x+2+1))) =
+    xor (xor (xor (a (x-1)) (a (x-1-1))) (b (x-1+2)))
+      (xor (xor (a (x+1)) (a (x+1-1))) (b (x+1+2)))
+  rw [show x-1+1=x+1-1 by omega,show x+2-1=x-1+2 by omega,show x+2+1=x+1+2 by omega]
+  generalize a (x-1)=u;generalize a (x+1)=v;generalize a (x-1-1)=w;generalize a (x+1-1)=y
+  generalize b (x-1+2)=g;generalize b (x+1+2)=h
+  cases u <;> cases v <;> cases w <;> cases y <;> cases g <;> cases h <;> rfl
+
+private theorem wave_vac (n : Nat) (x : Int) (h : x < -(n:Int) ∨ (n:Int)<x) :
+    wave n x=false := by
+  induction n generalizing x with
+  | zero => simp [wave];omega
+  | succ n ih => rw [wave,ih (x-1) (by omega),ih (x+1) (by omega)];rfl
+
+private theorem marks_vac (n : Nat) (x : Int) (h : x < -(n:Int)-4 ∨ (n:Int)+4<x) :
+    freeMarks n x=false := by
+  rw [freeMarks,wave_vac _ _ (by omega),wave_vac _ _ (by omega),wave_vac _ _ (by omega)];rfl
+
+private theorem tap_vac (n : Nat) (x : Int) (h : x < -(n:Int)-1 ∨ (n:Int)+1<x) :
+    taps 0 0 n x=false := by
+  induction n generalizing x with
+  | zero => rfl
+  | succ n ih => rw [taps_snoc,ih _ (by omega),ih _ (by omega)];simp [show x≠-1 by omega]
+
+private theorem tap_source (s n : Nat) :
+    taps 0 s (n+1) (-1)=pulse 0 (s+n) := by
+  induction n generalizing s with
+  | zero => simp [taps,wave]
+  | succ n ih =>
+    change xor (wave (n+1) 0 && _) _=_
+    rw [wave_center,ih];simp [show s+1+n=s+(n+1) by omega]
+
+private def packet (n : Nat) (x : Int) : Bool := xor (freeMarks n x) (taps 0 0 (n+2) x)
+
+private theorem packet_step (n : Nat) (x : Int) (nx : x≠ -1) :
+    packet (n+1) x=xor (packet n (x-1)) (packet n (x+1)) := by
+  unfold packet
+  rw [marks_step,show n+1+2=n+2+1 by omega,taps_snoc]
+  simp [nx,Bool.xor_comm,Bool.xor_left_comm,Bool.xor_assoc]
+
+/-- Full response of every genuine unmarked lane except x=-1. -/
+def bulk (n : Nat) : Bool := off 0 0 (n+2) 0
+
+private theorem packet_center (n : Nat) : packet n 0=xor (center (n+2)) (bulk n) := by
+  have eqc : ∀ t x, interior t x=core 0 t x := by
+    intro t
+    induction t with
+    | zero => intro _;rfl
+    | succ t ih =>
+      intro x
+      rw [interior,core,ih,ih]
+      by_cases h : x<(t:Int)
+      · simp [coreSource,h]
+      · by_cases z : x=(t:Int)
+        · simp [coreSource,interiorSource,z]
+        · simp [coreSource,interiorSource,rightVac t x (by omega)]
+  have fr := fresh_decomp 0 0 (n+2) (n+2)
+  have none : walk (n+2) (fun _ => false) (n+2)=false := walk_cone _ _ _ (by intros;rfl)
+  change _ = xor (walk _ (fun _ => false) _) _ at fr
+  have se := fresh_seam 0 0 (n+2) 0
+  simp only [Int.natCast_add,Int.cast_ofNat_Int,Int.zero_add,Int.sub_zero] at se fr
+  simp only [Nat.zero_add,Int.sub_self,none,Bool.false_xor] at fr
+  have m : xor (fringe (n+2) 0) (westFringe (n+2) 0)=freeMarks n 0 := by
+    simp [fringe,westFringe,freeMarks,show ¬n+2<2 by omega,show (0:Int)≠(n:Int)+2+1 by omega,
+      show (0:Int)≠ -((n:Int)+2) by omega]
+  unfold packet center bulk
+  rw [row_split,m,eqc,fr,se]
+  simp only [Bool.xor_assoc,Bool.xor_self,Bool.xor_false]
+
+/-- Frobenius clears a fixed central reading band of a finite free packet
+through almost the entire next factor-of-two interval. -/
+private theorem packet_hush (Z : Nat→Int→Bool) (L k r : Nat) (x : Int)
+    (law : ∀ n y, Z (n+1) y=xor (Z n (y-1)) (Z n (y+1)))
+    (vac : ∀ y, y < -(L:Int) ∨ (L:Int)<y → Z 0 y=false)
+    (near : -1≤x ∧ x≤1) (room : r+L+1<2^k) : Z (2^k+r) x=false := by
+  have track (n : Nat) (y : Int) : Z n y=walk n (Z 0) (y+n) := by
+    induction n generalizing y with
+    | zero => simp [walk]
+    | succ n ih =>
+      rw [law,ih,ih,walk,show y-1+(n:Int)=y+(↑(n+1):Int)-2 by omega,
+        show y+1+(n:Int)=y+(↑(n+1):Int) by omega,Bool.xor_comm]
+  rw [track,Nat.add_comm (2^k) r,walk_pow]
+  have h1 : walk r (Z 0) (x+↑(r+2^k))=false := by
+    apply walk_cone;intro y lo hi;exact vac y (Or.inr (by omega))
+  have h2 : walk r (Z 0) (x+↑(r+2^k)-2*((2^k:Nat):Int))=false := by
+    apply walk_cone;intro y lo hi;exact vac y (Or.inl (by omega))
+  rw [h1,h2];rfl
+
+private theorem reflect_law (Z : Nat→Int→Bool)
+    (wall : ∀ n, Z n 0=false)
+    (law : ∀ n y, 0<y → Z (n+1) y=xor (Z n (y-1)) (Z n (y+1))) :
+    ∀ n x, Z (n+1) (if x<0 then -x else x) =
+      xor (Z n (if x-1<0 then -(x-1) else x-1)) (Z n (if x+1<0 then -(x+1) else x+1)) := by
+  intro n x
+  by_cases h : x<0
+  · simp only [if_pos h,if_pos (show x-1<0 by omega)]
+    rw [law _ _ (by omega),show -(x-1)= -x+1 by omega]
+    by_cases h' : x+1<0
+    · rw [if_pos h',show -(x+1)= -x-1 by omega,Bool.xor_comm]
+    · have e : x= -1 := by omega
+      subst x;simp [Bool.xor_comm]
+  · by_cases z : x=0
+    · subst x;simp [wall]
+    · simp only [if_neg h,if_neg (show ¬x-1<0 by omega),if_neg (show ¬x+1<0 by omega)]
+      exact law n x (by omega)
+
+private theorem xorLag {a b c d : Bool} : xor (xor a b) (xor c d)=xor (xor a c) (xor b d) := by
+  cases a <;> cases b <;> cases c <;> cases d <;> rfl
+
+/-- The complementary nonlinear bulk itself has to be aperiodic. A putative
+periodic bulk gives a zero-boundary free difference to the east of the
+physical marked source. Its reflected packet is exactly vacant on a dyadic
+annulus, contradicting the true moving-west detector. -/
+theorem bulk_nonperiodic (hc : EventuallyPeriodic center) : ¬EventuallyPeriodic bulk := by
+  intro hb
+  obtain ⟨T,P,hp,cper⟩ := hc
+  obtain ⟨U,p,pp,bper⟩ := hb
+  let Q:=P*p
+  let S:=T+U+3
+  let L:=S+Q+10
+  let D:=L+S+8
+  have qp : 0<Q:=Nat.mul_pos hp pp
+  have clock (t : Nat) (late : T≤t) : center (t+Q)=center t := repeat_add cper t late p
+  have bk (t : Nat) (late : U≤t) : bulk (t+Q)=bulk t := by
+    rw [show Q=p*P by dsimp [Q];ac_rfl];exact repeat_add bper t late P
+  let Z (n : Nat) (x : Int) := xor (packet (S+n+Q) x) (packet (S+n) x)
+  let W (n : Nat) (x : Int) := xor (freeMarks (S+n+Q) x) (freeMarks (S+n) x)
+  have wall (n : Nat) : Z n 0=false := by
+    dsimp [Z];rw [packet_center,packet_center,show S+n+Q+2=S+n+2+Q by omega,
+      clock _ (by dsimp [S];omega),bk _ (by dsimp [S];omega),Bool.xor_self]
+  have interiorEq (n : Nat) (x : Int) (nx : x≠ -1) :
+      Z (n+1) x=xor (Z n (x-1)) (Z n (x+1)) := by
+    dsimp [Z];rw [show S+(n+1)+Q=(S+n+Q)+1 by omega,show S+(n+1)=(S+n)+1 by omega,
+      packet_step _ _ nx,packet_step _ _ nx,xorLag]
+  have wlaw (n : Nat) (x : Int) : W (n+1) x=xor (W n (x-1)) (W n (x+1)) := by
+    dsimp [W];rw [show S+(n+1)+Q=(S+n+Q)+1 by omega,show S+(n+1)=(S+n)+1 by omega,
+      marks_step,marks_step,xorLag]
+  have wvac (y : Int) (v : y< -(L:Int) ∨ (L:Int)<y) : W 0 y=false := by
+    dsimp [W,L] at *;rw [marks_vac _ _ (by omega),marks_vac _ _ (by omega)];rfl
+  have zvac (y : Int) (v : y< -(L:Int) ∨ (L:Int)<y) :
+      Z 0 (if y<0 then -y else y)=false := by
+    let j := if y<0 then -y else y
+    have h : (L:Int)<j := by dsimp [j];split <;> omega
+    change Z 0 j=false
+    dsimp [Z,packet,L] at *
+    rw [marks_vac _ _ (by omega),marks_vac _ _ (by omega),tap_vac _ _ (by omega),tap_vac _ _ (by omega)];rfl
+  obtain ⟨V,find⟩ := earlyPulse 0 T Q D qp clock
+  let k:=V+1
+  have big : V<2^k := by dsimp [k];have h:=Nat.lt_two_pow_self (n:=V+1);omega
+  let s:=S+2^k+1
+  obtain ⟨t,a,b,ne⟩ := find s (by dsimp [s];omega)
+  let r:=t-s
+  let n:=2^k+r
+  have time : S+n+1=t := by dsimp [n,r,s] at *;omega
+  have room : r+L+1<2^k := by dsimp [D,r,s] at *;omega
+  have w1 := packet_hush W L k r (-1) wlaw wvac (by decide) room
+  have z1 := packet_hush (fun n x => Z n (if x<0 then -x else x)) L k r 1
+    (reflect_law Z wall (fun n x hx => interiorEq n x (by omega))) zvac (by decide) room
+  change W n (-1)=false at w1
+  change Z n 1=false at z1
+  have z0 := interiorEq n 0 (by decide)
+  change Z (n+1) 0=xor (Z n (-1)) (Z n 1) at z0
+  rw [wall,z1,Bool.xor_false] at z0
+  have z := z0.symm
+  unfold Z packet at z
+  rw [tap_source,tap_source,xorLag] at z
+  change xor (W n (-1)) (xor (pulse 0 (0+(S+n+Q+1))) (pulse 0 (0+(S+n+1))))=false at z
+  rw [w1,Bool.false_xor,Nat.zero_add,Nat.zero_add,show S+n+Q+1=t+Q by omega,time] at z
+  exact ne (by cases a : pulse 0 (t+Q) <;> cases b : pulse 0 t <;> simp_all)
+
 /-- The hard collision: the difference of the other genuine lanes agrees
 with the finite transfer from the known-irregular lane at one mixed pair.
 The targets may choose their checkerboard tags separately. k=0 is legal:
 all sufficiently late noncritical ages are then available; higher k retains
 the exact growing-collar deletion when it helps. There is no independence
 assumption between pulses or cones. -/
-theorem L1 (P N : Nat) (hP : 0<P) (marked : IrregularPulse) (annuli : AnnularPulse P N) :
+theorem L1 (P N : Nat) (hP : 0<P) (marked : IrregularPulse) (annuli : AnnularPulse P N)
+    (bulkVaries : ¬EventuallyPeriodic bulk) :
     ∃ (k a v d : Nat) (evA evB : Bool), 0<d ∧
       let A := tagAge k (2^a) evA
       let B := tagAge k ((2*d+1)*2^v) evB
@@ -821,7 +1028,7 @@ theorem L1 (P N : Nat) (hP : 0<P) (marked : IrregularPulse) (annuli : AnnularPul
 
 theorem close_step4 (hcenter : EventuallyPeriodic center) : False := by
   obtain ⟨T,P,hP,period⟩ := hcenter
-  obtain ⟨k,a,v,d,evA,evB,hd,earlyA,earlyB,hs,he⟩ := L1 P T hP (pulse_filters ⟨T,P,hP,period⟩) (pulse_annuli P T hP period)
+  obtain ⟨k,a,v,d,evA,evB,hd,earlyA,earlyB,hs,he⟩ := L1 P T hP (pulse_filters ⟨T,P,hP,period⟩) (pulse_annuli P T hP period) (bulk_nonperiodic ⟨T,P,hP,period⟩)
   let A := tagAge k (2^a) evA
   let B := tagAge k ((2*d+1)*2^v) evB
   change A%P=B%P at hs
