@@ -981,12 +981,159 @@ private theorem arm_stamp (c : Trace) (T P d h t v : Nat)
   · exact ⟨start,old,whiteS,white,unequal⟩
   · exact ⟨start.symm,old.symm,white,whiteS,Ne.symm unequal⟩
 
+/-- Six cells to the right of a held black wall; the seventh is free at
+each step. The recursive predicate quantifies over both possible inputs. -/
+private abbrev Band := Bool × Bool × Bool × Bool × Bool × Bool
+private def advance (w : Band) (r : Bool) : Band :=
+  let (a,b,d,e,f,g) := w
+  (rule true a b, rule a b d, rule b d e, rule d e f, rule e f g, rule f g r)
+private def freezes : Nat → Band → Bool
+  | 0,w => !w.1 && w.2.1
+  | n+1,w => freezes n (advance w false) && freezes n (advance w true)
+
+set_option maxHeartbeats 10000000 in
+set_option maxRecDepth 2500 in
+private theorem freezes_nine : ∀ a b d e f g : Bool, freezes 9 (a,b,d,e,f,g)=true := by decide
+
+private def band (c : Trace) (t x : Nat) : Band :=
+  (east c t (x+1),east c t (x+2),east c t (x+3),east c t (x+4),east c t (x+5),east c t (x+6))
+
+private theorem freezes_real (c : Trace) (x n t : Nat)
+    (yes : freezes n (band c t x)=true) (held : ∀ i,i<n → east c (t+i) x=true) :
+    east c (t+n) (x+1)=false ∧ east c (t+n) (x+2)=true := by
+  induction n generalizing t with
+  | zero => simpa [freezes,band] using yes
+  | succ n ih =>
+    have now := held 0 (by omega)
+    simp only [Nat.add_zero] at now
+    have next : band c (t+1) x=advance (band c t x) (east c t (x+7)) := by
+      simp [band,advance,east,now]
+    have pair := Bool.and_eq_true_iff.mp yes
+    have guard : freezes n (band c (t+1) x)=true := by
+      rw [next];cases b : east c t (x+7)
+      · exact pair.1
+      · exact pair.2
+    have z := ih (t+1) guard (fun i li => by
+      rw [show t+1+i=t+(i+1) by omega];exact held (i+1) (by omega))
+    rwa [show t+1+n=t+(n+1) by omega] at z
+
+/-- A held-black physical cell is a new wall, two places farther east
+after nine ticks. No assumption on the cells ahead of that wall. -/
+theorem black_pair (c : Trace) (x t : Nat)
+    (held : ∀ i,i<9 → east c (t+i) x=true) :
+    east c (t+9) (x+1)=false ∧ east c (t+9) (x+2)=true :=
+  freezes_real c x 9 t (freezes_nine _ _ _ _ _ _) held
+
+private def Ready (c : Trace) (b : Nat) : Prop :=
+  east c b 1=true ∧ east c b 2=false ∧ east c b 3=true
+
+private theorem head_hold (c : Trace) (t n : Nat) (one : east c t 1=true)
+    (white : ∀ i,i<n → c (t+i)=false) : east c (t+n) 1=true := by
+  induction n with
+  | zero => exact one
+  | succ n ih =>
+    change rule (east c (t+n) 0) (east c (t+n) 1) (east c (t+n) 2)=true
+    rw [east0,white n (by omega),ih (fun i hi => white i (by omega))]
+    rfl
+
+private theorem rise3 (c : Trace) (b : Nat) (black : c b=true)
+    (rd : Ready c b) (w1 : c (b+1)=false) (w2 : c (b+2)=false) :
+    east c (b+1) 1=false ∧ east c (b+2) 1=false ∧ east c (b+3) 1=true := by
+  obtain ⟨r1,r2,r3⟩ := rd
+  have a : east c (b+1) 1=false := by change rule (east c b 0) _ _=_;rw [east0,black,r1];rfl
+  have f : east c (b+1) 2=false := by change rule (east c b 1) _ _=_;rw [r1,r2,r3];rfl
+  have g : east c (b+1) 3=true := by change rule (east c b 2) _ _=_;rw [r2,r3];rfl
+  have a' : east c (b+2) 1=false := by change rule (east c (b+1) 0) _ _=_;rw [east0,w1,a,f];rfl
+  have f' : east c (b+2) 2=true := by change rule (east c (b+1) 1) _ _=_;rw [a,f,g];rfl
+  exact ⟨a,a',by change rule (east c (b+2) 0) _ _=_;rw [east0,w2,a',f'];rfl⟩
+
+private theorem between_pulses (c : Trace) (b n : Nat) (gap : 12≤n)
+    (black : c b=true) (rd : Ready c b)
+    (whites : ∀ i,0<i → i<n → c (b+i)=false) :
+    Ready c (b+n) ∧ ∀ i,0<i → i<n → east c (b+i) 1=decide (3≤i) := by
+  obtain ⟨lo,mid,hi⟩ := rise3 c b black rd (whites 1 (by omega) (by omega)) (whites 2 (by omega) (by omega))
+  have on (i : Nat) (li : 3≤i) (le : i≤n) : east c (b+i) 1=true := by
+    have z := head_hold c (b+3) (i-3) hi (fun j hj => by
+      rw [show b+3+j=b+(3+j) by omega];exact whites _ (by omega) (by omega))
+    rwa [show b+3+(i-3)=b+i by omega] at z
+  have f := black_pair c 1 (b+n-9) (fun i li => by
+    rw [show b+n-9+i=b+(n-9+i) by omega];exact on _ (by omega) (by omega))
+  rw [show b+n-9+9=b+n by omega] at f
+  refine ⟨⟨on n (by omega) (by omega),f⟩,?_⟩
+  intro i pos lt
+  by_cases ge : 3≤i
+  · simpa [ge] using on i ge (by omega)
+  · rcases (show i=1 ∨ i=2 by omega) with rfl|rfl
+    · exact lo
+    · exact mid
+
+/-- The clock after the designated cut consists of single black pulses
+with arbitrary intervening lengths at least eleven. The entering 101
+is a three-cell physical condition, not a condition on future reads. -/
+def PulseBasin (c : Trace) : Prop :=
+  ∃ f : Nat → Nat, Ready c (f 0) ∧ ∀ k,
+    c (f k)=true ∧ f k+12≤f (k+1) ∧
+    ∀ i,f k<i → i<f (k+1) → c i=false
+
+private theorem pulse_mask (c : Trace) (f : Nat → Nat) (rd : Ready c (f 0))
+    (seq : ∀ k,c (f k)=true ∧ f k+12≤f (k+1) ∧
+      ∀ i,f k<i → i<f (k+1) → c i=false) (join : Joined c) :
+    ∀ t,f 0≤t → whiteNeed c t= !(c t || c (t-1) || c (t-2)) := by
+  have jump (k : Nat) (ready : Ready c (f k)) :=
+    between_pulses c (f k) (f (k+1)-f k) (by have := (seq k).2.1;omega) (seq k).1
+      ready (fun i li hi => (seq k).2.2 _ (by omega) (by omega))
+  have ready (k : Nat) : Ready c (f k) := by
+    induction k with
+    | zero => exact rd
+    | succ k ih =>
+      have h := (jump k ih).1
+      rwa [Nat.add_sub_of_le (by have := (seq k).2.1;omega : f k≤f (k+1))] at h
+  have cover (n : Nat) : ∃ k,f k≤f 0+n ∧ f 0+n<f (k+1) := by
+    induction n with
+    | zero => exact ⟨0,by omega,by have := (seq 0).2.1;omega⟩
+    | succ n ih =>
+      obtain ⟨k,lo,hi⟩ := ih
+      by_cases still : f 0+(n+1)<f (k+1)
+      · exact ⟨k,by omega,still⟩
+      · exact ⟨k+1,by omega,by have := (seq (k+1)).2.1;omega⟩
+  intro t ht
+  obtain ⟨k,lo,hi⟩ := cover (t-f 0)
+  rw [Nat.add_sub_of_le ht] at lo hi
+  by_cases atPulse : t=f k
+  · simp [whiteNeed,atPulse,(seq k).1]
+  · have w := (seq k).2.2 t (by omega) hi
+    have eq := (jump k (ready k)).2 (t-f k) (by omega) (by omega)
+    rw [Nat.add_sub_of_le lo] at eq
+    simp only [whiteNeed,w,Bool.not_false,Bool.true_and,join t w,eq,Bool.false_or]
+    by_cases mid : f k+3≤t
+    · have w1 := (seq k).2.2 (t-1) (by omega) (by omega)
+      have w2 := (seq k).2.2 (t-2) (by omega) (by omega)
+      simp [w1,w2,show 3≤t-f k by omega]
+    · rcases (show t-1=f k ∨ t-2=f k by omega) with e|e
+      · simp [e,(seq k).1,show ¬3≤t-f k by omega]
+      · simp [e,(seq k).1,show ¬3≤t-f k by omega]
+
+/-- The west mark forbids every periodic trace entering this basin. The
+gap sequence need not be constant; knowledge of three wall bits is
+enough to recover every mature masked east output. -/
+theorem excludes_pulse_basin (c : Trace) (mark : c 0=true) (ep : EventuallyPeriodic c)
+    (black : BlackLock c) (join : Joined c) : ¬PulseBasin c := by
+  rintro ⟨f,rd,seq⟩
+  have reads := pulse_mask c f rd seq join
+  apply west_rich c mark ep black
+  obtain ⟨T,P,hp,per⟩ := ep
+  refine ⟨T+f 0+2,P,hp,?_⟩
+  intro t ht
+  rw [reads (t+P) (by omega),reads t (by omega),per t (by omega),
+    show t+P-1=(t-1)+P by omega,per (t-1) (by omega),
+    show t+P-2=(t-2)+P by omega,per (t-2) (by omega)]
+
 /-- L1: at least ONE arm of an actual marked collision challenges the
 inverse predictor on a capable label. This does not require either
 recurrence of the endpoint word or coincidence of the two endpoint words. -/
 theorem L1 (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
     (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
-    (past : Prefix c T) (black : BlackLock c) (starts : ResetStarts c T P) :
+    (past : Prefix c T) (black : BlackLock c) (outside : ¬PulseBasin c) (starts : ResetStarts c T P) :
     ∀ N d h, ∃ t v,N≤t ∧ Arm c T P d h t v ∧ capable (seven c (t+2))=true ∧
       need c (t+1)≠guess (seven c (t+2)) := by
   sorry
@@ -996,7 +1143,7 @@ from sufficiently deep matched reset starts. It says nothing about
 unmatched cuts, bounded source collars, or any other phase or word. -/
 theorem L2 (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
     (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
-    (past : Prefix c T) (black : BlackLock c) :
+    (past : Prefix c T) (black : BlackLock c) (outside : ¬PulseBasin c) :
     ∃ n, ∀ t v,n≤t → Arm c T P n n t v → c t=true → c (t+1)=false → east c t 1=false →
       let w := seven c (t+2)
       (code w=67 ∨ code w=91) → BlackCut c t w → Bracket c P t w →
@@ -1013,8 +1160,9 @@ private theorem stays_high (c : Trace) (t : Nat) (white : c t=false) (old : east
 theorem collision (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
     (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
     (past : Prefix c T) (black : BlackLock c) (join : Joined c) : False := by
-  obtain ⟨n,stop⟩ := L2 c T P hp mark period mixed past black
-  obtain ⟨t,v,late,arm,cap,bad⟩ := L1 c T P hp mark period mixed past black
+  have outside := excludes_pulse_basin c mark ⟨T,P,hp,period⟩ black join
+  obtain ⟨n,stop⟩ := L2 c T P hp mark period mixed past black outside
+  obtain ⟨t,v,late,arm,cap,bad⟩ := L1 c T P hp mark period mixed past black outside
     (reset_starts c T P hp mark period black join) (n+T+P+6) n n
   obtain ⟨last,shared,white,other,unequal⟩ := arm_stamp c T P n n t v period arm
   have wrong : east c (t+1) 1≠guess (seven c (t+2)) := by rwa [←join (t+1) white]
@@ -1105,5 +1253,6 @@ theorem close_step4 (hcenter : EventuallyPeriodic center) : False := by
 end OpenProblem.AncestryBlueprint
 #print axioms OpenProblem.AncestryBlueprint.decoder_bound
 #print axioms OpenProblem.AncestryBlueprint.reset_starts
+#print axioms OpenProblem.AncestryBlueprint.excludes_pulse_basin
 #print axioms OpenProblem.AncestryBlueprint.west_rich
 #print axioms OpenProblem.AncestryBlueprint.close_step4
