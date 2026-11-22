@@ -114,3 +114,49 @@ and the two crossed centers rejoin the true center at j+2. Indeed
 the west and east neighbor rows at j+1 are still their respective
 donors, so the common saturated OR ignores the center flip. The
 one-tick flip at j+1 remains.
+
+**A fork that is forced by the actual orbit.** Write the periodic clock
+phase and q as one finite symbol; let V be ANY additional finite color
+of each genuine cut, including a prescribed east collar. The two-sided
+limit set of the true tail has two histories with the same entire
+nonnegative symbol sequence and the same color at zero, but different
+symbol histories at negative times. No recurrence assumption on the
+original old cut is necessary.
+
+To prove this, project the compact limit set of (symbols,colors) onto
+the two-sided symbol limit set X. If X contains a periodic point of
+period l, take arbitrarily long matching periodic blocks in the real
+non-eventually-periodic sequence. Extend them to the left up to their
+first mismatch. The mismatch positions must be unbounded, since a
+bounded family of starts could give arbitrarily long such blocks only
+on an eventually periodic tail. Pass to a fixed period phase and take
+a limit. Its nonnegative half is periodic but its symbol at -1 differs
+from the periodic extension. Its forward shifts by multiples of l have
+infinitely many distinct pasts (their last mismatch is at different
+positions) and the same future. Infinitely many admit one common
+color at the cut.
+
+If X has no periodic point, take a minimal subsystem Y. Two distinct
+histories in Y have the same nonnegative half. Otherwise compactness
+makes the previous symbol a function of a fixed finite future block;
+the finite block graph then has exactly one predecessor and at least
+one successor per vertex, so all its components are cycles. This
+would make Y periodic. For each color v, the histories in Y that
+admit a lift with that color now form a closed set; these sets cover
+Y. One contains a relative open cylinder U. Translate the two
+right-asymptotic histories forward until both belong to U: every
+positive orbit in Y meets U arbitrarily late, and finite cylinders
+then see precisely their common future. These translated histories
+still differ in the past, share the full future, and both admit v.
+
+Since phase is part of the symbols, every discrepancy is in q, not
+in the clock. Genuine spacetime subsequential limits realize the
+two histories, using compactness again. Their strict western landing
+rays are identical because their forward heads agree forever.
+The color can include the last k observed ticks for any specified k;
+their rejoined true-limit western history then includes those k past
+ticks by uniqueness of the outward scanner with the old pair given.
+This provides a same-host and same-west fork in the actual limit set,
+rather than a freely invented host past. It does not certify either
+western tape at the earlier cut as finite. The physical marks may
+move to minus infinity along both sequences of genuine ages.
