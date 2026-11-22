@@ -345,6 +345,98 @@ def Seam (c : Trace) : Prop :=
     (∀ i, i≤d → c (s+i)=c (u+i)) ∧
     (∀ i, i<d → gate c (s+i)=gate c (u+i))
 
+private theorem rule_left_inj {a b x y : Bool} (e : rule a x y = rule b x y) : a = b := by
+  cases a <;> cases b <;> cases x <;> cases y <;> simp_all [rule]
+
+/-- At two clock-aligned cuts, the first differing strictly western bit
+travels one site toward the wall on every tick until it reaches depth one. -/
+theorem west_first_split (c : Trace) (r s u : Nat)
+    (wall : ∀ i, i≤r → c (s+i)=c (u+i))
+    (lower : ∀ j, j<r+1 → west c s j=west c u j)
+    (split : west c s (r+1) ≠ west c u (r+1)) :
+    west c (s+r) 1 ≠ west c (u+r) 1 := by
+  induction r generalizing s u with
+  | zero => simpa using split
+  | succ r ih =>
+    have sub (j : Nat) (hj : j<r+1) : west c (s+1) j = west c (u+1) j := by
+      cases j with
+      | zero => exact wall 1 (by omega)
+      | succ j =>
+        change rule (west c s (j+2)) (west c s (j+1)) (west c s j) =
+          rule (west c u (j+2)) (west c u (j+1)) (west c u j)
+        rw [lower (j+2) (by omega),lower (j+1) (by omega),lower j (by omega)]
+    have diff : west c (s+1) (r+1) ≠ west c (u+1) (r+1) := by
+      change rule (west c s (r+2)) (west c s (r+1)) (west c s r) ≠
+        rule (west c u (r+2)) (west c u (r+1)) (west c u r)
+      rw [lower (r+1) (by omega),lower r (by omega)]
+      exact fun h => split (rule_left_inj h)
+    have h := ih (s+1) (u+1)
+      (by intro i hi; simpa [Nat.add_assoc] using wall (1+i) (by omega)) sub diff
+    simpa only [show s+1+r=s+(r+1) by omega,show u+1+r=u+(r+1) by omega] using h
+
+/-- Only ONE eastern OR reading is needed. There is no premise that right
+neighbours or gate blocks repeat. At a black arrival this equality is free. -/
+theorem first_split_strobe (c : Trace) (s u r k : Nat) (su : s<u) (hk : 0<k)
+    (wall : ∀ i, i≤r+1 → c (s+i)=c (u+i))
+    (lower : ∀ j, j<r+1 → west c s j=west c u j)
+    (split : west c s (r+1) ≠ west c u (r+1))
+    (oneGate : gate c (s+r)=gate c (u+r)) :
+    ∃ j, 0<j ∧ j≤u+r+1 ∧ east c (2^(u+r+1)*k) (2^(u+r+1)*k-j)=true := by
+  by_cases hit : ∃ j, 0<j ∧ j≤u+r+1 ∧ origin c j=true
+  · obtain ⟨j,pos,le,h⟩ := hit
+    exact ⟨j,pos,le,(common_strobe c j (u+r+1) k le hk).trans h⟩
+  · have blank (j : Nat) (p : 0<j) (n : j≤u+r+1) : origin c j=false := by
+      cases e : origin c j with
+      | false => rfl
+      | true => exact False.elim (hit ⟨j,p,n,e⟩)
+    have diff := west_first_split c r s u (fun i hi => wall i (by omega)) lower split
+    rw [←finite_west c (s+r) 1 (by intro j p n; exact blank j p (by omega)),
+      ←finite_west c (u+r) 1 blank] at diff
+    apply False.elim
+    apply diff
+    change xor (c (s+r+1)) (gate c (s+r))=xor (c (u+r+1)) (gate c (u+r))
+    rw [oneGate,show c (s+r+1)=c (u+r+1) by simpa [Nat.add_assoc] using wall (r+1) (by omega)]
+
+def HeadFork (c : Trace) : Prop :=
+  ∃ s u r, s<u ∧ (∀ i, i≤r+1 → c (s+i)=c (u+i)) ∧
+    (∀ j, j<r+1 → west c s j=west c u j) ∧
+    west c s (r+1) ≠ west c u (r+1) ∧ gate c (s+r)=gate c (u+r)
+
+/-- Every aligned pair, not a pair supplied by an unproved return theorem:
+the later west tip creates a first split by depth u. If no fork exists,
+its mandatory arrival is white and the two independently evolved east bits
+are opposite at that very tick. -/
+theorem every_pair_splits (c : Trace) (mark : c 0=true) (noFork : ¬HeadFork c)
+    (s u : Nat) (su : s<u) (wall : ∀ i, c (s+i)=c (u+i)) :
+    ∃ r, r<u ∧ (∀ j, j<r+1 → west c s j=west c u j) ∧
+      west c s (r+1) ≠ west c u (r+1) ∧
+      c (s+r)=false ∧ east c (s+r) 1 ≠ east c (u+r) 1 := by
+  let f (j : Nat) := west c s j ≠ west c u j
+  have tip : f u := by simp [f,west_vac c s u su,west_tip c mark u]
+  have minimal (n : Nat) (hn : f n) : ∃ d, d≤n ∧ f d ∧ ∀ j, j<d → ¬f j := by
+    induction n using Nat.strongRecOn with
+    | ind n ih =>
+      by_cases early : ∃ j, j<n ∧ f j
+      · obtain ⟨j,lt,h⟩ := early
+        obtain ⟨d,dj,fd,first⟩ := ih j lt h
+        exact ⟨d,by omega,fd,first⟩
+      · exact ⟨n,Nat.le_refl _,hn,fun j lt h => early ⟨j,lt,h⟩⟩
+  obtain ⟨d,cap,fd,early⟩ := minimal u tip
+  cases d with
+  | zero =>
+    exact False.elim (fd (by simpa only [west_wall,Nat.add_zero] using wall 0))
+  | succ r =>
+    have lower (j : Nat) (lt : j<r+1) : west c s j = west c u j := by
+      exact Classical.byContradiction (early j lt)
+    have gateDiff : gate c (s+r) ≠ gate c (u+r) := fun e =>
+      noFork ⟨s,u,r,su,fun i _ => wall i,lower,fd,e⟩
+    have white : c (s+r)=false := by
+      cases h : c (s+r) with
+      | false => rfl
+      | true => exact False.elim (gateDiff (by simp [gate,←wall r,h]))
+    have other : c (u+r)=false := (wall r).symm.trans white
+    exact ⟨r,by omega,lower,fd,white,by simpa [gate,white,other] using gateDiff⟩
+
 /-- Every putative periodic wall can be specified by a finite onset/period word.
 This is a sequence on TIME, never a spatial periodicization of a genuine age row. -/
 def repeatWord (c : Trace) (T P i : Nat) : Bool :=
@@ -364,7 +456,20 @@ theorem L1 (c : Trace) (hmark : c 0 = true) (T P : Nat) (hp : 0 < P)
       exact ⟨u+d,j,pos,le,hit⟩
     · -- Remaining case: every common finite gate record forces the later
       -- independently initialized west row blank throughout its excess.
-      sorry
+      by_cases fork : HeadFork w
+      · obtain ⟨s,u,r,su,clock,lower,split,oneGate⟩ := fork
+        obtain ⟨j,pos,le,hit⟩ := first_split_strobe w s u r P su hp clock lower split oneGate
+        exact ⟨u+r+1,j,pos,le,hit⟩
+      · have mark : w 0=true := by
+          change (if 0<T then c 0 else c (T+(0-T)%P))=true
+          by_cases t0 : T=0
+          · simp [t0,hmark]
+          · simp [show 0<T by omega,hmark]
+        have forced := every_pair_splits w mark fork
+        -- forced applies to EVERY pair of sufficiently late equal clock
+        -- phases. Its first west split supplies the location and the white
+        -- phase of an independently constrained single east comparison.
+        sorry
   obtain ⟨N,j,pos,hj,one⟩ := hit
   rw [common_strobe w j N P hj hp] at one
   refine ⟨j,?_,one⟩
