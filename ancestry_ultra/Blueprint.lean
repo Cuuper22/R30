@@ -1,5 +1,5 @@
-Warning: truncated output (original token count: 32902)
-Total output lines: 2749
+Warning: truncated output (original token count: 35312)
+Total output lines: 2932
 
 import Statement
 import MaskedRightRigidity
@@ -1265,202 +1265,7 @@ private theorem periodic_pair_width_bound (m A p : Nat) (hp : 0<p)
 
 
 include law vac in
-open FiniteWindowRecurrence Quantified…2902 tokens truncated…y
-  intro k
-  induction k with
-  | zero => intro hk i ip ls;exact clear i ip (by omega)
-  | succ k ih =>
-    intro hk i ip ls
-    obtain ⟨n,rfl⟩ := Nat.exists_eq_succ_of_ne_zero (show i≠0 by omega)
-    have low : east c (s+k) n=false := by
-      cases n with
-      | zero => rw [east0,wh k (by omega)]
-      | succ n => exact ih (by omega) _ (by omega) (by omega)
-    change rule (east c (s+k) n) (east c (s+k) (n+1)) (east c (s+k) (n+2))=false
-    rw [low,ih (by omega) (n+1) (by omega) (by omega),ih (by omega) (n+2) (by omega) (by omega)]
-    rfl
-
-/-- A black wall and an old zero at x cannot be followed by x+1
-strict eastern zeros. The proof backs the last 00 up to the wall. -/
-private theorem next_hit (c : Trace) (t x : Nat) (black : c t=true) (zero : east c t x=false) :
-    ∃ y,0<y ∧ y≤x+1 ∧ east c (t+1) y=true := by
-  induction x with
-  | zero => rw [east0,black] at zero;contradiction
-  | succ x ih =>
-    by_cases near : east c (t+1) (x+1)=true
-    · exact ⟨_,by omega,by omega,near⟩
-    by_cases far : east c (t+1) (x+2)=true
-    · exact ⟨_,by omega,by omega,far⟩
-    have p : east c t x=false := by
-      change ¬rule (east c t x) _ _=true at near
-      change ¬rule (east c t (x+1)) _ _=true at far
-      cases a : east c t x <;> cases b : east c t (x+2) <;> simp_all [rule]
-    obtain ⟨y,pos,le,e⟩ := ih p
-    exact ⟨y,pos,by omega,e⟩
-
-private theorem first_in (c : Trace) (s w : Nat)
-    (any : ∃ k,0<k ∧ k≤w ∧ east c s k=true) :
-    ∃ d,0<d ∧ d≤w ∧ east c s d=true ∧ ∀ k,0<k → k<d → east c s k=false := by
-  induction w with
-  | zero => obtain ⟨_,_,_,_⟩ := any;omega
-  | succ w ih =>
-    by_cases earlier : ∃ k,0<k ∧ k≤w ∧ east c s k=true
-    · obtain ⟨d,p,b,o,v⟩ := ih earlier;exact ⟨d,p,by omega,o,v⟩
-    · obtain ⟨k,p,b,o⟩ := any
-      exact ⟨k,p,b,o,fun i pi lo => by
-        cases z : east c s i
-        · rfl
-        · exact False.elim (earlier ⟨i,pi,by omega,z⟩)⟩
-
-/-- Lengths finite but not tuned to a simulated front. -/
-private def settle (J : Nat) := 2^(laneCap J+1)+laneCap J+20
-
-theorem bounded_after_pulse (J : Nat) (margin : 24≤J) (c : Trace) (s h : Nat) (long : settle J≤h)
-    (wh : ∀ j,j<h → c (s+j)=false) (black : c (s+h)=true) :
-    ∃ y,0<y ∧ y≤laneCap J+3 ∧ east c (s+h+1) y=true := by
-  by_cases any : ∃ k,0<k ∧ k≤h+2 ∧ east c s k=true
-  · obtain ⟨d,pos,le,hit,clear⟩ := first_in c s (h+2) any
-    by_cases early : d+8≤h
-    · obtain ⟨a,b,g⟩ := early_ready c s h d pos early wh clear hit
-      refine ⟨3,by omega,by omega,?_⟩
-      change rule (east c (s+h) 2) _ _=true
-      rw [b,g];rfl
-    · obtain ⟨j,lo,hi,stable⟩ := vacant_lane (free c s d) (fun _ _ => rfl)
-        (free_vac c s d) (free_mark c s d hit) J
-      have z := stable h (Nat.le_trans (Nat.le_trans (Nat.le_add_right _ _) (Nat.le_add_right _ _)) long)
-      let x := j+d-h
-      have cmp := compare_free c s h d wh clear h (by omega) x
-        (by dsimp [x];omega) (Or.inl (by dsimp [x];omega))
-      rw [show ((x:Int)+h-d)=(j:Int) by dsimp [x];omega,z] at cmp
-      obtain ⟨y,p,b,e⟩ := next_hit c (s+h) x black cmp
-      exact ⟨y,p,by dsimp [x] at b;omega,e⟩
-  · have empty (i : Nat) (pi : 0<i) (le : i≤h+2) : east c s i=false := by
-      cases z : east c s i
-      · rfl
-      · exact False.elim (any ⟨i,pi,le,z⟩)
-    have tri := white_triangle c s h (h+2) wh empty h (by omega)
-    refine ⟨1,by omega,by omega,?_⟩
-    change rule (east c (s+h) 0) _ _=true
-    rw [east0,black,tri 1 (by omega) (by omega),tri 2 (by omega) (by omega)]
-    rfl
-
-/-- This condition mentions only the clock. It needs no eastern
-admission certificate, no common future of two differing right tapes,
-and no assumption about the part of the history preceding f(0). -/
-def SparsePulseClock (c : Trace) : Prop :=
-  ∃ f : Nat → Nat, ∀ k,c (f k)=true ∧ f k+settle 24+1≤f (k+1) ∧
-    ∀ i,f k<i → i<f (k+1) → c i=false
-
-private theorem enter_sparse (J : Nat) (margin : 24≤J) (c : Trace) (f : Nat → Nat)
-    (seq : ∀ k,c (f k)=true ∧ f k+settle J+1≤f (k+1) ∧
-        ∀ i,f k<i → i<f (k+1) → c i=false) : PulseBasin c := by
-  have room : laneCap J+11≤settle J :=
-    Nat.add_le_add (Nat.le_add_left (laneCap J) _) (by decide : 11≤20)
-  have gap (k : Nat) : f k+12≤f (k+1) := by have := (seq k).2.1;omega
-  let h (k : Nat) := f (k+1)-(f k+1)
-  have ends (k : Nat) : f k+1+h k=f (k+1) := by dsimp [h];have := gap k;omega
-  have long (k : Nat) : settle J≤h k := by dsimp [h];have := (seq k).2.1;omega
-  have held (k i : Nat) (ls : i<h k) : c (f k+1+i)=false :=
-    (seq k).2.2 _ (by omega) (by have := ends k;omega)
-  have blk (k : Nat) : c (f k+1+h k)=true := by rw [ends];exact (seq _).1
-  obtain ⟨x,xp,xb,occ⟩ := bounded_after_pulse J margin c _ _ (long 0) (held 0) (blk 0)
-  rw [ends] at occ
-  obtain ⟨d,dp,db,hit,empty⟩ := first_in c (f 1+1) x ⟨x,xp,by omega,occ⟩
-  have rd := early_ready c (f 1+1) (h 1) d dp (by have := long 1;omega) (held 1) empty hit
-  rw [ends] at rd
-  refine ⟨fun k => f (2+k),by simpa using rd,?_⟩
-  intro k
-  exact ⟨(seq _).1,gap _,(seq _).2.2⟩
-
-theorem excludes_sparse (c : Trace) (ep : EventuallyPeriodic c) (mark : c 0=true)
-    (black : BlackLock c) (join : Joined c) : ¬SparsePulseClock c := by
-  rintro ⟨f,z⟩
-  exact excludes_pulse_basin _ mark ep black join (enter_sparse 24 (Nat.le_refl _) c f z)
-
-/-- Behind a high head the stationary checker grows two cells per
-nine ticks. This statement applies at any physical column. -/
-private theorem checker (c : Trace) (x s h n : Nat)
-    (held : ∀ i,i≤h → east c (s+i) x=true) :
-    ∀ i,9*n≤i → i≤h →
-      east c (s+i) (x+2*n)=true ∧
-        (0<n → east c (s+i) (x+2*n-1)=false) := by
-  induction n with
-  | zero => intro i lo hi;exact ⟨by simpa using held i hi,by omega⟩
-  | succ n ih =>
-    intro i lo hi
-    have z := black_pair c (x+2*n) (s+i-9) (fun a ha => by
-      rw [show s+i-9+a=s+(i-9+a) by omega]
-      exact (ih _ (by omega) (by omega)).1)
-    rw [show s+i-9+9=s+i by omega] at z
-    exact ⟨by simpa [Nat.mul_succ,Nat.add_assoc] using z.2,fun _ => by
-      rw [show x+2*(n+1)-1=x+2*n+1 by omega];exact z.1⟩
-
-private def CheckerAt (c : Trace) (t width : Nat) : Prop :=
-  ∀ k,0<k → k≤width → east c t k=decide (k%2=1)
-
-private theorem early_checker (c : Trace) (s h d m : Nat) (pos : 0<d)
-    (room : d+9*(m+2)≤h) (wh : ∀ j,j<h → c (s+j)=false)
-    (clear : ∀ y,0<y → y<d → east c s y=false) (hit : east c s d=true) :
-    CheckerAt c (s+h) (2*m+4) := by
-  have arrive := compare_free c s h d wh clear (d-1) (by omega) 1 (by omega) (Or.inl (by omega))
-  rw [show ((1:Nat):Int)+(d-1:Nat)-d=0 by omega,free_mark c s d hit] at arrive
-  have high (i : Nat) (ls : i≤h-(d-1)) : east c (s+(d-1)+i) 1=true := by
-    exact head_hold c (s+(d-1)) i arrive (fun j hj => by
-      rw [show s+(d-1)+j=s+(d-1+j) by omega];exact wh _ (by omega))
-  intro k pk uk
-  have eq := checker c 1 (s+(d-1)) (h-(d-1)) (k/2) high (h-(d-1)) (by omega) (by omega)
-  rw [show s+(d-1)+(h-(d-1))=s+h by omega] at eq
-  by_cases odd : k%2=1
-  · rw [decide_eq_true odd,show k=1+2*(k/2) by omega];exact eq.1
-  · rw [decide_eq_false odd,show k=1+2*(k/2)-1 by omega];exact eq.2 (by omega)
-
-private theorem checker_survives (c : Trace) (t width : Nat) (ch : CheckerAt c t width) :
-    ∀ i x,i<x → x+i≤width → east c (t+i) x=decide (x%2=1) := by
-  intro i
-  induction i with
-  | zero => intro x pos lim;exact ch x pos lim
-  | succ i ih =>
-    intro x pos lim
-    obtain ⟨k,rfl⟩ := Nat.exists_eq_succ_of_ne_zero (show x≠0 by omega)
-    change rule (east c (t+i) k) (east c (t+i) (k+1)) (east c (t+i) (k+2))=_
-    rw [ih k (by omega) (by omega),ih (k+1) (by omega) (by omega),ih (k+2) (by omega) (by omega)]
-    by_cases odd : k%2=1
-    · simp [rule,odd,show ¬(k+1)%2=1 by omega,show (k+2)%2=1 by omega]
-    · simp [rule,odd,show (k+1)%2=1 by omega]
-
-private theorem checker_content (c : Trace) (t m : Nat) (ch : CheckerAt c t (2*m+4)) :
-    ∃ y,0<y ∧ y≤m+2 ∧ east c (t+m) y=true := by
-  let y := if m%2=0 then m+1 else m+2
-  have z := checker_survives c t _ ch m y (by dsimp [y];split <;> omega)
-    (by dsimp [y];split <;> omega)
-  refine ⟨y,by dsimp [y];split <;> omega,by dsimp [y];split <;> omega,?_⟩
-  rw [z];apply decide_eq_true;dsimp [y];split <;> omega
-
-private theorem first_flash (c : Trace) (t m : Nat)
-    (black : c t=true) (empty : ∀ i,0<i → i≤2*m → east c t i=false) :
-    east c (t+m) m=true := by
-  have triangle (k : Nat) (small : k≤m) :
-      east c (t+k) k=true ∧ ∀ i,k<i → i+k≤2*m → east c (t+k) i=false := by
-    induction k with
-    | zero => exact ⟨by simpa [east0] using black,fun i ip sz => empty i ip sz⟩
-    | succ k ih =>
-      obtain ⟨mark,z⟩ := ih (by omega)
-      constructor
-      · change rule (east c (t+k) k) (east c (t+k) (k+1)) (east c (t+k) (k+2))=true
-        rw [mark,z _ (by omega) (by omega),z _ (by omega) (by omega)];rfl
-      · intro i lo hi
-        obtain ⟨j,rfl⟩ := Nat.exists_eq_succ_of_ne_zero (show i≠0 by omega)
-        change rule (east c (t+k) j) (east c (t+k) (j+1)) (east c (t+k) (j+2))=false
-        rw [z _ (by omega) (by omega),z _ (by omega) (by omega),z _ (by omega) (by omega)];rfl
-  exact (triangle m (by omega)).1
-
-def bridgeJ (m : Nat) := 24*m+48
-def bridgeK (m : Nat) := laneCap (bridgeJ m)+2*m+4
-def bridgeH (m : Nat) := 2^(laneCap (bridgeJ m)+3)+bridgeK m+9*(m+2)+1
-
-/-- All m-bit bridges beginning black qualify, not just isolated
-black pulses. No value of any other bridge bit is assumed. -/
-theorem renewal (c : Trace) (s h m : Nat) (ml : 0<m) (long : bridgeH m≤h)
+open FiniteWindowRecurrence Quantified…5312 tokens truncated…rem renewal (c : Trace) (s h m : Nat) (ml : 0<m) (long : bridgeH m≤h)
     (wh : ∀ j,j<h → c (s+j)=false) (black : c (s+h)=true) :
     ∃ y,0<y ∧ y≤bridgeK m ∧ east c (s+h+m) y=true := by
   have mcap : m+2≤bridgeK m := by unfold bridgeK;omega
@@ -2340,13 +2145,170 @@ theorem marked_supply (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
   rw [date,ending] at band
   exact split band.symm
 
+/-- A black interval of odd length cannot take an initially low head
+to a vacant pair. Starting 01 remains locked; starting 00 emits a 1
+on the first step and the remaining even interval preserves capture. -/
+private theorem low_odd_lit (c : Trace) (s n : Nat) (lo : east c s 1=false)
+    (odd : n%2=1) (held : ∀i,i<n → c (s+i)=true) : PairLit c (s+n) := by
+  cases sec : east c s 2 with
+  | true => exact Or.inr (locked_pair c s n held lo sec).2
+  | false =>
+    have b : c s=true := by simpa using held 0 (by omega)
+    have on : east c (s+1) 1=true := by
+      change rule (east c s 0) _ _=_;rw [east0,b,lo,sec];rfl
+    have z := lit_even c (s+1) (n/2) (fun i li => by
+      rw [show s+1+i=s+(i+1) by omega];exact held _ (by omega)) (Or.inl on)
+    rwa [show s+1+2*(n/2)=s+n by omega] at z
+
+/-- The last lit white of the SAME copy before a dark white has a
+unique intervening extinction. The entire following white history
+stays dark, so that same odd block cannot recur before the target. -/
+structure DarkSource (c : Trace) (P B t : Nat) : Prop where
+  located : ∃ w n, B≤w ∧ w+1+n≤t ∧ t<w+1+n+P ∧ OddLoss c w n ∧
+    ∀i,w<i → i≤t → c i=false → ¬PairLit c i
+
+private theorem locate_dark (c : Trace) (T P a t : Nat) (hp : 0<P)
+    (per : ∀i,T≤i → c (i+P)=c i) (late : T≤a) (atA : c a=false)
+    (lit : PairLit c a) (atT : c t=false) (atime : a≤t) (dark : ¬PairLit c t) :
+    DarkSource c P a t := by
+  have scan (j : Nat) : ∃ w,a≤w ∧ w≤a+j ∧ c w=false ∧ PairLit c w ∧
+      ∀i,w<i → i≤a+j → c i=false → ¬PairLit c i := by
+    induction j with
+    | zero => exact ⟨a,by omega,by omega,atA,lit,fun i _ _ => by omega⟩
+    | succ j ih =>
+      by_cases newbit : c (a+j+1)=false ∧ PairLit c (a+j+1)
+      · exact ⟨a+j+1,by omega,by omega,newbit.1,newbit.2,fun i _ _ => by omega⟩
+      · obtain ⟨w,l,r,wh,hot,after⟩ := ih
+        exact ⟨w,l,by omega,wh,hot,fun i wi it iw li => by
+          by_cases e : i=a+j+1
+          · exact newbit (e ▸ And.intro iw li)
+          · exact after _ wi (by omega) iw li⟩
+  obtain ⟨w,aw,wt,wh,hot,after⟩ := scan (t-a)
+  rw [Nat.add_sub_of_le atime] at wt after
+  have strict : w<t := by
+    by_cases eq : w=t
+    · exact False.elim (dark (eq ▸ hot))
+    · omega
+  have first (k : Nat) (wht : c (w+1+k)=false) :
+      ∃ n,n≤k ∧ c (w+1+n)=false ∧ ∀i,i<n → c (w+1+i)=true := by
+    induction k using Nat.strongRecOn with
+    | ind k ih =>
+      by_cases some : ∃j,j<k ∧ c (w+1+j)=false
+      · obtain ⟨j,jk,v⟩ := some
+        obtain ⟨n,le,atN,pref⟩ := ih j jk v
+        exact ⟨n,by omega,atN,pref⟩
+      · exact ⟨k,by omega,wht,fun i li => by
+          cases z : c (w+1+i)
+          · exact False.elim (some ⟨i,li,z⟩)
+          · rfl⟩
+  obtain ⟨n,lim,fin,middle⟩ := first (t-(w+1)) (by rwa [show w+1+(t-(w+1))=t by omega])
+  have limit : w+1+n≤t := by omega
+  have lost := after (w+1+n) (by omega) limit fin
+  have on := lit_white c w wh hot
+  have small : n<9 := by
+    by_cases big : 9≤n
+    · exact False.elim (lost (Or.inr (RenewalFront.after_solid c (w+1) n big middle).2))
+    · omega
+  have odd : n%2=1 := by
+    by_cases ev : 2*(n/2)=n
+    · have z := lit_even c (w+1) (n/2) (by rwa [ev]) (Or.inl on)
+      exact False.elim (lost (ev ▸ z))
+    · omega
+  refine ⟨w,n,aw,limit,?_,⟨wh,middle,fin,on,lost,small,odd⟩,after⟩
+  by_cases ahead : w+1+n+P≤t
+  · have vw := (per w (by omega)).trans wh
+    have gone := after (w+P) (by omega) (by omega) vw
+    have head : east c (w+P+1) 1=false := by
+      have no1 : east c (w+P) 1=false := by cases z : east c (w+P) 1 <;> simp_all [PairLit]
+      have no2 : east c (w+P) 2=false := by cases z : east c (w+P) 2 <;> simp_all [PairLit]
+      change rule (east c (w+P) 0) _ _=_;rw [east0,vw,no1,no2];rfl
+    have bright := low_odd_lit c (w+P+1) n head odd (fun i il => by
+      rw [show w+P+1+i=w+1+i+P by omega,per _ (by omega)];exact middle i il)
+    rw [show w+P+1+n=w+1+n+P by omega] at bright
+    exact False.elim (after _ (by omega) ahead ((per _ (by omega)).trans fin) bright)
+  · omega
+
+/-- Here the final gate in the other copy is deliberately NOT assumed
+to be 1: that is the positive conclusion supplied by the marked fork. -/
+structure DarkArm (c : Trace) (T P d h t v : Nat) : Prop where
+  matched : Arm c T P (d+P+10) h t v
+  lowWhite : c t=false
+  nextWhite : c (t+1)=false
+  low : east c t 1=false ∧ east c t 2=false
+  oppositeLow : east c v 1=false
+  origin : DarkSource c P T t
+
+private theorem true_high (c : Trace) (U : Nat) (rich : ¬EventuallyPeriodic (whiteNeed c))
+    (join : Joined c) : ∃t,U≤t ∧ c t=false ∧ east c t 1=true := by
+  apply Classical.byContradiction;intro none;apply rich
+  have zero (t : Nat) (ut : U≤t) : whiteNeed c t=false := by
+    cases v : c t with
+    | true => simp [whiteNeed,v]
+    | false =>
+      cases a : east c t 1 with
+      | false => simp [whiteNeed,v,join _ v,a]
+      | true => exact False.elim (none ⟨t,ut,v,a⟩)
+  exact ⟨U,1,by decide,fun t late => (zero _ (by omega)).trans (zero _ late).symm⟩
+
+/-- No inverse-predictor challenge is needed when the first-white reads
+share the clock: the marked fork must be interior. Its low arm's true
+odd extinction lies inside the long COMMON masked past, within one
+period of the fork's preceding tick (plus the short black run itself). -/
+theorem interior_fork (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
+    (per : ∀i,T≤i → c (i+P)=c i) (fp : ∀i,T≤i → fallRead c (i+P)=fallRead c i)
+    (lock : BlackLock c) (join : Joined c) (starts : ResetStarts c T P) (N d h : Nat) :
+    ∃ t v,N≤t ∧ DarkArm c T P d h t v ∧ east c v 2=true := by
+  obtain ⟨a,la,aw,lit⟩ := true_high c (N+T) (west_rich _ mark ⟨T,P,hp,per⟩ lock) join
+  obtain ⟨s,u,k,as,m⟩ := starts a (d+P+10) h
+  obtain ⟨j,rfl⟩ := Nat.exists_eq_succ_of_ne_zero (show k≠0 by have := m.deep;omega)
+  let x := s+j
+  let y := u+j
+  have arm : Arm c T P (d+P+10) h x y := ⟨s,u,j,m,Or.inl ⟨rfl,rfl⟩⟩
+  have rev : Arm c T P (d+P+10) h y x := ⟨s,u,j,m,Or.inr ⟨rfl,rfl⟩⟩
+  obtain ⟨cs,shared,wh,wh',split⟩ := arm_stamp c T P _ _ x y per arm
+  have fclk := same_clock (fallRead c) T P fp s u m.mature
+    (Nat.le_trans m.mature (Nat.le_of_lt m.ordered)) m.phase (j+1)
+  have sf : fallRead c (x+1)=fallRead c (y+1) := by simpa [x,y,Nat.add_assoc] using fclk
+  have oldW : c x=false := by
+    cases z : c x
+    · rfl
+    · have vz := cs.symm.trans z
+      exact False.elim (split (by simpa [fallRead,whiteNeed,z,vz,wh,wh'] using sf))
+  have oldW' := cs.symm.trans oldW
+  have common : east c x 1=east c y 1 := by
+    simpa [whiteNeed,oldW,oldW',join _ oldW,join _ oldW'] using shared
+  have ne : east c (x+1) 1≠east c (y+1) 1 := by rwa [←join _ wh,←join _ wh']
+  have changeX : east c (x+1) 1=(east c x 1 || east c x 2) := by
+    change rule (east c x 0) _ _=_;rw [east0,oldW];simp [rule]
+  have changeY : east c (y+1) 1=(east c y 1 || east c y 2) := by
+    change rule (east c y 0) _ _=_;rw [east0,oldW'];simp [rule]
+  rw [changeX,changeY] at ne
+  have lowx : east c x 1=false := by
+    cases z : east c x 1
+    · rfl
+    · exact False.elim (ne (by simp [common.symm.trans z,z]))
+  have lowy := common.symm.trans lowx
+  simp only [lowx,lowy,Bool.false_or] at ne
+  have make (t v : Nat) (atN : a≤t) (z : c t=false) (nwh : c (t+1)=false)
+      (h1 : east c t 1=false) (h2 : east c t 2=false) (rv : east c v 1=false)
+      (ar : Arm c T P (d+P+10) h t v) (hiv : east c v 2=true) :
+      ∃ t v,N≤t ∧ DarkArm c T P d h t v ∧ east c v 2=true := by
+    obtain ⟨⟨w,n,wa,l,r,b,dead⟩⟩ := locate_dark c T P a t hp per (by omega) aw
+      (Or.inl lit) z atN (by simp [PairLit,h1,h2])
+    exact ⟨t,v,by omega,⟨ar,z,nwh,⟨h1,h2⟩,rv,⟨w,n,by omega,l,r,b,dead⟩⟩,hiv⟩
+  cases v0 : east c x 2 <;> cases v1 : east c y 2
+  · exact False.elim (ne (v0.trans v1.symm))
+  · exact make x y (by dsimp [x];omega) oldW wh lowx v0 lowy arm v1
+  · exact make y x (by dsimp [y];have := m.ordered;omega) oldW' wh' lowy v1 lowx rev v0
+  · exact False.elim (ne (v0.trans v1.symm))
+
 /-- L1: at least ONE arm of an actual marked collision challenges the
 inverse predictor on a capable label. This does not require either
 recurrence of the endpoint word or coincidence of the two endpoint words. -/
 theorem L1 (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
     (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
     (past : Prefix c T) (black : BlackLock c) (outside : ¬PulseBasin c ∧ ¬RenewalFront.SparsePulseClock c ∧ ¬RenewalFront.Bridged c) (short : ¬RenewalFront.PulseWindows c)
-    (channel : CollisionSupply c P) (starts : ResetStarts c T P) :
+    (channel : CollisionSupply c P) (rich : ¬EventuallyPeriodic (fallRead c)) (starts : ResetStarts c T P) :
     ∀ N d h, ∃ t v,N≤t ∧ Arm c T P d h t v ∧ capable (seven c (t+2))=true ∧
       need c (t+1)≠guess (seven c (t+2)) := by
   sorry
@@ -2376,14 +2338,23 @@ theorem windows_stop (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
   have zv := quiet v lv (same.symm.trans bw) ow 1 (by decide) (by decide)
   exact False.elim (split ((join _ white).trans (z.trans (zv.symm.trans (join _ ow).symm))))
 
-/-- L2: exclude the two surviving actual escape classes on an arm
-from sufficiently deep matched reset starts. It says nothing about
-unmatched cuts, bounded source collars, or any other phase or word. -/
+/-- The two alternatives are disjoint. When first whites themselves
+are irregular, stop the old two-word predictor escape. When the two
+clocks are aligned, stop propagation from the identified true dark
+source across its other arm's second gate. -/
+def TerminalStop (c : Trace) (T P n : Nat) : Prop :=
+  (¬EventuallyPeriodic (fallRead c) → CollisionStop c T P n) ∧
+  ((∀i,T≤i → fallRead c (i+P)=fallRead c i) →
+    ∀ t v,n≤t → DarkArm c T P n n t v → east c v 2=false)
+
+/-- L2: either block the actual two-word first-white escape, or,
+only on an aligned first-white clock, extinguish the opposite head at
+the matched interior source. Neither case addresses unmatched rows. -/
 theorem L2 (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
     (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
     (past : Prefix c T) (black : BlackLock c) (outside : ¬PulseBasin c ∧ ¬RenewalFront.SparsePulseClock c ∧ ¬RenewalFront.Bridged c)
     (short : ¬RenewalFront.PulseWindows c) (channel : CollisionSupply c P) :
-    ∃ n,CollisionStop c T P n := by
+    ∃ n,TerminalStop c T P n := by
   sorry
 
 private theorem stays_high (c : Trace) (t : Nat) (white : c t=false) (old : east c t 1=true) :
@@ -2399,9 +2370,25 @@ theorem collision (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
     (And.intro (RenewalFront.excludes_sparse c ⟨T,P,hp,period⟩ mark black join)
       (RenewalFront.excludes_bridged c ⟨T,P,hp,period⟩ mark black join))
   have noWindows := RenewalFront.excludes_windows c ⟨T,P,hp,period⟩ mark black join
+  by_cases first : EventuallyPeriodic (fallRead c)
+  · obtain ⟨F,R,rp,fr⟩ := first
+    let A := T+F
+    let Q := P*R
+    have aq : 0<Q := Nat.mul_pos hp rp
+    have pc (t : Nat) (lt : A≤t) : c (t+Q)=c t :=
+      period_mul c T P period R t (by dsimp [A] at lt;omega)
+    have pq (t : Nat) (lt : A≤t) : fallRead c (t+Q)=fallRead c t := by
+      rw [show Q=R*P by exact Nat.mul_comm P R]
+      exact period_mul (fallRead c) F R fr P t (by dsimp [A] at lt;omega)
+    have channel := marked_supply c A Q aq mark pc mixed black join
+    obtain ⟨n,_,stop⟩ := L2 c A Q aq mark pc mixed (fun i _ => join i) black outside noWindows channel
+    obtain ⟨t,v,late,arm,hit⟩ := interior_fork c A Q aq mark pc pq black join
+      (reset_starts c A Q aq mark pc black join) n n n
+    exact Bool.noConfusion (hit.symm.trans (stop pq t v late arm))
   have channel := marked_supply c T P hp mark period mixed black join
-  obtain ⟨n,stop⟩ := L2 c T P hp mark period mixed past black outside noWindows channel
-  obtain ⟨t,v,late,arm,cap,bad⟩ := L1 c T P hp mark period mixed past black outside noWindows channel
+  obtain ⟨n,stops⟩ := L2 c T P hp mark period mixed past black outside noWindows channel
+  have stop := stops.1 first
+  obtain ⟨t,v,late,arm,cap,bad⟩ := L1 c T P hp mark period mixed past black outside noWindows channel first
     (reset_starts c T P hp mark period black join) (n+T+P+6) n n
   obtain ⟨last,shared,white,other,unequal⟩ := arm_stamp c T P n n t v period arm
   have wrong : east c (t+1) 1≠guess (seven c (t+2)) := by rwa [←join (t+1) white]
@@ -2493,6 +2480,7 @@ end OpenProblem.AncestryBlueprint
 #print axioms OpenProblem.AncestryBlueprint.decoder_bound
 #print axioms OpenProblem.AncestryBlueprint.reset_starts
 #print axioms OpenProblem.AncestryBlueprint.RenewalFront.excludes_windows
+#print axioms OpenProblem.AncestryBlueprint.interior_fork
 #print axioms OpenProblem.AncestryBlueprint.marked_supply
 #print axioms OpenProblem.AncestryBlueprint.windows_stop
 #print axioms OpenProblem.AncestryBlueprint.RenewalFront.excludes_bridged
