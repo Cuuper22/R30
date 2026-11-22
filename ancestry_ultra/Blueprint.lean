@@ -379,19 +379,47 @@ private theorem inverse_front (c : Trace) (i L : Nat)
   rw [(ribbon L (Nat.le_refl _)).2,front.2]
   cases c i <;> rfl
 
-/-- 67 must be a complete reset-to-reset episode. At its earlier black
-j the true western black run has EXACT length L+1 including the wall,
-while its eastern seven cells are all black. After j, the strict east
-eight remain completely white throughout the whole intervening run. -/
-def ClockCut67 (c : Trace) (P t : Nat) : Prop :=
-  ∃ j L,j+1+L=t ∧ t≤j+P ∧ c j=true ∧ (∀i,j<i → i<t → c i=false) ∧
-    noreset c (j-1)=false ∧ (r8state c j=127 ∨ r8state c j=255) ∧
-    (∀ i,j<i → i≤t → r8state c i=0) ∧
-    (∀d,d≤L → west c j d=true) ∧ west c j (L+1)=false
+/-- The point of this run-level statistic is its third trailing bit.
+Its index moves with the ENTIRE intervening run, but the value has no
+residual dependence on the parity of the run length. -/
+structure PulseAt (c : Trace) (P t j L : Nat) : Prop where
+  date : j+1+L=t
+  gap : t≤j+P
+  black : c j=true
+  whites : ∀i,j<i → i<t → c i=false
+  westBlack : ∀d,d≤L → west c j d=true
+  westEdge : west c j (L+1)=false
+  carried : west c j (L+3)=west c t 2
 
-private theorem full_zero_run (c : Trace) (T P t : Nat) (hp : 0<P)
+private theorem pulse_riders (c : Trace) (t L : Nat) (length : L≤t)
+    (wf : ∀ n,n≤L → WestFront c (t-n) n) :
+    xor (west c (t-L) (L+1)) (west c (t-L) (L+2))=xor (west c t 1) (west c t 2) := by
+  have ride (n : Nat) (nl : n≤L) :
+      xor (west c (t-n) (n+1)) (west c (t-n) (n+2))=xor (west c t 1) (west c t 2) := by
+    induction n with
+    | zero => rfl
+    | succ n ih =>
+      let i:=t-(n+1)
+      have f := wf (n+1) nl
+      have w1 : west c i (n+1)=true := f.2
+      have w0 : west c i n=false := f.1 n (by omega)
+      have a : west c (i+1) (n+1)= !west c i (n+2) := by
+        change rule _ _ _=_
+        rw [w1,w0];cases west c i (n+2) <;> rfl
+      have b : west c (i+1) (n+2)= !west c i (n+3) := by
+        change rule _ _ _=_
+        rw [w1];cases west c i (n+2) <;> cases west c i (n+3) <;> rfl
+      have day : t-n=i+1 := by dsimp [i];omega
+      have old := ih (by omega)
+      rw [day,a,b] at old
+      exact (by cases west c i (n+2) <;> cases west c i (n+3) <;> rfl :
+        xor (west c i (n+2)) (west c i (n+3))=xor (!west c i (n+2)) (!west c i (n+3))) |>.trans old
+  exact ride L (Nat.le_refl _)
+
+private theorem actual_pulse (c : Trace) (T P t : Nat) (hp : 0<P)
     (period : ∀i,T≤i → c (i+P)=c i) (late : T+P+1≤t)
-    (black : BlackLock c) (join : Joined c) (bt : c t=true) (zero : r8state c t=0) : ClockCut67 c P t := by
+    (black : BlackLock c) (join : Joined c) (bt : c t=true) (nextW : c (t+1)=false)
+    (head0 : east c t 1=false) : ∃ j L,PulseAt c P t j L := by
   let a:=t-P
   have atA : c a=true := by rw [←period a (by dsimp [a];omega),show a+P=t by dsimp [a];omega,bt]
   have last (n : Nat) : ∃j,a≤j ∧ j≤a+n ∧ c j=true ∧ ∀i,j<i → i≤a+n → c i=false := by
@@ -408,39 +436,67 @@ private theorem full_zero_run (c : Trace) (T P t : Nat) (hp : 0<P)
   obtain ⟨j,aj,jt,bj,all⟩ := last (P-1)
   have jb : j<t := by dsimp [a] at jt;omega
   have whites (i : Nat) (ji : j<i) (it : i<t) : c i=false := all i ji (by dsimp [a];omega)
-  have back (n : Nat) (lt : j+n<t) : r8state c (t-n)=0 := by
-    induction n with
-    | zero => simpa using zero
-    | succ n ih =>
-      let i := t-(n+1)
-      have next : r8state c (i+1)=0 := by rw [show i+1=t-n by dsimp [i];omega];exact ih (by omega)
-      exact ((zero_pre c i).1 next).1 (whites i (by dsimp [i];omega) (by dsimp [i];omega))
-  have clear (i : Nat) (ji : j<i) (it : i≤t) : r8state c i=0 := by
-    simpa only [show t-(t-i)=i by omega] using back (t-i) (by omega)
-  have atJ := ((zero_pre c j).1 (clear (j+1) (by omega) (by omega))).2 bj
-  have prior := (zero_pre c (j-1)).2 (by rwa [show j-1+1=j by dsimp [a] at aj;omega])
   let L := t-j-1
   have eq : j+1+L=t := by dsimp [L];omega
+  have head (n : Nat) (nl : n≤L) : east c (t-n) 1=false := by
+    induction n with
+    | zero => exact head0
+    | succ n ih =>
+      let i:=t-(n+1)
+      have day : t-n=i+1 := by dsimp [i];omega
+      have old:=ih (by omega)
+      rw [day] at old
+      change rule (east c i 0) (east c i 1) (east c i 2)=false at old
+      rw [east0,whites i (by dsimp [i];omega) (by dsimp [i];omega)] at old
+      cases v : east c i 1
+      · rfl
+      · rw [v] at old;contradiction
   have wf (n : Nat) (lim : n≤L) : WestFront c (t-n) n := by
     induction n with
     | zero => exact ⟨fun _ h => by omega,by simpa only [Nat.sub_zero,west0] using bt⟩
     | succ n ih =>
       let i:=t-(n+1)
-      have ix : j<i := by dsimp [i,L] at *;omega
-      have it : i<t := by dsimp [i];omega
-      have wi := whites i ix it
-      have high (a b d e f g h z : Bool) : r8code a b d e f g h z=0 → a=false := by
-        revert a b d e f g h z;decide
-      have e0 : east c i 1=false := high _ _ _ _ _ _ _ _ (clear i ix (by omega))
-      have head := join i wi
+      have wi := whites i (by dsimp [i];omega) (by dsimp [i];omega)
+      have z : east c i 1=false := head (n+1) lim
+      have q := join i wi
       have H : west c i 1=xor (c (i+1)) (c i) := by
         cases x : west c i 1 <;> cases y : c (i+1) <;> simp_all [need]
       have step := inverse_front c i n H (by rw [show i+1=t-n by dsimp [i];omega];exact ih (by omega))
       exact ⟨fun d dl => (step.1 d (by omega)).trans wi,by rw [step.2,wi];rfl⟩
   have before := inverse_front c j L (by rw [black j bj,bj];cases c (j+1) <;> rfl)
     (by simpa only [show t-L=j+1 by omega] using wf L (Nat.le_refl _))
-  exact ⟨j,L,eq,by dsimp [a] at aj;omega,bj,whites,prior,atJ,clear,
-    fun d dl => (before.1 d dl).trans bj,by rw [before.2,bj];rfl⟩
+  have wb : west c j L=true := (before.1 L (Nat.le_refl _)).trans bj
+  have we : west c j (L+1)=false := by rw [before.2,bj];rfl
+  have h := pulse_riders c t L (by omega) wf
+  rw [show t-L=j+1 by omega,black t bt,nextW] at h
+  change xor (rule _ _ _) (rule _ _ _)=xor true (west c t 2) at h
+  rw [we,wb] at h
+  have carried : west c j (L+3)=west c t 2 := by
+    cases x : west c j (L+2) <;> cases y : west c j (L+3) <;> cases z : west c t 2 <;> simp_all [rule]
+  exact ⟨j,L,eq,by dsimp [a] at aj;omega,bj,whites,fun d dl => (before.1 d dl).trans bj,we,carried⟩
+
+/-- The full clock-relative 67 reset episode, including its signed
+western founder. -/
+def ClockCut67 (c : Trace) (P t : Nat) : Prop :=
+  ∃ j L,PulseAt c P t j L ∧ noreset c (j-1)=false ∧
+    (r8state c j=127 ∨ r8state c j=255) ∧ (∀ i,j<i → i≤t → r8state c i=0)
+
+private theorem full_zero_run (c : Trace) (P t j L : Nat) (late : P+1≤t)
+    (pulse : PulseAt c P t j L) (zero : r8state c t=0) : ClockCut67 c P t := by
+  have gap := pulse.gap
+  have date := pulse.date
+  have back (n : Nat) (lt : j+n<t) : r8state c (t-n)=0 := by
+    induction n with
+    | zero => simpa using zero
+    | succ n ih =>
+      let i := t-(n+1)
+      have next : r8state c (i+1)=0 := by rw [show i+1=t-n by dsimp [i];omega];exact ih (by omega)
+      exact ((zero_pre c i).1 next).1 (pulse.whites i (by dsimp [i];omega) (by dsimp [i];omega))
+  have clear (i : Nat) (ji : j<i) (it : i≤t) : r8state c i=0 := by
+    simpa only [show t-(t-i)=i by omega] using back (t-i) (by omega)
+  have atJ := ((zero_pre c j).1 (clear (j+1) (by omega) (by omega))).2 pulse.black
+  have prior := (zero_pre c (j-1)).2 (by rwa [show j-1+1=j by omega])
+  exact ⟨j,L,pulse,prior,atJ,clear⟩
 
 /-- The two possible wrong arms occupy short gaps BETWEEN actual
 resets, with an exact post-reset one tick after their exceptional
@@ -448,22 +504,24 @@ eight-bit state. For 91 the prior reset is at one of two named ticks. -/
 def Bracket (c : Trace) (P t : Nat) (w : Seven) : Prop :=
   noreset c (t+3)=false ∧
     (code w=67 → ClockCut67 c P t) ∧
-    (code w=91 → noreset c t=false ∨ noreset c (t+1)=false)
+    (code w=91 → (∃j L,PulseAt c P t j L) ∧ (noreset c t=false ∨ noreset c (t+1)=false))
 
 private theorem actual_bracket (c : Trace) (T P t : Nat) (hp : 0<P)
     (period : ∀i,T≤i → c (i+P)=c i) (late : T+P+1≤t) (locks : BlackLock c) (join : Joined c) (black : c t=true)
+    (nextW : c (t+1)=false) (head0 : east c t 1=false)
     (w : Seven) (word : seven c (t+2)=w) (cut : BlackCut c t w)
     (bit : east c (t+2) 8=true) (unsync : reset w (east c (t+2) 8)=false) : Bracket c P t w := by
   have nr : noreset c (t+2)=true := by simp only [noreset,word,unsync,Bool.not_false]
   have st : r8state c (t+2)=code w+128 := by simp [r8state,word,bit]
+  obtain ⟨j,L,pulse⟩ := actual_pulse c T P t hp period late locks join black nextW head0
   rcases cut with ⟨id,old,old8,_⟩|⟨id,_,prior⟩
   · rw [id] at st
     have after := next_reset_of_dead c (t+2) nr (by rw [st];decide) (by rw [st];decide)
     have zero : r8state c t=0 := by simp [r8state,old,old8]
-    exact ⟨after,fun _ => full_zero_run c T P t hp period late locks join black zero,fun h => by omega⟩
+    exact ⟨after,fun _ => full_zero_run c P t j L (by omega) pulse zero,fun h => by omega⟩
   · rw [id] at st
     have after := next_reset_of_dead c (t+2) nr (by rw [st];decide) (by rw [st];decide)
-    refine ⟨after,fun h => by omega,fun _ => ?_⟩
+    refine ⟨after,fun h => by omega,fun _ => ⟨⟨j,L,pulse⟩,?_⟩⟩
     cases h : noreset c t
     · exact Or.inl rfl
     · apply Or.inr
@@ -974,7 +1032,7 @@ theorem collision (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
   · have bw : c t=true := congrArg Prod.snd back
     have zero : east c t 1=false := congrArg Prod.fst back
     have cut := physical_cut c t _ rfl white words wrong back
-    have br := actual_bracket c T P t hp period (by omega) black join bw _ rfl cut bit unsync
+    have br := actual_bracket c T P t hp period (by omega) black join bw white zero _ rfl cut bit unsync
     exact wrong (stop t v (by omega) arm bw white zero words cut br (mirrored c t bw white zero join) bit unsync)
 
 private theorem halves_actual (t d : Nat) :
