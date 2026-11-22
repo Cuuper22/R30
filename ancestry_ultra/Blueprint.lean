@@ -1,1554 +1,277 @@
 import Statement
-import QuantifiedSplit
+import MaskedRightRigidity
 
 namespace OpenProblem.AncestryBlueprint
 
 abbrev Trace := Nat → Bool
 
-/-- Driven half-line. At time zero the wall is the unique allowed mark;
-all strict eastern entries start white. Spatial index zero is the wall. -/
+/-- The two simulations share only their imposed wall; every strict
+coordinate starts white. Their boundary tests are independent. -/
 def east (c : Trace) : Nat → Nat → Bool
   | 0, 0 => c 0
   | 0, _+1 => false
   | t+1, 0 => c (t+1)
   | t+1, j+1 => rule (east c t j) (east c t (j+1)) (east c t (j+2))
 
-/-- Invert the local gate sideways, with the two eastern traces in hand. -/
-def unleft (mid right : Trace) : Trace := fun t =>
-  xor (mid (t+1)) (mid t || right t)
-
-def pair (c : Trace) : Nat → Trace × Trace
-  | 0 => (c, fun t => east c t 1)
-  | d+1 => let h := pair c d; (unleft h.1 h.2, h.1)
-
-/-- The unknown west seed reconstructed from a proposed wall, one bit per depth. -/
-def origin (c : Trace) (d : Nat) : Bool := (pair c d).1 0
-
-/-- Finite data agreement, excluding the right endpoint. -/
-def agree (a b : Trace) (n : Nat) : Prop := ∀ i, i < n → a i = b i
-
-private theorem agree_weaken {a b : Trace} {m n : Nat} (h : agree a b n) (hm : m ≤ n) :
-    agree a b m := fun i hi => h i (by omega)
-
-theorem east_prefix {a b : Trace} (t j : Nat) (h : agree a b t) :
-    east a t (j+1) = east b t (j+1) := by
-  induction t generalizing j with
-  | zero => rfl
-  | succ t ih =>
-    have h' := agree_weaken h (Nat.le_succ t)
-    change rule (east a t j) (east a t (j+1)) (east a t (j+2)) =
-      rule (east b t j) (east b t (j+1)) (east b t (j+2))
-    rw [ih j h',ih (j+1) h']
-    congr 1
-    cases j with
-    | zero =>
-      cases t with
-      | zero => exact h 0 (by omega)
-      | succ t => exact h (t+1) (by omega)
-    | succ j => exact ih j h'
-
-private theorem bx0 {a b : Bool} (h : xor a b = false) : a = b := by
-  cases a <;> cases b <;> simp_all
-
-private theorem bxCancel (x y k : Bool) : xor (xor x k) (xor y k) = xor x y := by
-  cases x <;> cases y <;> cases k <;> rfl
-
-/-- The extreme wall coefficient occurs precisely once in every sideways diagonal.
-The entire nonlinear correction depends strictly on earlier wall letters. -/
-theorem diagonal {a b : Trace} (d t : Nat) (h : agree a b (t+d)) :
-    xor ((pair a d).1 t) ((pair b d).1 t) = xor (a (t+d)) (b (t+d)) ∧
-    (pair a d).2 t = (pair b d).2 t := by
-  induction d generalizing t with
-  | zero =>
-    exact ⟨rfl,east_prefix t 0 h⟩
-  | succ d ih =>
-    have hd := ih t (agree_weaken h (by omega))
-    have mid : (pair a d).1 t = (pair b d).1 t := by
-      apply bx0
-      rw [hd.1,h (t+d) (by omega)]
-      simp
-    have hh := ih (t+1) (agree_weaken h (by omega))
-    refine ⟨?_,mid⟩
-    change xor (xor ((pair a d).1 (t+1)) ((pair a d).1 t || (pair a d).2 t))
-      (xor ((pair b d).1 (t+1)) ((pair b d).1 t || (pair b d).2 t)) = _
-    rw [mid,hd.2,bxCancel,hh.1,show t+1+d=t+(d+1) by omega]
-
-theorem origin_diagonal {a b : Trace} (n : Nat) (h : agree a b n) :
-    xor (origin a n) (origin b n) = xor (a n) (b n) := by
-  simpa [origin] using (diagonal n 0 (a:=a) (b:=b) (by simpa using h)).1
-
-theorem east_outside (c : Trace) (t j : Nat) (ht : t < j) : east c t j = false := by
-  induction t generalizing j with
-  | zero => cases j <;> simp_all [east]
-  | succ t ih =>
-    obtain ⟨k,rfl⟩ := Nat.exists_eq_succ_of_ne_zero (show j ≠ 0 by omega)
-    change rule (east c t k) (east c t (k+1)) (east c t (k+2)) = false
-    rw [ih k (by omega),ih (k+1) (by omega),ih (k+2) (by omega)]
-    rfl
-
-theorem east_mark (c : Trace) (hc : c 0 = true) (t : Nat) : east c t t = true := by
-  induction t with
-  | zero => exact hc
-  | succ t ih =>
-    change rule (east c t t) (east c t (t+1)) (east c t (t+2)) = true
-    rw [ih,east_outside _ _ _ (by omega),east_outside _ _ _ (by omega)]
-    rfl
-
-/-- Glue the two constructions, not two snapshots: this is a full spacetime
-for any candidate sequence, including a candidate that fails the singleton test. -/
-def world (c : Trace) (t : Nat) : Int → Bool
-  | .ofNat j => east c t j
-  | .negSucc j => (pair c (j+1)).1 t
-
-theorem east_wall (c : Trace) (t : Nat) : east c t 0 = c t := by cases t <;> rfl
-
-theorem world_nonpos (c : Trace) (t j : Nat) :
-    world c t (-(j:Int)) = (pair c j).1 t := by
-  cases j with
-  | zero => exact east_wall c t
-  | succ j => rfl
-
-private theorem reapply (x y z : Bool) : rule (xor x (y || z)) y z = x := by
-  cases x <;> cases y <;> cases z <;> rfl
-
-theorem world_step (c : Trace) (t : Nat) (x : Int) :
-    world c (t+1) x = rule (world c t (x-1)) (world c t x) (world c t (x+1)) := by
-  cases x with
-  | ofNat j =>
-    cases j with
-    | zero =>
-      change east c (t+1) 0 = rule ((pair c 1).1 t) (east c t 0) (east c t 1)
-      rw [east_wall,east_wall]
-      exact (reapply _ _ _).symm
-    | succ j =>
-      change rule (east c t j) (east c t (j+1)) (east c t (j+2)) = _
-      rw [show ((Int.ofNat (j+1))-1) = Int.ofNat j by change (↑(j+1):Int)-1=↑j; omega,
-          show ((Int.ofNat (j+1))+1) = Int.ofNat (j+2) by change (↑(j+1):Int)+1=↑(j+2); omega]
-      rfl
-  | negSucc j =>
-    rw [show Int.negSucc j = -((j+1:Nat):Int) by omega,
-        show -((j+1:Nat):Int)-1 = -((j+2:Nat):Int) by omega,
-        show -((j+1:Nat):Int)+1 = -(j:Int) by omega,
-        world_nonpos,world_nonpos,world_nonpos,world_nonpos]
-    exact (reapply _ _ _).symm
-
-def ray (c : Trace) (j t : Nat) : Bool := world c t ((t:Int)-(j:Int))
-
-private theorem ray_zero (c : Trace) (t : Nat) : ray c 0 t = c 0 := by
-  induction t with
-  | zero => rfl
-  | succ t ih =>
-    unfold ray at *
-    simp only [Int.natCast_zero,Int.sub_zero] at *
-    rw [world_step,show ((↑(t+1):Int)-1)=(t:Int) by omega,ih]
-    change rule _ (east c t (t+1)) (east c t (t+2)) = _
-    rw [east_outside _ _ _ (by omega),east_outside _ _ _ (by omega)]
-    cases c 0 <;> rfl
-
-private theorem ray_one_step (c : Trace) (t : Nat) :
-    ray c 1 (t+1) = xor (ray c 1 t) (ray c 0 t) := by
-  unfold ray
-  simp only [Int.natCast_one,Int.natCast_zero,Int.sub_zero]
-  rw [show (↑(t+1):Int)-(1:Int)=(t:Int) by omega,world_step]
-  change rule _ _ (east c t (t+1)) = _
-  rw [east_outside _ _ _ (by omega)]
-  simp [rule]
-
-private theorem ray_step (c : Trace) (j t : Nat) :
-    ray c (j+2) (t+1) = xor (ray c (j+2) t) (ray c (j+1) t || ray c j t) := by
-  unfold ray
-  rw [world_step]
-  unfold rule
-  congr 1
-  · congr 1 <;> omega
-  · congr 1 <;> congr 1 <;> omega
-
-private theorem double_integral {f g : Trace} (p : Nat)
-    (law : ∀ t, f (t+1) = xor (f t) (g t))
-    (period : ∀ t, g (t+p) = g t) : ∀ t, f (t+2*p) = f t := by
-  have incr (t : Nat) : xor (f (t+p)) (f t) = xor (f p) (f 0) := by
-    induction t with
-    | zero => simp
-    | succ t ih =>
-      rw [show t+1+p = t+p+1 by omega, law (t+p),law t,period,bxCancel,ih]
-  intro t
-  have h := (incr (t+p)).trans (incr t).symm
-  rw [show t+p+p=t+2*p by omega] at h
-  generalize f (t+2*p)=a at *
-  generalize f (t+p)=b at *
-  generalize f t=z at *
-  cases a <;> cases b <;> cases z <;> simp_all
-
-theorem ray_period (c : Trace) (j t : Nat) : ray c j (t+2^j) = ray c j t := by
-  induction j using Nat.strongRecOn generalizing t with
-  | ind j ih =>
-    cases j with
-    | zero => rw [ray_zero,ray_zero]
-    | succ j =>
-      cases j with
-      | zero =>
-        exact double_integral 1 (ray_one_step c) (fun s => by rw [ray_zero,ray_zero]) t
-      | succ j =>
-        let p := 2^(j+1)
-        have lo (s : Nat) : ray c j (s+p) = ray c j s := by
-          have a := ih j (by omega) (s+2^j)
-          have b := ih j (by omega) s
-          rw [show s+p=s+2^j+2^j by dsimp [p]; rw [Nat.pow_succ]; omega,a,b]
-        have per (s : Nat) :
-            (ray c (j+1) (s+p) || ray c j (s+p)) = (ray c (j+1) s || ray c j s) := by
-          rw [lo,ih (j+1) (by omega)]
-        have h := double_integral p (ray_step c j) per t
-        simpa [p,Nat.pow_succ,Nat.mul_comm] using h
-
-/-- Exact reading of a WEST row-zero coefficient inside the independently
-initialized EAST cone. The strobe is derived, never a presumed row return. -/
-theorem origin_east_read (c : Trace) (j : Nat) :
-    origin c j = east c (2^j) (2^j-j) := by
-  have cap : j ≤ 2^j := Nat.le_of_lt Nat.lt_two_pow_self
-  have h := ray_period c j 0
-  simp only [Nat.zero_add] at h
-  unfold ray at h
-  rw [Int.ofNat_zero,Int.zero_sub,world_nonpos] at h
-  rw [show (↑(2^j:Nat):Int)-(j:Int)=((2^j-j:Nat):Int) by omega] at h
-  exact h.symm
-
-/-- Every depth through N can be read at the SAME positive multiple of 2^N.
-In particular the multiplier can be P, even when P has an odd factor. -/
-theorem common_strobe (c : Trace) (j N k : Nat) (hj : j ≤ N) (hk : 0 < k) :
-    east c (2^N*k) (2^N*k-j) = origin c j := by
-  have rep (m t : Nat) : ray c j (t+2^j*m) = ray c j t := by
-    induction m with
-    | zero => simp
-    | succ m ih =>
-      rw [Nat.mul_succ,←Nat.add_assoc,ray_period,ih]
-  have dt : 2^N*k=2^j*(2^(N-j)*k) := by
-    rw [←Nat.mul_assoc,←Nat.pow_add]
-    congr 2
-    omega
-  have cap : j ≤ 2^N*k := by
-    have h := Nat.lt_two_pow_self (n:=N)
-    have hm := Nat.mul_le_mul_left (2^N) (show 1≤k by omega)
-    simp only [Nat.mul_one] at hm
-    omega
-  have h := rep (2^(N-j)*k) 0
-  rw [Nat.zero_add,←dt] at h
-  unfold ray at h
-  rw [Int.natCast_zero,Int.zero_sub,world_nonpos,
-      show (↑(2^N*k:Nat):Int)-(j:Int)=((2^N*k-j:Nat):Int) by omega] at h
-  exact h
-
-/-- Independent west half. Unlike pair, it is initialized white on every
-strict-west site even when the supplied candidate has a bad inverse seed. -/
 def west (c : Trace) : Nat → Nat → Bool
   | 0, 0 => c 0
   | 0, _+1 => false
   | t+1, 0 => c (t+1)
-  | t+1, d+1 => rule (west c t (d+2)) (west c t (d+1)) (west c t d)
+  | t+1, j+1 => rule (west c t (j+2)) (west c t (j+1)) (west c t j)
 
-private theorem west_wall (c : Trace) (t : Nat) : west c t 0 = c t := by cases t <;> rfl
+def need (c : Trace) (t : Nat) : Bool := xor (west c t 1) (c (t+1))
+def whiteNeed (c : Trace) (t : Nat) : Bool := !c t && need c t
+def BlackLock (c : Trace) : Prop := ∀ t, c t=true → west c t 1= !c (t+1)
+def Joined (c : Trace) : Prop := ∀ t, c t=false → need c t=east c t 1
+def Prefix (c : Trace) (T : Nat) : Prop := ∀ t, t<T → c t=false → need c t=east c t 1
+def Mixed (c : Trace) : Prop := ∀ N (b : Bool), ∃ t, N≤t ∧ c t=b
 
-private theorem west_vac (c : Trace) (t d : Nat) (h : t < d) : west c t d = false := by
+private theorem west0 (c : Trace) (t : Nat) : west c t 0=c t := by cases t <;> rfl
+private theorem east0 (c : Trace) (t : Nat) : east c t 0=c t := by cases t <;> rfl
+
+private theorem vacuum (c : Trace) (t d : Nat) (away : t<d) : west c t d=false := by
   induction t generalizing d with
   | zero => cases d <;> simp_all [west]
   | succ t ih =>
-    obtain ⟨j,rfl⟩ := Nat.exists_eq_succ_of_ne_zero (show d ≠ 0 by omega)
-    change rule (west c t (j+2)) (west c t (j+1)) (west c t j) = false
-    rw [ih _ (by omega),ih _ (by omega),ih _ (by omega)]
+    obtain ⟨j,rfl⟩ := Nat.exists_eq_succ_of_ne_zero (show d≠0 by omega)
+    change rule (west c t (j+2)) (west c t (j+1)) (west c t j)=false
+    rw [ih (j+2) (by omega),ih (j+1) (by omega),ih j (by omega)]
     rfl
 
-theorem west_tip (c : Trace) (mark : c 0 = true) (t : Nat) : west c t t = true := by
+private theorem tip (c : Trace) (mark : c 0=true) (t : Nat) : west c t t=true := by
   induction t with
   | zero => exact mark
   | succ t ih =>
-    change rule (west c t (t+2)) (west c t (t+1)) (west c t t) = true
-    rw [west_vac _ _ _ (by omega),west_vac _ _ _ (by omega),ih]
+    change rule (west c t (t+2)) (west c t (t+1)) (west c t t)=true
+    rw [vacuum _ _ _ (by omega),vacuum _ _ _ (by omega),ih]
     rfl
 
-private theorem pair_step (c : Trace) (t d : Nat) :
-    (pair c (d+1)).1 (t+1) =
-    rule ((pair c (d+2)).1 t) ((pair c (d+1)).1 t) ((pair c d).1 t) := by
-  exact (reapply _ _ _).symm
+private theorem period_mul (f : Trace) (T P : Nat) (h : ∀ t,T≤t → f (t+P)=f t)
+    (k t : Nat) (late : T≤t) : f (t+P*k)=f t := by
+  induction k with
+  | zero => simp
+  | succ k ih => rw [Nat.mul_succ,←Nat.add_assoc,h _ (by omega),ih]
 
-/-- Finite anchoring, not an assumption that the inverse seed vanishes
-at all depths. It suffices to check through the far endpoint of this cone. -/
-theorem finite_west (c : Trace) (t d : Nat)
-    (blank : ∀ j, 0<j → j≤t+d → origin c j=false) :
-    (pair c d).1 t = west c t d := by
-  induction t generalizing d with
-  | zero =>
-    cases d with
-    | zero => rfl
-    | succ d => exact blank (d+1) (by omega) (by omega)
-  | succ t ih =>
-    cases d with
-    | zero => exact (west_wall c (t+1)).symm
-    | succ d =>
-      rw [pair_step]
-      change rule _ _ _ = rule (west c t (d+2)) (west c t (d+1)) (west c t d)
-      rw [ih (d+2) (by intro j j0 jj; exact blank j j0 (by omega)),
-          ih (d+1) (by intro j j0 jj; exact blank j j0 (by omega)),
-          ih d (by intro j j0 jj; exact blank j j0 (by omega))]
+private theorem left_inv (a b d : Bool) : xor (rule a b d) (b || d)=a := by
+  cases a <;> cases b <;> cases d <;> rfl
 
-def gate (c : Trace) (t : Nat) : Bool := c t || east c t 1
-
-/-- A finite vertical gate record decodes the whole west end of a chosen
-sideways diagonal. Black-wall times require no strict east information. -/
-theorem finite_decode (c : Trace) (d s u : Nat)
-    (wall : ∀ i, i≤d → c (s+i)=c (u+i))
-    (gates : ∀ i, i<d → gate c (s+i)=gate c (u+i)) :
-    (pair c d).1 s = (pair c d).1 u := by
-  induction d using Nat.strongRecOn generalizing s u with
-  | ind d ih =>
-    cases d with
-    | zero => simpa [pair] using wall 0 (by omega)
-    | succ d =>
-      cases d with
-      | zero =>
-        change xor (c (s+1)) (gate c s) = xor (c (u+1)) (gate c u)
-        rw [wall 1 (by omega),show gate c s = gate c u by simpa using gates 0 (by omega)]
-      | succ d =>
-        change xor ((pair c (d+1)).1 (s+1)) ((pair c (d+1)).1 s || (pair c d).1 s) =
-          xor ((pair c (d+1)).1 (u+1)) ((pair c (d+1)).1 u || (pair c d).1 u)
-        rw [ih (d+1) (by omega) (s+1) (u+1)
-              (by intro i hi; simpa [Nat.add_assoc] using wall (1+i) (by omega))
-              (by intro i hi; simpa [Nat.add_assoc] using gates (1+i) (by omega)),
-            ih (d+1) (by omega) s u
-              (by intro i hi; exact wall i (by omega))
-              (by intro i hi; exact gates i (by omega)),
-            ih d (by omega) s u
-              (by intro i hi; exact wall i (by omega))
-              (by intro i hi; exact gates i (by omega))]
-
-/-- Two separately initialized, finite certificates on opposite sides give
-a positive right strobe. The match lasts d samples, ending at ANY later
-black strictly beyond the older rim, not necessarily the later rim u. -/
-theorem crossing_strobe (c : Trace) (s u d k : Nat) (su : s < u) (old : s < d)
-    (newer : west c u d = true) (hk : 0<k)
-    (wall : ∀ i, i≤d → c (s+i)=c (u+i))
-    (gates : ∀ i, i<d → gate c (s+i)=gate c (u+i)) :
-    ∃ j, 0<j ∧ j≤u+d ∧ east c (2^(u+d)*k) (2^(u+d)*k-j)=true := by
-  by_cases hit : ∃ j, 0<j ∧ j≤u+d ∧ origin c j=true
-  · obtain ⟨j,hj,hn,h⟩ := hit
-    exact ⟨j,hj,hn,(common_strobe c j (u+d) k hn hk).trans h⟩
-  · have blank (j : Nat) (p : 0<j) (n : j≤u+d) : origin c j=false := by
-      cases e : origin c j with
-      | false => rfl
-      | true => exact False.elim (hit ⟨j,p,n,e⟩)
-    have same := finite_decode c d s u wall gates
-    rw [finite_west c s d (by intro j p n; exact blank j p (by omega)),
-      finite_west c u d blank,west_vac _ _ _ old,newer] at same
-    contradiction
-
-/-- A marked finite crossing uses equality at two actual phases of the
-candidate gate stream. No repetition of full rows or masks is posited. -/
-def Seam (c : Trace) : Prop :=
-  ∃ s u d, s<u ∧ s<d ∧ west c u d=true ∧
-    (∀ i, i≤d → c (s+i)=c (u+i)) ∧
-    (∀ i, i<d → gate c (s+i)=gate c (u+i))
-
-private theorem rule_left_inj {a b x y : Bool} (e : rule a x y = rule b x y) : a = b := by
-  cases a <;> cases b <;> cases x <;> cases y <;> simp_all [rule]
-
-/-- At two clock-aligned cuts, the first differing strictly western bit
-travels one site toward the wall on every tick until it reaches depth one. -/
-theorem west_first_split (c : Trace) (r s u : Nat)
-    (wall : ∀ i, i≤r → c (s+i)=c (u+i))
-    (lower : ∀ j, j<r+1 → west c s j=west c u j)
-    (split : west c s (r+1) ≠ west c u (r+1)) :
-    west c (s+r) 1 ≠ west c (u+r) 1 := by
-  induction r generalizing s u with
-  | zero => simpa using split
-  | succ r ih =>
-    have sub (j : Nat) (hj : j<r+1) : west c (s+1) j = west c (u+1) j := by
-      cases j with
-      | zero => exact wall 1 (by omega)
-      | succ j =>
-        change rule (west c s (j+2)) (west c s (j+1)) (west c s j) =
-          rule (west c u (j+2)) (west c u (j+1)) (west c u j)
-        rw [lower (j+2) (by omega),lower (j+1) (by omega),lower j (by omega)]
-    have diff : west c (s+1) (r+1) ≠ west c (u+1) (r+1) := by
-      change rule (west c s (r+2)) (west c s (r+1)) (west c s r) ≠
-        rule (west c u (r+2)) (west c u (r+1)) (west c u r)
-      rw [lower (r+1) (by omega),lower r (by omega)]
-      exact fun h => split (rule_left_inj h)
-    have h := ih (s+1) (u+1)
-      (by intro i hi; simpa [Nat.add_assoc] using wall (1+i) (by omega)) sub diff
-    simpa only [show s+1+r=s+(r+1) by omega,show u+1+r=u+(r+1) by omega] using h
-
-/-- Only ONE eastern OR reading is needed. There is no premise that right
-neighbours or gate blocks repeat. At a black arrival this equality is free. -/
-theorem first_split_strobe (c : Trace) (s u r k : Nat) (su : s<u) (hk : 0<k)
-    (wall : ∀ i, i≤r+1 → c (s+i)=c (u+i))
-    (lower : ∀ j, j<r+1 → west c s j=west c u j)
-    (split : west c s (r+1) ≠ west c u (r+1))
-    (oneGate : gate c (s+r)=gate c (u+r)) :
-    ∃ j, 0<j ∧ j≤u+r+1 ∧ east c (2^(u+r+1)*k) (2^(u+r+1)*k-j)=true := by
-  by_cases hit : ∃ j, 0<j ∧ j≤u+r+1 ∧ origin c j=true
-  · obtain ⟨j,pos,le,h⟩ := hit
-    exact ⟨j,pos,le,(common_strobe c j (u+r+1) k le hk).trans h⟩
-  · have blank (j : Nat) (p : 0<j) (n : j≤u+r+1) : origin c j=false := by
-      cases e : origin c j with
-      | false => rfl
-      | true => exact False.elim (hit ⟨j,p,n,e⟩)
-    have diff := west_first_split c r s u (fun i hi => wall i (by omega)) lower split
-    rw [←finite_west c (s+r) 1 (by intro j p n; exact blank j p (by omega)),
-      ←finite_west c (u+r) 1 blank] at diff
-    apply False.elim
-    apply diff
-    change xor (c (s+r+1)) (gate c (s+r))=xor (c (u+r+1)) (gate c (u+r))
-    rw [oneGate,show c (s+r+1)=c (u+r+1) by simpa [Nat.add_assoc] using wall (r+1) (by omega)]
-
-def HeadFork (c : Trace) : Prop :=
-  ∃ s u r, s<u ∧ (∀ i, i≤r+1 → c (s+i)=c (u+i)) ∧
-    (∀ j, j<r+1 → west c s j=west c u j) ∧
-    west c s (r+1) ≠ west c u (r+1) ∧ gate c (s+r)=gate c (u+r)
-
-/-- Every aligned pair, not a pair supplied by an unproved return theorem:
-the later west tip creates a first split by depth u. If no fork exists,
-its mandatory arrival is white and the two independently evolved east bits
-are opposite at that very tick. -/
-theorem every_pair_splits (c : Trace) (mark : c 0=true) (noFork : ¬HeadFork c)
-    (s u : Nat) (su : s<u) (wall : ∀ i, c (s+i)=c (u+i)) :
-    ∃ r, r<u ∧ (∀ j, j<r+1 → west c s j=west c u j) ∧
-      west c s (r+1) ≠ west c u (r+1) ∧
-      c (s+r)=false ∧ east c (s+r) 1 ≠ east c (u+r) 1 := by
-  let f (j : Nat) := west c s j ≠ west c u j
-  have tip : f u := by simp [f,west_vac c s u su,west_tip c mark u]
-  have minimal (n : Nat) (hn : f n) : ∃ d, d≤n ∧ f d ∧ ∀ j, j<d → ¬f j := by
-    induction n using Nat.strongRecOn with
-    | ind n ih =>
-      by_cases early : ∃ j, j<n ∧ f j
-      · obtain ⟨j,lt,h⟩ := early
-        obtain ⟨d,dj,fd,first⟩ := ih j lt h
-        exact ⟨d,by omega,fd,first⟩
-      · exact ⟨n,Nat.le_refl _,hn,fun j lt h => early ⟨j,lt,h⟩⟩
-  obtain ⟨d,cap,fd,early⟩ := minimal u tip
-  cases d with
-  | zero =>
-    exact False.elim (fd (by simpa only [west_wall,Nat.add_zero] using wall 0))
-  | succ r =>
-    have lower (j : Nat) (lt : j<r+1) : west c s j = west c u j := by
-      exact Classical.byContradiction (early j lt)
-    have gateDiff : gate c (s+r) ≠ gate c (u+r) := fun e =>
-      noFork ⟨s,u,r,su,fun i _ => wall i,lower,fd,e⟩
-    have white : c (s+r)=false := by
-      cases h : c (s+r) with
-      | false => rfl
-      | true => exact False.elim (gateDiff (by simp [gate,←wall r,h]))
-    have other : c (u+r)=false := (wall r).symm.trans white
-    exact ⟨r,by omega,lower,fd,white,by simpa [gate,white,other] using gateDiff⟩
-
-/-- A present-time equality collar of k strict eastern cells can lose its
-innermost dependency guard only across a white outer cell. Follow it in
-one independently initialized east orbit; no future gate matches are input. -/
-def guard (c : Trace) (s k : Nat) : Nat → Nat
-  | 0 => k
-  | i+1 => let d := guard c s k i
-           if east c (s+i) d then d else d-1
-
-private theorem guard_one (c : Trace) (a b n : Nat) (wa : c (a+1)=c (b+1))
-    (same : ∀ j, j≤n → east c a j=east c b j) :
-    ∀ j, j≤(if east c a n then n else n-1) → east c (a+1) j=east c (b+1) j := by
-  intro j bound
-  cases j with
-  | zero => exact wa
-  | succ j =>
-    have cap : j+1≤n := by split at bound <;> omega
-    change rule (east c a j) (east c a (j+1)) (east c a (j+2)) =
-      rule (east c b j) (east c b (j+1)) (east c b (j+2))
-    rw [same j (by omega)]
-    by_cases interior : j+2≤n
-    · rw [same (j+1) cap,same (j+2) interior]
-    · have edge : j+1=n := by omega
-      have black : east c a n=true := by
-        cases h : east c a n with
-        | true => rfl
-        | false => simp [h] at bound; omega
-      have black' : east c b n=true := (same n (Nat.le_refl _)).symm.trans black
-      rw [edge,black,black']
-      simp [rule]
-
-theorem guard_sound (c : Trace) (s u k i : Nat)
-    (initial : ∀ j, j≤k → east c s j=east c u j)
-    (wall : ∀ h, h≤i → c (s+h)=c (u+h)) :
-    ∀ j, j≤guard c s k i → east c (s+i) j=east c (u+i) j := by
-  induction i with
-  | zero => simpa [guard] using initial
-  | succ i ih =>
-    exact guard_one c (s+i) (u+i) (guard c s k i)
-      (by simpa only [Nat.add_assoc] using wall (i+1) (by omega))
-      (ih (fun h small => wall h (by omega)))
-
-/-- A quantitative obstruction at every pair of distinct ages. A first
-west split is guaranteed; every matched present east collar must be gone
-by that actual finite arrival. This compares the two marked cones without
-supposing there is a present or future return of any prescribed width. -/
-theorem every_pair_exhausts (c : Trace) (mark : c 0=true) (noFork : ¬HeadFork c)
-    (s u : Nat) (su : s<u) (wall : ∀ i, c (s+i)=c (u+i)) :
-    ∃ r, r<u ∧ (∀ j, j<r+1 → west c s j=west c u j) ∧
-      west c s (r+1) ≠ west c u (r+1) ∧ c (s+r)=false ∧
-      east c (s+r) 1 ≠ east c (u+r) 1 ∧
-      ∀ k, (∀ j, j≤k → east c s j=east c u j) → guard c s k r=0 := by
-  obtain ⟨r,le,lower,split,white,ne⟩ := every_pair_splits c mark noFork s u su wall
-  refine ⟨r,le,lower,split,white,ne,?_⟩
-  intro k common
-  by_cases z : guard c s k r=0
-  · exact z
-  · exact False.elim (ne (guard_sound c s u k r common (fun h _ => wall h) 1 (by omega)))
-
-/-- Local period on a single bounded observation interval; no infinite
-return or ultimately periodic east column is assumed. -/
-def ClockWindow (f : Trace) (a p last : Nat) : Prop :=
-  ∀ i r, a+p*i+r≤last → f (a+p*i+r)=f (a+r)
-
-/-- Quantitative two-clock obstruction, extending FixedColumnPair's
-infinite-column argument. Only d unknown interior cells can vary. A finite
-strip through the stated horizon either forks or contradicts the west tip. -/
-theorem finite_cavity (c : Trace) (mark : c 0=true) (a p d : Nat) (pos : 0<p)
-    (wall : ∀ i r, c (a+p*i+r)=c (a+r))
-    (right : ClockWindow (fun t => east c t (d+1)) a p (2*(a+p*2^d))) :
-    HeadFork c := by
-  apply Classical.byContradiction
-  intro noFork
-  let f (i j : Nat) := east c (a+p*i) (j+1)
-  let bits (i : Nat) := FiniteWindowRecurrence.window (f i) d 0
-  let code (i : Nat) := FiniteWindowRecurrence.encode (bits i)
-  obtain ⟨i,j,lt,cap,e⟩ := QuantifiedSplit.repeat_le (2^d) code
-    (fun n _ => by simpa only [code,bits,FiniteWindowRecurrence.window_len] using
-      FiniteWindowRecurrence.encode_bound (bits n))
-  have words : bits i=bits j := FiniteWindowRecurrence.same_encode_eq
-    (by simp [bits,FiniteWindowRecurrence.window_len]) e
-  let s := a+p*i
-  let u := a+p*j
-  have su : s<u := Nat.add_lt_add_left (Nat.mul_lt_mul_of_pos_left lt pos) a
-  have ub : u≤a+p*2^d := Nat.add_le_add_left (Nat.mul_le_mul_left p cap) a
-  have same (h : Nat) : c (s+h)=c (u+h) := (wall i h).trans (wall j h).symm
-  have outer (h : Nat) (ht : h≤u) : east c (s+h) (d+1)=east c (u+h) (d+1) := by
-    exact (right i h (by change s+h≤_; omega)).trans
-      (right j h (by change u+h≤_; omega)).symm
-  have band (h : Nat) (ht : h≤u) (x : Nat) (hx : x≤d+1) : east c (s+h) x=east c (u+h) x := by
-    induction h generalizing x with
-    | zero =>
-      cases x with
-      | zero => simpa [east_wall] using same 0
-      | succ x =>
-        by_cases top : x=d
-        · subst x; exact outer 0 (by omega)
-        · have inside : x<d := by omega
-          have val := congrArg (fun q : List Bool => q[x]?) words
-          change (FiniteWindowRecurrence.window (f i) d 0)[x]? =
-            (FiniteWindowRecurrence.window (f j) d 0)[x]? at val
-          rw [List.getElem?_eq_getElem (by simpa [FiniteWindowRecurrence.window_len] using inside),
-            List.getElem?_eq_getElem (by simpa [FiniteWindowRecurrence.window_len] using inside),
-            FiniteWindowRecurrence.window_at _ _ _ _ inside,
-            FiniteWindowRecurrence.window_at _ _ _ _ inside,Nat.zero_add] at val
-          exact Option.some.inj val
-    | succ h ih =>
-      cases x with
-      | zero => rw [east_wall,east_wall,same]
-      | succ x =>
-        by_cases top : x=d
-        · subst x; exact outer (h+1) ht
-        · change rule (east c (s+h) x) (east c (s+h) (x+1)) (east c (s+h) (x+2)) =
-            rule (east c (u+h) x) (east c (u+h) (x+1)) (east c (u+h) (x+2))
-          rw [ih (by omega) x (by omega),ih (by omega) (x+1) (by omega),
-            ih (by omega) (x+2) (by omega)]
-  obtain ⟨r,ru,_,_,_,ne⟩ := every_pair_splits c mark noFork s u su same
-  exact ne (band r (by omega) 1 (by omega))
-
-/-- The two inputs are the wall and its effective OR gate. Separating them
-allows a cyclic test gate to be compared with the true one, not confused
-with the independent half-line that supplies the actual observations. -/
-def invertGate (m g : Trace) : Nat → Trace
-  | 0 => m
-  | 1 => fun t => xor (m (t+1)) (g t)
-  | n+2 => unleft (invertGate m g (n+1)) (invertGate m g n)
-
-theorem invert_step (m g : Trace) (d t : Nat) :
-    invertGate m g (d+1) (t+1) =
-    rule (invertGate m g (d+2) t) (invertGate m g (d+1) t) (invertGate m g d t) :=
-  (reapply _ _ _).symm
-
-private theorem invert_agree (m g h : Trace) (d t : Nat)
-    (common : ∀ i, i<d → g (t+i)=h (t+i)) : invertGate m g d t=invertGate m h d t := by
-  induction d using Nat.strongRecOn generalizing t with
-  | ind d ih =>
-    rcases d with _|d
-    · rfl
-    rcases d with _|d
-    · have e := common 0 (by omega)
-      simpa [invertGate,Nat.add_zero] using congrArg (xor (m (t+1))) e
-    · simp only [invertGate,unleft]
-      rw [ih (d+1) (by omega) (t+1)
-            (by intro i hi; simpa only [Nat.add_assoc] using common (1+i) (by omega)),
-          ih (d+1) (by omega) t (fun i hi => common i (by omega)),
-          ih d (by omega) t (fun i hi => common i (by omega))]
-
-private theorem invert_true (c : Trace) (s d t : Nat) :
-    invertGate (fun i => c (s+i)) (fun i => gate c (s+i)) d t=(pair c d).1 (s+t) := by
-  induction d using Nat.strongRecOn generalizing t with
-  | ind d ih =>
-    rcases d with _|d
-    · rfl
-    rcases d with _|d
-    · rfl
-    · let m := fun i => c (s+i)
-      let g := fun i => gate c (s+i)
-      change xor (invertGate m g (d+1) (t+1)) (invertGate m g (d+1) t || invertGate m g d t) =
-        xor ((pair c (d+1)).1 (s+t+1)) ((pair c (d+1)).1 (s+t) || (pair c d).1 (s+t))
-      rw [ih (d+1) (by omega),ih (d+1) (by omega),ih d (by omega),Nat.add_assoc]
-
-def cyclicWest (c : Trace) (s Q : Nat) : Nat → Trace :=
-  invertGate (fun i => c (s+i)) (fun i => gate c (s+i%Q))
-
-private theorem cyclic_earlier (c : Trace) (s Q d : Nat) (cap : d≤Q) :
-    cyclicWest c s Q d 0=(pair c d).1 s := by
-  have e := invert_agree (fun i => c (s+i)) (fun i => gate c (s+i%Q)) (fun i => gate c (s+i)) d 0
-    (by intro i hi; simp only [Nat.zero_add,Nat.mod_eq_of_lt (show i<Q by omega)])
-  simpa only [cyclicWest,invert_true,Nat.add_zero] using e
-
-private theorem inv_period (m g : Trace) (Q : Nat) (mp : ∀ t,m (t+Q)=m t)
-    (gp : ∀ t,g (t+Q)=g t) (d t : Nat) :
-    invertGate m g d (t+Q)=invertGate m g d t := by
-  induction d using Nat.strongRecOn generalizing t with
-  | ind d ih =>
-    rcases d with _|d
-    · exact mp _
-    rcases d with _|d
-    · change xor (m (t+Q+1)) (g (t+Q))=xor (m (t+1)) (g t)
-      rw [show t+Q+1=t+1+Q by omega,mp,gp]
-    · simp only [invertGate,unleft]
-      rw [show t+Q+1=t+1+Q by omega,ih (d+1) (by omega),ih (d+1) (by omega),ih d (by omega)]
-
-/-- If the initial phase row agrees up to the cone endpoint, it advances
-as the independent west half within that cone. -/
-private theorem inv_west_cone (c g : Trace) (s d t : Nat)
-    (init : ∀ j, j≤d+t → invertGate (fun i => c (s+i)) g j 0=west c s j) :
-    invertGate (fun i => c (s+i)) g d t=west c (s+t) d := by
-  induction t generalizing d with
-  | zero => exact init d (by omega)
-  | succ t ih =>
-    cases d with
-    | zero => exact (west_wall c (s+(t+1))).symm
-    | succ d =>
-      rw [invert_step]
-      change rule _ _ _ = rule (west c (s+t) (d+2)) (west c (s+t) (d+1)) (west c (s+t) d)
-      rw [ih (d+2) (by intro j hj; exact init j (by omega)),
-        ih (d+1) (by intro j hj; exact init j (by omega)),ih d (by intro j hj; exact init j (by omega))]
-
-/-- A finite cyclic inverse must manufacture an extra west mark. If the
-actual seed has no positive coefficient through s+Q, this mark lies strictly
-beyond Q; it is a mark of the CYCLIC inverse, not of the true origin. -/
-theorem cyclic_mark (c : Trace) (s Q : Nat) (mark : c 0=true) (pos : 0<Q) (start : s≤Q)
-    (clock : ∀ i,c (s+(i+Q))=c (s+i))
-    (blank : ∀ j, 0<j → j≤s+Q → origin c j=false) :
-    ∃ b, Q<b ∧ b≤s+2*Q ∧ cyclicWest c s Q b 0=true ∧
-      ∀ j, j<b → cyclicWest c s Q j 0=west c s j := by
-  let v := cyclicWest c s Q
-  have upto (j : Nat) (hj : j≤Q) : v j 0=west c s j :=
-    (cyclic_earlier c s Q j hj).trans (finite_west c s j (fun n hn hcap => blank n hn (by omega)))
-  have cyc (j : Nat) : v j Q=v j 0 := by
-    have e := inv_period (fun i => c (s+i)) (fun i => gate c (s+i%Q)) Q clock
-      (by intro t; simp) j 0
-    simpa only [v,cyclicWest,Nat.zero_add] using e
-  let bad (j : Nat) := v j 0≠west c s j
-  have any : ∃ j, j≤s+2*Q ∧ bad j := by
-    apply Classical.byContradiction
-    intro no
-    have same (j : Nat) (hj : j≤s+2*Q) : v j 0=west c s j :=
-      Classical.byContradiction (fun ne => no ⟨j,hj,ne⟩)
-    have ray := inv_west_cone c (fun i => gate c (s+i%Q)) s (s+Q) Q
-      (fun j hj => same j (by omega))
-    change v (s+Q) Q=west c (s+Q) (s+Q) at ray
-    rw [cyc,same (s+Q) (by omega),west_vac _ _ _ (by omega),west_tip _ mark] at ray
-    contradiction
-  have least (n : Nat) (b : bad n) : ∃ j, j≤n ∧ bad j ∧ ∀ i, i<j → ¬bad i := by
-    induction n using Nat.strongRecOn with
-    | ind n ih =>
-      by_cases prior : ∃ i, i<n ∧ bad i
-      · obtain ⟨i,lt,badI⟩ := prior
-        obtain ⟨j,ji,e,low⟩ := ih i lt badI
-        exact ⟨j,by omega,e,low⟩
-      · exact ⟨n,Nat.le_refl _,b,fun i hi bi => prior ⟨i,hi,bi⟩⟩
-  obtain ⟨n,cap,badn⟩ := any
-  obtain ⟨b,bn,err,low⟩ := least n badn
-  have large : Q<b := by
-    by_cases le : b≤Q
-    · exact False.elim (err (upto b le))
-    · omega
-  have white := west_vac c s b (by omega)
-  have one : v b 0=true := by
-    cases e : v b 0 with
-    | false => exact False.elim (err (e.trans white.symm))
-    | true => rfl
-  exact ⟨b,large,by omega,one,fun j hj => Classical.byContradiction (low j hj)⟩
-
-/-- Direct transfer, with a bound on the actual coefficient. A cyclic
-extra mark survives if its corresponding TRUE sideways bit is also black,
-even if there have been earlier true/cyclic differences. -/
-theorem true_mark_strobe (c : Trace) (s b k : Nat) (beyond : s<b) (hk : 0<k)
-    (real : (pair c b).1 s=true) :
-    ∃ j, 0<j ∧ j≤s+b ∧ east c (2^(s+b)*k) (2^(s+b)*k-j)=true := by
-  apply Classical.byContradiction
-  intro miss
-  have blank (j : Nat) (pos : 0<j) (le : j≤s+b) : origin c j=false := by
-    cases e : origin c j with
-    | true => exact False.elim (miss ⟨j,pos,le,(common_strobe c j (s+b) k le hk).trans e⟩)
-    | false => rfl
-  rw [finite_west c s b blank,west_vac c s b beyond] at real
+/-- The black slots alone cannot supply an unmarked periodic head.
+If the complementary white requests also had a period, two complete
+western columns would share it and the marked west tip would be lost.
+This argument never looks at the east, including its first cell. -/
+theorem west_rich (c : Trace) (mark : c 0=true) (period : EventuallyPeriodic c)
+    (black : BlackLock c) : ¬EventuallyPeriodic (whiteNeed c) := by
+  rintro ⟨U,q,hq,perQ⟩
+  obtain ⟨T,p,hp,perP⟩ := period
+  let A := T+U
+  let K := p*q
+  have pc (t : Nat) (ht : A≤t) : c (t+K)=c t := period_mul c T p perP q t (by dsimp [A] at ht;omega)
+  have pq (t : Nat) (ht : A≤t) : whiteNeed c (t+K)=whiteNeed c t := by
+    rw [show K=q*p by exact Nat.mul_comm _ _]
+    exact period_mul _ U q perQ p t (by dsimp [A] at ht;omega)
+  have decode (t : Nat) : west c t 1=xor (c (t+1)) (c t || whiteNeed c t) := by
+    cases ct : c t with
+    | false => cases a : west c t 1 <;> cases b : c (t+1) <;> simp_all [whiteNeed,need]
+    | true => rw [black t ct]; cases c (t+1) <;> rfl
+  have flow (d t : Nat) (ht : A≤t) : west c (t+K) d=west c t d := by
+    induction d using Nat.strongRecOn generalizing t with
+    | ind d ih =>
+      rcases d with _|d
+      · simpa only [west0] using pc t ht
+      rcases d with _|d
+      · rw [decode,decode t,show t+K+1=t+1+K by omega,pc (t+1) (by omega),pc t ht,pq t ht]
+      · have prev (u : Nat) : west c u (d+2)=xor (west c (u+1) (d+1)) (west c u (d+1) || west c u d) :=
+          (left_inv _ _ _).symm
+        rw [prev,prev t,show t+K+1=t+1+K by omega,ih (d+1) (by omega) (t+1) (by omega),
+          ih (d+1) (by omega) t ht,ih d (by omega) t ht]
+  have endbit := flow (A+K) A (by omega)
+  have pos : 0<K := Nat.mul_pos hp hq
+  rw [tip c mark,vacuum c A (A+K) (by omega)] at endbit
   contradiction
 
-/-- The newest gate appears exactly once. This provides both directions:
-a first gate error cannot disappear, and a first inverse-bit error cannot
-be attributed to some unspecified earlier mismatch. -/
-private theorem invert_tip (m g h : Trace) (r t : Nat)
-    (before : ∀ i, i<r → g (t+i)=h (t+i)) :
-    xor (invertGate m g (r+1) t) (invertGate m h (r+1) t) = xor (g (t+r)) (h (t+r)) := by
-  induction r generalizing t with
-  | zero =>
-    change xor (xor (m (t+1)) (g t)) (xor (m (t+1)) (h t))=xor (g t) (h t)
-    cases m (t+1) <;> cases g t <;> cases h t <;> rfl
-  | succ r ih =>
-    have now := invert_agree m g h (r+1) t before
-    have near := invert_agree m g h r t (fun i hi => before i (by omega))
-    have ahead := ih (t+1) (fun i hi => by
-      simpa only [Nat.add_assoc] using before (1+i) (by omega))
-    change xor (xor (invertGate m g (r+1) (t+1)) (invertGate m g (r+1) t || invertGate m g r t))
-      (xor (invertGate m h (r+1) (t+1)) (invertGate m h (r+1) t || invertGate m h r t)) = _
-    rw [now,near,bxCancel,ahead,show t+1+r=t+(r+1) by omega]
+structure Seven where
+  a : Bool
+  b : Bool
+  c : Bool
+  d : Bool
+  e : Bool
+  f : Bool
+  g : Bool
+deriving DecidableEq
 
-/-- Under the no-hit alternative the first manufactured black is removed
-by exactly the last gate of its diagonal. All prior cyclic reads, including
-those past a complete Q-cycle, agree with the actual east response. -/
-theorem first_cyclic_tear (c : Trace) (s Q r : Nat) (old : s<r+1)
-    (extra : cyclicWest c s Q (r+1) 0=true)
-    (first : ∀ j, j<r+1 → cyclicWest c s Q j 0=west c s j)
-    (blank : ∀ j, 0<j → j≤s+(r+1) → origin c j=false) :
-    (∀ i, i<r → gate c (s+i)=gate c (s+i%Q)) ∧
-      gate c (s+r) ≠ gate c (s+r%Q) := by
-  let m := fun i => c (s+i)
-  let g := fun i => gate c (s+i)
-  let h := fun i => gate c (s+i%Q)
-  have real (j : Nat) (le : j≤r+1) : invertGate m g j 0=west c s j := by
-    rw [invert_true,finite_west _ _ _ (fun j' pos jb => blank j' pos (by omega))]
-    rfl
-  have prior (i : Nat) (hi : i<r) : g i=h i := by
-    induction i using Nat.strongRecOn with
-    | ind i ih =>
-      have t := invert_tip m g h i 0 (fun k hk => by simpa only [Nat.zero_add] using ih k hk (by omega))
-      simp only [Nat.zero_add] at t
-      have eq : invertGate m g (i+1) 0=invertGate m h (i+1) 0 :=
-        (real _ (by omega)).trans (first _ (by omega)).symm
-      rw [eq,Bool.xor_self] at t
-      exact bx0 t.symm
-  have tip := invert_tip m g h r 0 (fun k hk => by simpa only [Nat.zero_add] using prior k hk)
-  simp only [Nat.zero_add] at tip
-  have left0 : invertGate m g (r+1) 0=false := (real _ (by omega)).trans (west_vac c s (r+1) old)
-  have right1 : invertGate m h (r+1) 0=true := extra
-  rw [left0,right1] at tip
-  refine ⟨prior,?_⟩
-  intro same
-  change g r=h r at same
-  rw [same,Bool.xor_self] at tip
-  contradiction
+def seven (c : Trace) (t : Nat) : Seven :=
+  ⟨east c t 1,east c t 2,east c t 3,east c t 4,east c t 5,east c t 6,east c t 7⟩
 
-private theorem inv_west_tip (c g : Trace) (s d t : Nat) (pos : 0<d)
-    (first : ∀ j, j<d+t → invertGate (fun i => c (s+i)) g j 0=west c s j) :
-    xor (invertGate (fun i => c (s+i)) g d t) (west c (s+t) d) =
-    xor (invertGate (fun i => c (s+i)) g (d+t) 0) (west c s (d+t)) := by
+def code (w : Seven) : Nat := w.a.toNat+2*w.b.toNat+4*w.c.toNat+8*w.d.toNat+
+  16*w.e.toNat+32*w.f.toNat+64*w.g.toNat
+
+abbrev Mem := Bool × Bool
+def read (y : Bool) (s : Mem) : Mem := (s.2,xor y (s.1 || s.2))
+
+def scan (w : Seven) (z : Bool) (s : Mem) : Mem :=
+  read w.a (read w.b (read w.c (read w.d (read w.e (read w.f (read w.g (read z s)))))))
+
+def reset (w : Seven) (z : Bool) : Bool :=
+  let v := scan w z (false,false)
+  v==scan w z (false,true) && v==scan w z (true,false) && v==scan w z (true,true)
+
+def capable (w : Seven) : Bool := reset w false || reset w true
+def permits (w : Seven) (z b : Bool) : Bool :=
+  let v := (b,false)
+  scan w z (false,false)==v || scan w z (false,true)==v ||
+  scan w z (true,false)==v || scan w z (true,true)==v
+
+def exceptional (w : Seven) : Bool := let v := code w; v==67 || v==91 || v==95 || v==123
+def guess (w : Seven) : Bool :=
+  if exceptional w then code w==91 else permits w false true || permits w true true
+
+private theorem undo (l m r : Bool) : read (rule l m r) (r,m)=(m,l) := by
+  cases l <;> cases m <;> cases r <;> rfl
+
+/-- This equality uses all eight actual eastern Rule-30 updates, not a
+supplied eight-bit observation stream. The last input state comes from
+the initialized half itself. Output coordinates are (old head,old wall). -/
+theorem physical_scan (c : Trace) (t : Nat) :
+    scan (seven c (t+1)) (east c (t+1) 8) (east c t 9,east c t 8)=(east c t 1,c t) := by
+  simp only [seven,scan,east,undo,east0]
+
+set_option maxHeartbeats 8000000 in
+set_option maxRecDepth 4000 in
+private theorem decoder_cert : ∀ a b d e f g h z x y : Bool,
+    let w : Seven := ⟨a,b,d,e,f,g,h⟩
+    capable w=true → (scan w z (x,y)).2=false → (scan w z (x,y)).1≠guess w →
+      exceptional w=true ∧ z=true ∧ reset w z=false := by decide
+
+/-- Exact finite exception: on a previous white wall, a reset-capable
+seven-word decodes the old head unless it is one of four specified
+words followed by a HIGH eighth bit that does not reset. -/
+theorem decoder_bound (c : Trace) (t : Nat) (white : c t=false)
+    (capableHere : capable (seven c (t+1))=true)
+    (wrong : east c t 1≠guess (seven c (t+1))) :
+    exceptional (seven c (t+1))=true ∧ east c (t+1) 8=true ∧
+      reset (seven c (t+1)) (east c (t+1) 8)=false := by
+  let w := seven c (t+1)
+  have e := decoder_cert w.a w.b w.c w.d w.e w.f w.g (east c (t+1) 8)
+    (east c t 9) (east c t 8)
+  have old := physical_scan c t
+  change scan w _ _ = _ at old
+  exact e capableHere (by rw [old];exact white) (by rw [old];exact wrong)
+
+def Visit (c : Trace) (P p : Nat) (w : Seven) (t : Nat) : Prop :=
+  t%P=p ∧ c t=false ∧ seven c (t+1)=w
+
+def WesternFork (c : Trace) (P p : Nat) (w : Seven) : Prop :=
+  ∀ N (b : Bool), ∃ t, N≤t ∧ Visit c P p w t ∧ need c t=b
+
+/-- L1: only a seven-bit projection is tagged. It is enough that some
+eighth extension resets; neither actual eighth input is required to reset.
+The entire white stream is not assumed correct: only the pre-onset
+prefix and the exact black locks are given. -/
+theorem L1 (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
+    (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
+    (past : Prefix c T) (black : BlackLock c) (rich : ¬EventuallyPeriodic (whiteNeed c)) :
+    ∃ p w, p<P ∧ capable w=true ∧ WesternFork c P p w := by
+  sorry
+
+/-- L2 is restricted to the four physical escape words. It only bars
+cofinal joint use of the nonreset, high-eighth escape with the opposite
+old head IN A western-fork class, not arbitrary right words or clocks.
+No late white agreement is assumed. -/
+theorem L2 (c : Trace) (T P p : Nat) (w : Seven) (hp : 0<P) (ph : p<P)
+    (mark : c 0=true) (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
+    (past : Prefix c T) (black : BlackLock c) (cap : capable w=true)
+    (special : exceptional w=true) (fork : WesternFork c P p w) :
+    ∃ N, ∀ t, N≤t → Visit c P p w t → east c (t+1) 8=true →
+      reset w (east c (t+1) 8)=false → east c t 1=guess w := by
+  sorry
+
+theorem collision (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
+    (period : ∀t,T≤t → c (t+P)=c t) (mixed : Mixed c)
+    (past : Prefix c T) (black : BlackLock c) (join : Joined c) : False := by
+  have rich := west_rich c mark ⟨T,P,hp,period⟩ black
+  obtain ⟨p,w,ph,cap,fork⟩ := L1 c T P hp mark period mixed past black rich
+  have escaped (N : Nat) : ∃t, N≤t ∧ Visit c P p w t ∧ east c t 1≠guess w ∧
+      exceptional w=true ∧ east c (t+1) 8=true ∧ reset w (east c (t+1) 8)=false := by
+    obtain ⟨t,late,v,needOpp⟩ := fork N (!guess w)
+    have outside : east c t 1≠guess w := by
+      rw [←join t v.2.1,needOpp]
+      simp
+    obtain ⟨spec,bit,unsync⟩ := decoder_bound c t v.2.1 (by rwa [v.2.2]) (by rwa [v.2.2])
+    rw [v.2.2] at spec unsync
+    exact ⟨t,late,v,outside,spec,bit,unsync⟩
+  obtain ⟨_,_,_,_,special,_,_⟩ := escaped 0
+  obtain ⟨N,stop⟩ := L2 c T P p w hp ph mark period mixed past black cap special fork
+  obtain ⟨t,late,v,different,_,bit,unsync⟩ := escaped N
+  exact different (stop t late v bit unsync)
+
+private theorem halves_actual (t d : Nat) :
+    east center t d=cell t (d:Int) ∧ west center t d=cell t (-(d:Int)) := by
   induction t generalizing d with
-  | zero => rfl
+  | zero =>
+    cases d with
+    | zero => exact ⟨rfl,rfl⟩
+    | succ d => simp [east,west,cell]; omega
   | succ t ih =>
-    obtain ⟨n,rfl⟩ := Nat.exists_eq_succ_of_ne_zero (show d ≠ 0 by omega)
-    let m := fun i => c (s+i)
-    change xor (invertGate m g (n+1) (t+1)) (west c ((s+t)+1) (n+1)) = _
-    rw [invert_step]
-    change xor (xor (invertGate m g (n+2) t) (invertGate m g (n+1) t || invertGate m g n t))
-      (xor (west c (s+t) (n+2)) (west c (s+t) (n+1) || west c (s+t) n)) = _
-    rw [inv_west_cone c g s (n+1) t (fun j hj => first j (by omega)),
-      inv_west_cone c g s n t (fun j hj => first j (by omega)),bxCancel,
-      ih (n+2) (by omega) (fun j hj => first j (by omega)),
-      show n+2+t=(n+1)+(t+1) by omega]
-
-/-- The first cyclic excess has a second, independent location formula.
-Read only the WEST halves at ages s and s+Q: the first split there is
-exactly Q sites closer to the wall than this mark reconstructed from the
-first Q EAST gate samples. No later east reads enter this comparison. -/
-theorem cyclic_offset (c : Trace) (s Q b : Nat) (pos : 0<Q) (large : Q<b)
-    (old : s<b) (clock : ∀ i,c (s+(i+Q))=c (s+i))
-    (extra : cyclicWest c s Q b 0=true)
-    (first : ∀ j, j<b → cyclicWest c s Q j 0=west c s j) :
-    (∀ j, j<b-Q → west c s j=west c (s+Q) j) ∧
-    west c s (b-Q) ≠ west c (s+Q) (b-Q) := by
-  let g := fun i => gate c (s+i%Q)
-  let v := cyclicWest c s Q
-  change v b 0=true at extra
-  change ∀ j, j<b → v j 0=west c s j at first
-  have cyc (j : Nat) : v j Q=v j 0 := by
-    have e := inv_period (fun i => c (s+i)) g Q clock (by intro t; simp [g]) j 0
-    simpa only [v,g,cyclicWest,Nat.zero_add] using e
-  constructor
-  · intro j hj
-    have e := inv_west_cone c g s j Q (fun i hi => first i (by omega))
-    change v j Q = west c (s+Q) j at e
-    rw [cyc,first j (by omega)] at e
-    exact e
-  · have t := inv_west_tip c g s (b-Q) Q (by omega) (fun i hi => first i (by omega))
-    change xor (v (b-Q) Q) (west c (s+Q) (b-Q)) =
-      xor (v (b-Q+Q) 0) (west c s (b-Q+Q)) at t
-    rw [show b-Q+Q=b by omega,cyc,first (b-Q) (by omega),extra,west_vac _ _ _ old] at t
-    intro eq
-    rw [eq,Bool.xor_self] at t
-    contradiction
-
-/-- A white wall latches its actual eastern head once it is black. The
-next effective gate is then one even if the wall switches to black. -/
-private theorem gate_latched (c : Trace) (t : Nat) (white : c t=false)
-    (high : gate c t=true) : gate c (t+1)=true := by
-  have one : east c t 1=true := by simpa [gate,white] using high
-  have nxt : east c (t+1) 1=true := by
-    change rule (east c t 0) (east c t 1) (east c t 2)=true
-    rw [east_wall,white,one]
-    simp [rule]
-  simp [gate,nxt]
-
-/-- Keep the measured cyclic input before the tear, then insert one
-threshold. Nothing here reads a genuine gate after the initial Q block. -/
-def repairedInput (c : Trace) (s Q r a i : Nat) : Bool :=
-  if i<r then gate c (s+i%Q) else decide (r+a≤i)
-
-def Cleans (c : Trace) (s Q r n a : Nat) : Prop :=
-  a≤n ∧ ∀ j, r+1≤j → j≤r+n+1 →
-    invertGate (fun i => c (s+i)) (repairedInput c s Q r a) j 0=false
-
-private theorem clean_unique_aux (c : Trace) (s Q r n a b : Nat)
-    (ca : Cleans c s Q r n a) (cb : Cleans c s Q r n b) : ¬a<b := by
-  intro lt
-  let m := fun i => c (s+i)
-  let f := repairedInput c s Q r a
-  let g := repairedInput c s Q r b
-  have prior (i : Nat) (hi : i<r+a) : f (0+i)=g (0+i) := by
-    simp only [f,g,repairedInput,Nat.zero_add]
-    split
-    · rfl
-    · simp [show ¬r+a≤i by omega,show ¬r+b≤i by omega]
-  have tip := invert_tip m f g (r+a) 0 prior
-  rw [ca.2 (r+a+1) (by omega) (by have := ca.1; omega),
-      cb.2 (r+a+1) (by omega) (by have := ca.1; omega),Bool.xor_self] at tip
-  simp [f,g,repairedInput,show ¬r+a<r by omega,show ¬r+b≤r+a by omega] at tip
-
-theorem clean_unique (c : Trace) (s Q r n a b : Nat)
-    (ca : Cleans c s Q r n a) (cb : Cleans c s Q r n b) : a=b := by
-  have lo := clean_unique_aux c s Q r n a b ca cb
-  have hi := clean_unique_aux c s Q r n b a cb ca
-  omega
-
-/-- Keep the inlet low until further notice. The first black left by this
-probe identifies the forced eastern rise time without searching thresholds. -/
-def lowProbe (c : Trace) (s Q r i : Nat) : Bool :=
-  invertGate (fun k => c (s+k)) (fun k => if k<r then gate c (s+k%Q) else false) (r+i+1) 0
-
-theorem first_low_probe (c : Trace) (s Q r n a : Nat) (clean : Cleans c s Q r n a) :
-    (∀ i, i<a → lowProbe c s Q r i=false) ∧ lowProbe c s Q r a=true := by
-  let m := fun k => c (s+k)
-  let f := fun k => if k<r then gate c (s+k%Q) else false
-  let g := repairedInput c s Q r a
-  have same (i : Nat) (hi : i<r+a) : f (0+i)=g (0+i) := by
-    simp only [f,g,repairedInput,Nat.zero_add]
-    split
-    · rfl
-    · simp [show ¬r+a≤i by omega]
-  constructor
-  · intro i hi
-    exact (invert_agree m f g (r+i+1) 0 (fun j hj => same j (by omega))).trans
-      (clean.2 _ (by omega) (by have := clean.1; omega))
-  · have tip := invert_tip m f g (r+a) 0 same
-    rw [clean.2 _ (by omega) (by have := clean.1; omega)] at tip
-    simpa [lowProbe,m,f,g,repairedInput,show ¬r+a<r by omega] using tip
-
-/-- This is the whole white suffix of the tear followed by the first
-black. The cutoff is determined before looking at any post-cycle eastern
-sample: the finite inverse strip has at most one threshold cleaning it. -/
-def Repairs (c : Trace) (s Q r : Nat) : Prop :=
-  ∀ n, (∀ i, i<n → c (s+r+i)=false) → c (s+r+n)=true →
-    ∃ a, Cleans c s Q r n a ∧ (a=0 ↔ gate c (s+r%Q)=false) ∧
-      (∀ i, i<a → lowProbe c s Q r i=false) ∧ lowProbe c s Q r a=true
-
-theorem actual_repair (c : Trace) (s Q r n : Nat) (old : s<r+1)
-    (prior : ∀ i, i<r → gate c (s+i)=gate c (s+i%Q))
-    (tear : gate c (s+r)≠gate c (s+r%Q))
-    (white : ∀ i, i<n → c (s+r+i)=false) (black : c (s+r+n)=true)
-    (blank : ∀ j, 0<j → j≤s+r+n+1 → origin c j=false) :
-    ∃ a, Cleans c s Q r n a ∧ (a=0 ↔ gate c (s+r%Q)=false) := by
-  let z := fun i => gate c (s+r+i)
-  have endone : z n=true := by simp [z,gate,black]
-  have least (k : Nat) (hk : z k=true) : ∃ a, a≤k ∧ z a=true ∧ ∀ i, i<a → z i=false := by
-    induction k using Nat.strongRecOn with
-    | ind k ih =>
-      by_cases found : ∃ j, j<k ∧ z j=true
-      · obtain ⟨j,lt,jx⟩ := found
-        obtain ⟨a,le,ax,lower⟩ := ih j lt jx
-        exact ⟨a,by omega,ax,lower⟩
-      · refine ⟨k,by omega,hk,?_⟩
-        intro j lt
-        cases e : z j with
-        | false => rfl
-        | true => exact False.elim (found ⟨j,lt,e⟩)
-  obtain ⟨a,cap,hit,low⟩ := least n endone
-  have above (i : Nat) (ai : a≤i) (bound : i≤n) : z i=true := by
-    induction i with
-    | zero => have av : a=0 := by omega
-              simpa [av] using hit
-    | succ i ih =>
-      by_cases av : a=i+1
-      · simpa [av] using hit
-      · exact gate_latched c (s+r+i) (white i (by omega)) (ih (by omega) (by omega))
-  have common (i : Nat) (capI : i≤r+n) : repairedInput c s Q r a i=gate c (s+i) := by
-    by_cases lt : i<r
-    · simpa [repairedInput,lt] using (prior i lt).symm
-    · obtain ⟨j,rfl⟩ := Nat.exists_eq_add_of_le (show r≤i by omega)
-      have e : s+(r+j)=s+r+j := by omega
-      by_cases aj : a≤j
-      · have one := above j aj (by omega)
-        simpa [repairedInput,e,show ¬r+j<r by omega,show r+a≤r+j by omega,z] using one.symm
-      · have zero := low j (by omega)
-        simpa [repairedInput,e,show ¬r+j<r by omega,show ¬r+a≤r+j by omega,z] using zero.symm
-  refine ⟨a,⟨cap,?_⟩,?_⟩
-  · intro j lo hi
-    have eq := invert_agree (fun i => c (s+i)) (repairedInput c s Q r a)
-      (fun i => gate c (s+i)) j 0
-      (by intro i h; simpa only [Nat.zero_add] using common i (by omega))
-    rw [eq,invert_true,Nat.add_zero,finite_west c s j (fun i p le => blank i p (by omega)),
-      west_vac c s j (by omega)]
-  · have firstbit : a=0 ↔ gate c (s+r)=true := by
+    cases d with
+    | zero => exact ⟨rfl,rfl⟩
+    | succ d =>
       constructor
-      · intro eq; simpa [eq,z] using hit
-      · intro one
-        by_cases eq : a=0
-        · exact eq
-        · have h := low 0 (by omega)
-          simp [z,one] at h
-    rw [firstbit]
-    cases h : gate c (s+r) <;> cases k : gate c (s+r%Q) <;> simp_all
+      · simp only [east,(ih d).1,(ih (d+1)).1,(ih (d+2)).1,cell]
+        congr 1 <;> congr 1 <;> omega
+      · simp only [west,(ih d).2,(ih (d+1)).2,(ih (d+2)).2,cell]
+        congr 1 <;> congr 1 <;> omega
 
-/-- Parity of the untouched white neighbors along one east-going
-characteristic. Reading it requires one genuine west cell per time step. -/
-def whiteParity (c : Trace) (s : Nat) : Nat → Nat → Bool
-  | _, 0 => false
-  | d, t+1 => xor (whiteParity c s (d+1) t) (!west c (s+t) d)
+private theorem actual_wall (t : Nat) :
+    center (t+1)=rule (west center t 1) (center t) (east center t 1) := by
+  rw [(halves_actual t 1).1,(halves_actual t 1).2]
+  rfl
 
-private theorem second_xor (a b m n k : Bool) (opposite : xor m n=true) :
-    xor (rule a m k) (rule b n k)=xor (xor a b) (!k) := by
-  cases m <;> cases n <;> cases k <;> cases a <;> cases b <;> simp_all [rule]
+private theorem actual_locks : BlackLock center ∧ Joined center := by
+  constructor <;> intro t bit
+  · have h := actual_wall t
+    rw [bit] at h
+    cases a : west center t 1 <;> cases b : center (t+1) <;> simp_all [rule]
+  · have h := actual_wall t
+    rw [bit] at h
+    unfold need
+    cases a : west center t 1 <;> cases b : east center t 1 <;> simp_all [rule]
 
-/-- One step behind the first difference, the nonlinear perturbation
-reduces exactly to a white-cell parity; d=0 is allowed at the final time,
-so this reads the gate immediately following the first tear. -/
-private theorem inv_west_second (c g : Trace) (s d t : Nat)
-    (first : ∀ j, j<d+t → invertGate (fun i => c (s+i)) g j 0=west c s j)
-    (front : xor (invertGate (fun i => c (s+i)) g (d+t) 0) (west c s (d+t))=true) :
-    xor (invertGate (fun i => c (s+i)) g (d+1) t) (west c (s+t) (d+1)) =
-    xor (xor (invertGate (fun i => c (s+i)) g (d+t+1) 0) (west c s (d+t+1)))
-      (whiteParity c s d t) := by
-  induction t generalizing d with
-  | zero => simp [whiteParity]
-  | succ t ih =>
-    let m := fun i => c (s+i)
-    have lt (j : Nat) (h : j<d+1+t) : invertGate m g j 0=west c s j := first j (by omega)
-    have fr : xor (invertGate m g (d+1+t) 0) (west c s (d+1+t))=true := by
-      rw [show d+1+t=d+(t+1) by omega]
-      exact front
-    have edge := (inv_west_tip c g s (d+1) t (by omega) lt).trans fr
-    have forward := inv_west_cone c g s d t (fun j hj => first j (by omega))
-    have prev := ih (d+1) lt fr
-    rw [invert_step]
-    change xor (rule _ _ _) (rule (west c (s+t) (d+2)) (west c (s+t) (d+1))
-      (west c (s+t) d)) = _
-    rw [forward,second_xor _ _ _ _ _ edge,prev]
-    rw [show d+1+t+1=d+(t+1)+1 by omega,whiteParity,Bool.xor_assoc]
-
-/-- The next bit after the synthetic mark has TWO readings: the
-initialized eastern gate at the next tick, or the parity of a single
-genuine west characteristic and the measured cyclic gate. -/
-theorem next_tear_bit (c : Trace) (s Q r : Nat) (old : s<r+1)
-    (extra : cyclicWest c s Q (r+1) 0=true)
-    (first : ∀ j, j<r+1 → cyclicWest c s Q j 0=west c s j)
-    (blank : ∀ j, 0<j → j≤s+r+2 → origin c j=false) :
-    xor (cyclicWest c s Q (r+2) 0) (whiteParity c s 0 (r+1)) =
-      xor (gate c (s+(r+1)%Q)) (gate c (s+(r+1))) := by
-  let g := fun i => gate c (s+i%Q)
-  have E := inv_west_second c g s 0 (r+1)
-    (by intro j le; exact first j (by omega))
-    (by simp only [Nat.zero_add]
-        change xor (cyclicWest c s Q (r+1) 0) (west c s (r+1))=true
-        rw [extra,west_vac c s (r+1) old]; rfl)
-  simp only [Nat.zero_add] at E
-  rw [west_vac c s (r+1+1) (by omega),Bool.xor_false] at E
-  rw [←finite_west c (s+(r+1)) 1 (fun j p le => blank j p (by omega))] at E
-  have bx (x y z : Bool) : xor (xor x y) (xor x z)=xor y z := by
-    cases x <;> cases y <;> cases z <;> rfl
-  change xor (xor (c (s+(r+1+1))) (g (r+1))) (xor (c (s+(r+1)+1)) (gate c (s+(r+1)))) = _ at E
-  rw [show s+(r+1+1)=s+(r+1)+1 by omega,bx] at E
-  exact E.symm
-
-/-- Prefix parity of whites on the ray x=t−J, starting at row zero. -/
-def markParity (c : Trace) (J : Nat) : Nat → Bool
-  | 0 => false
-  | t+1 => xor (markParity c J t) (!west c t (J-t))
-
-private theorem parity_cut (c : Trace) (J s d t : Nat) (rayEq : J+1=s+d+t) :
-    whiteParity c s d t = xor (markParity c J s) (markParity c J (s+t)) := by
-  induction t generalizing d with
-  | zero => simp [whiteParity]
-  | succ t ih =>
-    rw [whiteParity,ih (d+1) (by omega),show s+(t+1)=s+t+1 by omega,markParity]
-    rw [show J-(s+t)=d by omega,Bool.xor_assoc]
-
-private theorem parity_void (c : Trace) (J s : Nat) (void : 2*s≤J) :
-    markParity c J s = decide (s%2=1) := by
-  induction s with
-  | zero => rfl
-  | succ s ih =>
-    rw [markParity,west_vac c s (J-s) (by omega),ih (by omega)]
-    by_cases e : s%2=1
-    · simp [e,show ¬(s+1)%2=1 by omega]
-    · simp [e,show (s+1)%2=1 by omega]
-
-/-- For each cut this key reads only its CYCLIC probe and its first Q
-true samples. The parity adjustment accounts for the initial vacuum
-before the cut on the shared singleton characteristic. -/
-def tearKey (c : Trace) (s Q r : Nat) : Bool :=
-  xor (xor (cyclicWest c s Q (r+2) 0) (gate c (s+(r+1)%Q))) (decide (s%2=1))
-
-theorem shared_key (c : Trace) (s Q r : Nat) (cap : s≤r)
-    (extra : cyclicWest c s Q (r+1) 0=true)
-    (first : ∀ j, j<r+1 → cyclicWest c s Q j 0=west c s j)
-    (blank : ∀ j, 0<j → j≤s+r+2 → origin c j=false) :
-    tearKey c s Q r = xor (markParity c (s+r) (s+r+1)) (gate c (s+r+1)) := by
-  have e := next_tear_bit c s Q r (by omega) extra first blank
-  rw [parity_cut c (s+r) s 0 (r+1) (by omega),parity_void c (s+r) s (by omega),
-      show s+(r+1)=s+r+1 by omega] at e
-  unfold tearKey
-  generalize cyclicWest c s Q (r+2) 0=A at *
-  generalize gate c (s+(r+1)%Q)=B at *
-  generalize decide (s%2=1)=D at *
-  generalize markParity c (s+r) (s+r+1)=C at *
-  generalize gate c (s+r+1)=F at *
-  cases A <;> cases B <;> cases C <;> cases D <;> cases F <;> simp_all
-
-/-- Different lengths Q and different cuts have to yield the SAME
-second-bit key whenever their geometric mark reaches a common absolute
-time. A black wall at the next tick or a low cyclic gate at this tear
-also pins that shared key without using a later eastern observation. -/
-def KeyClass (c : Trace) (J : Nat) : Prop :=
-  ∃ K : Bool, (c (J+1)=true → K= !markParity c J (J+1)) ∧
-    ∀ s Q r, s+r=J → s≤Q → Q≤r → c (s+r)=c (s+r%Q) → cyclicWest c s Q (r+1) 0=true →
-      (∀ j, j<r+1 → cyclicWest c s Q j 0=west c s j) →
-      tearKey c s Q r=K ∧ (gate c (s+r%Q)=false → K= !markParity c J (J+1))
-
-theorem joint_key_or_strobe (c : Trace) (J k : Nat) (hk : 0<k) :
-    KeyClass c J ∨ ∃ j, 0<j ∧ j≤J+2 ∧ east c (2^(J+2)*k) (2^(J+2)*k-j)=true := by
-  by_cases positive : ∃ j, 0<j ∧ j≤J+2 ∧ origin c j=true
-  · obtain ⟨j,pos,cap,hit⟩ := positive
-    exact Or.inr ⟨j,pos,cap,(common_strobe c j (J+2) k cap hk).trans hit⟩
-  · have blank (j : Nat) (pos : 0<j) (cap : j≤J+2) : origin c j=false := by
-      cases e : origin c j with
-      | false => rfl
-      | true => exact False.elim (positive ⟨j,pos,cap,e⟩)
-    apply Or.inl
-    refine ⟨xor (markParity c J (J+1)) (gate c (J+1)), ?_, ?_⟩
-    · intro black
-      simp [gate,black]
-    · intro s Q r date small large aligned extra first
-      subst J
-      exact ⟨shared_key c s Q r (by omega) extra first blank,by
-        intro low
-        obtain ⟨_,ne⟩ := first_cyclic_tear c s Q r (by omega) extra first
-          (fun j hj le => blank j hj (by omega))
-        have current : gate c (s+r)=true := by cases e : gate c (s+r) <;> simp_all
-        by_cases white : c (s+r)=false
-        · rw [gate_latched c (s+r) white current,Bool.xor_true]
-        · have lit : c (s+r%Q)=true := by cases e : c (s+r%Q) <;> simp_all
-          simp [gate,lit] at low⟩
-
-/-- One failed run repair already returns an actual positive origin
-coefficient; no true post-Q eastern sample enters the left-hand test. -/
-theorem repair_or_strobe (c : Trace) (s Q r n k : Nat) (hk : 0<k) (old : s<r+1)
-    (extra : cyclicWest c s Q (r+1) 0=true)
-    (first : ∀ j, j<r+1 → cyclicWest c s Q j 0=west c s j)
-    (white : ∀ i, i<n → c (s+r+i)=false) (black : c (s+r+n)=true) :
-    (∃ a, Cleans c s Q r n a ∧ (a=0 ↔ gate c (s+r%Q)=false) ∧
-      (∀ i, i<a → lowProbe c s Q r i=false) ∧ lowProbe c s Q r a=true) ∨
-      ∃ j, 0<j ∧ j≤s+r+n+1 ∧ east c (2^(s+r+n+1)*k) (2^(s+r+n+1)*k-j)=true := by
-  by_cases positive : ∃ j, 0<j ∧ j≤s+r+n+1 ∧ origin c j=true
-  · obtain ⟨j,pos,cap,hit⟩ := positive
-    exact Or.inr ⟨j,pos,cap,(common_strobe c j (s+r+n+1) k cap hk).trans hit⟩
-  · have blank (j : Nat) (pos : 0<j) (cap : j≤s+r+n+1) : origin c j=false := by
-      cases h : origin c j with
-      | false => rfl
-      | true => exact False.elim (positive ⟨j,pos,cap,h⟩)
-    obtain ⟨prior,tear⟩ := first_cyclic_tear c s Q r old extra first
-      (fun j p le => blank j p (by omega))
-    obtain ⟨a,cleans,sign⟩ := actual_repair c s Q r n old prior tear white black blank
-    exact Or.inl ⟨a,cleans,sign,first_low_probe c s Q r n a cleans⟩
-
-/-- The survivor test is exact at the FIRST candidate mark, not just a
-sufficient comparison of entire periodic right columns. If this arithmetic
-synchronization fails at any Q then the true strobe already has a hit. -/
-def TornCycles (c : Trace) (s Q : Nat) : Prop :=
-  ∃ r, Q≤r ∧ r+1≤s+2*Q ∧ cyclicWest c s Q (r+1) 0=true ∧
-    (∀ j, j<r+1 → cyclicWest c s Q j 0=west c s j) ∧
-    (∀ i, i<r → gate c (s+i)=gate c (s+i%Q)) ∧
-    gate c (s+r) ≠ gate c (s+r%Q) ∧
-    (∀ j, j<r+1-Q → west c s j=west c (s+Q) j) ∧
-    west c s (r+1-Q) ≠ west c (s+Q) (r+1-Q)
-
-theorem tear_or_strobe (c : Trace) (s Q k : Nat) (mark : c 0=true) (pos : 0<Q)
-    (hk : 0<k) (start : s≤Q) (clock : ∀ i,c (s+(i+Q))=c (s+i)) :
-    TornCycles c s Q ∨
-      ∃ j, 0<j ∧ j≤2*s+2*Q ∧ east c (2^(2*s+2*Q)*k) (2^(2*s+2*Q)*k-j)=true := by
-  by_cases real : ∃ j, 0<j ∧ j≤2*s+2*Q ∧ origin c j=true
-  · obtain ⟨j,pos,le,hit⟩ := real
-    exact Or.inr ⟨j,pos,le,(common_strobe c j (2*s+2*Q) k le hk).trans hit⟩
-  · have blank (j : Nat) (pos : 0<j) (le : j≤2*s+2*Q) : origin c j=false := by
-      cases v : origin c j with
-      | false => rfl
-      | true => exact False.elim (real ⟨j,pos,le,v⟩)
-    obtain ⟨b,large,cap,extra,first⟩ := cyclic_mark c s Q mark pos start clock
-      (fun j p le => blank j p (by omega))
-    obtain ⟨r,rfl⟩ := Nat.exists_eq_succ_of_ne_zero (show b≠0 by omega)
-    obtain ⟨prior,tear⟩ := first_cyclic_tear c s Q r (by omega) extra first
-      (fun j p le => blank j p (by omega))
-    have offset := cyclic_offset c s Q (r+1) pos large (by omega) clock extra first
-    exact Or.inl ⟨r,by omega,cap,extra,first,prior,tear,offset⟩
-
-/-- Every putative periodic wall can be specified by a finite onset/period word.
-This is a sequence on TIME, never a spatial periodicization of a genuine age row. -/
-def repeatWord (c : Trace) (T P i : Nat) : Bool :=
-  if i < T then c i else c (T + (i-T) % P)
-
-theorem repeat_return (c : Trace) (T P a : Nat) (ha : T≤a) (i r : Nat) :
-    repeatWord c T P (a+P*i+r) = repeatWord c T P (a+r) := by
-  simp only [repeatWord,ite_eq_right (show ¬a+P*i+r<T by omega),ite_eq_right (show ¬a+r<T by omega),
-    show a+P*i+r-T=(a+r-T)+P*i by omega,Nat.add_mul_mod_self_left]
-
-/-- Both gate bits occur arbitrarily late on this single clock residue. -/
-def Swing (c : Trace) (T P p : Nat) : Prop :=
-  ∀ K (b : Bool), ∃ k, K≤k ∧ gate c (T+p+P*k)=b
-
-private theorem eventually_fixed {c : Trace} {T P p : Nat} (notSwing : ¬Swing c T P p) :
-    ∃ K, ∃ v : Bool, ∀ k, K≤k → gate c (T+p+P*k)=v := by
-  by_cases zeros : ∀ K, ∃ k, K≤k ∧ gate c (T+p+P*k)=false
-  · by_cases ones : ∀ K, ∃ k, K≤k ∧ gate c (T+p+P*k)=true
-    · exact False.elim (notSwing (fun K b => by cases b <;> first | exact zeros K | exact ones K))
-    · have stop : ∃ K, ¬∃ k, K≤k ∧ gate c (T+p+P*k)=true :=
-        Classical.not_forall.mp ones
-      obtain ⟨K,miss⟩ := stop
-      exact ⟨K,false,fun k le => by cases h : gate c (T+p+P*k) with
-        | false => rfl
-        | true => exact False.elim (miss ⟨k,le,h⟩)⟩
-  · obtain ⟨K,miss⟩ := Classical.not_forall.mp zeros
-    exact ⟨K,true,fun k le => by cases h : gate c (T+p+P*k) with
-      | false => exact False.elim (miss ⟨k,le,h⟩)
-      | true => rfl⟩
-
-private theorem has_swing (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
-    (noFork : ¬HeadFork c) (clock : ∀ a, T≤a → ∀ i r, c (a+P*i+r)=c (a+r)) :
-    ∃ p, p<P ∧ Swing c T P p := by
+private theorem actual_mixed (ep : EventuallyPeriodic center) : Mixed center := by
+  intro N b
   apply Classical.byContradiction
   intro miss
-  have bounded (n : Nat) (le : n≤P) :
-      ∃ K, ∀ p, p<n → ∃ v : Bool, ∀ k, K≤k → gate c (T+p+P*k)=v := by
-    induction n with
-    | zero => exact ⟨0,by omega⟩
-    | succ n ih =>
-      obtain ⟨K,small⟩ := ih (by omega)
-      obtain ⟨L,v,top⟩ := eventually_fixed (fun swing => miss ⟨n,by omega,swing⟩)
-      refine ⟨K+L,?_⟩
-      intro p pr
-      by_cases eq : p=n
-      · subst p; exact ⟨v,fun k h => top k (by omega)⟩
-      · obtain ⟨z,old⟩ := small p (by omega)
-        exact ⟨z,fun k h => old k (by omega)⟩
-  obtain ⟨K,steady⟩ := bounded P (by omega)
-  let s := T+P*K
-  have per (i : Nat) : c (s+i)=c (s+P+i) := by simpa using (clock s (by dsimp [s];omega) 1 i).symm
-  obtain ⟨r,_,_,_,white,ne⟩ := every_pair_splits c mark noFork s (s+P) (by omega) per
-  obtain ⟨v,fix⟩ := steady (r%P) (Nat.mod_lt _ hp)
-  have h1 := fix (K+r/P) (Nat.le_add_right _ _)
-  have h2 := fix (K+r/P+1) (Nat.le_trans (Nat.le_add_right _ _) (Nat.le_succ _))
-  have idn := Nat.mod_add_div r P
-  have same : gate c (s+r)=gate c (s+P+r) := by
-    rw [Nat.mul_add] at h1
-    rw [Nat.mul_succ,Nat.mul_add] at h2
-    dsimp [s]
-    rw [show T+P*K+r=T+r%P+(P*K+P*(r/P)) by omega,
-      show T+P*K+P+r=T+r%P+(P*K+P*(r/P)+P) by omega,h1,h2]
-  apply ne
-  simpa [gate,←per r,white] using same
-
-/-- Under any mixed or constant clock, a no-fork solution must have
-a genuinely fluctuating white slot whose IMMEDIATE successor is eventually
-always high. It is not assumed that any chosen gate block repeats. -/
-theorem terminal_swing (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
-    (noFork : ¬HeadFork c) (clock : ∀ a, T≤a → ∀ i r, c (a+P*i+r)=c (a+r)) :
-    ∃ p K, Swing c T P p ∧ ∀ k, K≤k → c (T+p+P*k)=false ∧ gate c (T+p+P*k+1)=true := by
-  obtain ⟨p,_,swing⟩ := has_swing c T P hp mark noFork clock
-  have black : ∃ n, c (T+p+n)=true := by
-    apply Classical.byContradiction
-    intro absent
-    obtain ⟨a,_,high⟩ := swing 0 true
-    obtain ⟨b,ab,low⟩ := swing a false
-    have stays (n : Nat) : gate c (T+p+P*a+n)=true := by
-      induction n with
-      | zero => simpa using high
-      | succ n ih =>
-        apply gate_latched c (T+p+P*a+n) _ ih
-        cases e : c (T+p+P*a+n) with
+  have fixed (t : Nat) (late : N≤t) : center t= !b := by
+    cases h : center t <;> cases b <;> simp_all
+  apply MaskedRightRigidity.claim_of_periodic_mask _ ep
+  cases b with
+  | false =>
+    exact ⟨N,1,by decide,fun t late => by simp [MaskedRightRigidity.maskedRight,fixed t late,fixed (t+1) (by omega)]⟩
+  | true =>
+    have latch (t : Nat) (lt : N≤t) (one : cell t 1=true) : cell (t+1) 1=true := by
+      change rule (center t) (cell t 1) (cell t 2)=true
+      rw [fixed t lt,one];rfl
+    by_cases any : ∃ t,N≤t ∧ cell t 1=true
+    · obtain ⟨a,late,one⟩ := any
+      have high (j : Nat) : cell (a+j) 1=true := by
+        induction j with
+        | zero => simpa using one
+        | succ j ih => exact latch (a+j) (by omega) ih
+      exact ⟨a,1,by decide,fun t le => by
+        simp [MaskedRightRigidity.maskedRight,fixed t (by omega),fixed (t+1) (by omega),
+          show cell t 1=true by simpa [Nat.add_sub_of_le le] using high (t-a),
+          show cell (t+1) 1=true by simpa [Nat.add_sub_of_le (show a≤t+1 by omega)] using high (t+1-a)]⟩
+    · have zero (t : Nat) (lt : N≤t) : cell t 1=false := by
+        cases h : cell t 1 with
         | false => rfl
-        | true => exact False.elim (absent ⟨P*a+n,by simpa [Nat.add_assoc] using e⟩)
-    have last := stays (P*b-P*a)
-    have le := Nat.mul_le_mul_left P ab
-    rw [show T+p+P*a+(P*b-P*a)=T+p+P*b by omega,low] at last
-    contradiction
-  obtain ⟨n,black⟩ := black
-  have pastEnd : ¬Swing c T P (p+n) := by
-    intro both
-    obtain ⟨k,_,z⟩ := both 0 false
-    have same : c (T+(p+n)+P*k)=true := by
-      simpa [Nat.add_assoc] using (clock (T+p+n) (by omega) k 0).trans (by simpa using black)
-    simp [gate,same] at z
-  have edge (n : Nat) (stop : ¬Swing c T P (p+n)) :
-      ∃ j, Swing c T P (p+j) ∧ ¬Swing c T P (p+j+1) := by
-    induction n with
-    | zero => exact False.elim (stop (by simpa using swing))
-    | succ n ih =>
-      by_cases prior : Swing c T P (p+n)
-      · exact ⟨n,prior,by simpa [Nat.add_assoc] using stop⟩
-      · exact ih prior
-  obtain ⟨j,on,off⟩ := edge n pastEnd
-  let h := p+j
-  obtain ⟨K,v,stable⟩ := eventually_fixed off
-  have lo (k : Nat) : c (T+h+P*k)=false := by
-    obtain ⟨a,_,z⟩ := on 0 false
-    have wa : c (T+h+P*a)=false := by
-      cases e : c (T+h+P*a) with
-      | false => rfl
-      | true => simp [gate,show c (T+(p+j)+P*a)=true by exact e] at z
-    have f (b : Nat) : c (T+h+P*b)=c (T+h) := by simpa using clock (T+h) (by omega) b 0
-    exact (f k).trans ((f a).symm.trans wa)
-  have stable' (k : Nat) (le : K≤k) : gate c (T+h+P*k+1)=v := by
-    rw [show T+h+P*k+1=T+(p+j+1)+P*k by dsimp [h];omega]
-    exact stable k le
-  obtain ⟨a,ak,one⟩ := on K true
-  have v1 := (stable' a ak).symm.trans (gate_latched c _ (lo a) one)
-  exact ⟨h,K,on,fun k le => ⟨lo k,(stable' k le).trans v1⟩⟩
-
-/-- At opposite definite gate values, a newly closed block produces
-its first synthesized excess immediately after its Q copied sites. -/
-private theorem fresh_excess (c : Trace) (s Q : Nat) (_pos : 0<Q) (cap : s≤Q)
-    (opposite : gate c (s+Q)≠gate c s)
-    (blank : ∀ j, 0<j → j≤s+Q+1 → origin c j=false) :
-    cyclicWest c s Q (Q+1) 0=true ∧
-    ∀ j, j<Q+1 → cyclicWest c s Q j 0=west c s j := by
-  have prior (i : Nat) (lt : i<Q) : gate c (s+(0+i))=gate c (s+(0+i)%Q) := by
-    simp [Nat.mod_eq_of_lt lt]
-  have e := invert_tip (fun i => c (s+i)) (fun i => gate c (s+i)) (fun i => gate c (s+i%Q)) Q 0 prior
-  simp only [Nat.zero_add,Nat.mod_self,Nat.add_zero,invert_true] at e
-  rw [finite_west c s (Q+1) (fun j hj le => blank j hj (by omega)),west_vac c s (Q+1) (by omega)] at e
-  constructor
-  · change xor false (cyclicWest c s Q (Q+1) 0)=xor (gate c (s+Q)) (gate c s) at e
-    cases g : gate c (s+Q) <;> cases k : gate c s <;> simp_all
-  · intro j lt
-    exact (cyclic_earlier c s Q j (by omega)).trans (finite_west c s j (fun n p le => blank n p (by omega)))
-
-/-- If the two gate colors agree and their successors are high, a fresh
-cycle leaves both next source bits clear. The opposite-color case
-instead carries the common marked parity at the second bit. -/
-private theorem fresh_pair (c : Trace) (s Q : Nat) (length : 1<Q) (cap : s≤Q)
-    (high : gate c (s+1)=true) (later : gate c (s+Q+1)=true)
-    (blank : ∀ j, 0<j → j≤s+Q+2 → origin c j=false) :
-    cyclicWest c s Q (Q+1) 0=xor (gate c s) (gate c (s+Q)) ∧
-    cyclicWest c s Q (Q+2) 0=
-      (xor (gate c s) (gate c (s+Q)) && xor (decide (s%2=1)) (markParity c (s+Q) (s+Q+1))) := by
-  by_cases same : gate c s=gate c (s+Q)
-  · have through (i : Nat) (le : i<Q+2) : gate c (s+i%Q)=gate c (s+i) := by
-      by_cases small : i<Q
-      · simp [Nat.mod_eq_of_lt small]
-      · rcases (show i=Q ∨ i=Q+1 by omega) with eq|eq
-        · subst i; simpa using same
-        · subst i
-          rw [Nat.add_mod_left,Nat.mod_eq_of_lt length,high,show s+(Q+1)=s+Q+1 by omega,later]
-    have cleared (d : Nat) (lo : Q<d) (up : d≤Q+2) : cyclicWest c s Q d 0=false := by
-      have eq := invert_agree (fun i => c (s+i)) (fun i => gate c (s+i%Q))
-        (fun i => gate c (s+i)) d 0 (fun i hi => by simpa only [Nat.zero_add] using through i (by omega))
-      change invertGate _ _ d 0=false
-      rw [eq,invert_true,Nat.add_zero,finite_west c s d (fun j pos le => blank j pos (by omega)),
-        west_vac c s d (by omega)]
-    simp [same,cleared (Q+1) (by omega) (by omega),cleared (Q+2) (by omega) (by omega)]
-  · obtain ⟨one,first⟩ := fresh_excess c s Q (by omega) cap (Ne.symm same)
-      (fun j pos le => blank j pos (by omega))
-    have second := next_tear_bit c s Q Q (by omega) one first blank
-    rw [Nat.add_mod_left,Nat.mod_eq_of_lt length,high,show s+(Q+1)=s+Q+1 by omega,later,
-      parity_cut c (s+Q) s 0 (Q+1) (by omega),parity_void c (s+Q) s (by omega),
-      show s+(Q+1)=s+Q+1 by omega] at second
-    have neqBit : xor (gate c s) (gate c (s+Q))=true := by
-      cases a : gate c s <;> cases b : gate c (s+Q) <;> simp_all
-    rw [neqBit,one,Bool.true_and]
-    exact ⟨rfl,bx0 (by simpa using second)⟩
-
-/-- Every old opposite-colored cut of this one white residue supplies a
-distinct lag ending at J, and their second bits share a prescribed
-row-zero parity. Both target colors have arbitrarily late realizations. -/
-def MarkedFans (c : Trace) (T P : Nat) : Prop :=
-  ∃ p K, Swing c T P p ∧ ∀ k, K≤k →
-    let J := T+p+P*k
-    gate c (J+1)=true ∧ ∀ i, K≤i →
-      let s := T+p+P*i
-      s+1<J → 2*s≤J →
-        cyclicWest c s (J-s) ((J-s)+1) 0=xor (gate c s) (gate c J) ∧
-        cyclicWest c s (J-s) ((J-s)+2) 0=
-          (xor (gate c s) (gate c J) && xor (decide (s%2=1)) (markParity c J (J+1)))
-
-theorem marked_fans_or_strobe (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
-    (noFork : ¬HeadFork c) (clock : ∀ a, T≤a → ∀ i r, c (a+P*i+r)=c (a+r)) :
-    MarkedFans c T P ∨ ∃ N j, 0<j ∧ j≤N ∧ east c (2^N*P) (2^N*P-j)=true := by
-  by_cases hit : ∃ N j, 0<j ∧ j≤N ∧ east c (2^N*P) (2^N*P-j)=true
-  · exact Or.inr hit
-  · have blank (j : Nat) (p : 0<j) : origin c j=false := by
-      cases h : origin c j with
-      | false => rfl
-      | true => exact False.elim (hit ⟨j,j,p,by omega,(common_strobe c j j P (by omega) hp).trans h⟩)
-    obtain ⟨p,K,sw,next⟩ := terminal_swing c T P hp mark noFork clock
-    refine Or.inl ⟨p,K,sw,?_⟩
-    intro k mature
-    let J := T+p+P*k
-    change gate c (J+1)=true ∧ _
-    have one := (next k mature).2
-    refine ⟨one,?_⟩
-    intro i earlyMature
-    let s := T+p+P*i
-    change s+1<J → 2*s≤J → _
-    intro lt double
-    have sum : s+(J-s)=J := by omega
-    have e := fresh_pair c s (J-s) (by omega) (by omega) (next i earlyMature).2
-      (by rw [sum];exact one) (fun j pos _ => blank j pos)
-    rw [sum] at e
-    exact e
-
-theorem L1 (c : Trace) (hmark : c 0 = true) (T P : Nat) (hp : 0 < P)
-    (seedPrefix : ∀ j, 0 < j → j < T+P → origin (repeatWord c T P) j = false) :
-    ∃ j, T+P ≤ j ∧ origin (repeatWord c T P) j = true := by
-  let w := repeatWord c T P
-  -- One full right-hand snapshot at wall phase zero, all prospective depths
-  -- at once. Its tip is already marked. Show there is a SECOND black in a
-  -- growing outer collar; no agreement/return of full rows is assumed.
-  have hit : ∃ N j, 0 < j ∧ j ≤ N ∧ east w (2^N*P) (2^N*P-j) = true := by
-    by_cases seam : Seam w
-    · obtain ⟨s,u,d,su,old,newer,wall,gates⟩ := seam
-      obtain ⟨j,pos,le,hit⟩ := crossing_strobe w s u d P su old newer hp wall gates
-      exact ⟨u+d,j,pos,le,hit⟩
-    · -- Remaining case: every common finite gate record forces the later
-      -- independently initialized west row blank throughout its excess.
-      by_cases fork : HeadFork w
-      · obtain ⟨s,u,r,su,clock,lower,split,oneGate⟩ := fork
-        obtain ⟨j,pos,le,hit⟩ := first_split_strobe w s u r P su hp clock lower split oneGate
-        exact ⟨u+r+1,j,pos,le,hit⟩
-      · have mark : w 0=true := by
-          change (if 0<T then c 0 else c (T+(0-T)%P))=true
-          by_cases t0 : T=0
-          · simp [t0,hmark]
-          · simp [show 0<T by omega,hmark]
-        have forced := every_pair_exhausts w mark fork
-        have no_cavity (a d : Nat) (ha : T≤a) :
-            ¬ClockWindow (fun t => east w t (d+1)) a P (2*(a+P*2^d)) :=
-          fun h => fork (finite_cavity w mark a P d hp (repeat_return c T P a ha) h)
-        -- forced applies to EVERY pair of sufficiently late equal clock
-        -- phases. Its first west split supplies the location and the white
-        -- phase of an independently constrained single east comparison.
-        by_cases all_torn : ∀ s q, T≤s → 0<q → s≤P*q → TornCycles w s (P*q)
-        · -- The first manufactured mark on EVERY cyclic closure has to
-          -- line up exactly with its first true (noncyclic) east tear.
-          -- Each subsequent all-white suffix has only one possible repair.
-          -- Its rise is the first black of an all-low probe; switching there
-          -- must erase every candidate mark THROUGH the following black.
-          by_cases all_clean : ∀ s q r, T≤s → 0<q → s≤P*q → P*q≤r →
-              cyclicWest w s (P*q) (r+1) 0=true →
-              (∀ j, j<r+1 → cyclicWest w s (P*q) j 0=west w s j) → Repairs w s (P*q) r
-          · by_cases shared : ∀ J, KeyClass w J
-            · -- For EVERY common absolute tear time, all cyclic keys
-              -- agree across cuts and lag lengths, with one prescribed
-              -- value at forced-high eastern arrivals.
-              by_cases families : ∀ m, 0<m → MarkedFans w T (P*m)
-              · -- The full two-bit source record at ALL sufficiently
-                -- early cuts of one variable residue has just two classes,
-                -- even after prescribing any clock refinement P*m.
-                sorry
-              · apply Classical.byContradiction
-                intro nohit
-                apply families
-                intro m pos
-                have clock (a : Nat) (late : T≤a) (i r : Nat) :
-                    w (a+(P*m)*i+r)=w (a+r) := by
-                  rw [Nat.mul_assoc]
-                  exact repeat_return c T P a late (m*i) r
-                rcases marked_fans_or_strobe w T (P*m) (Nat.mul_pos hp pos) mark fork clock with ok|bad
-                · exact ok
-                · obtain ⟨N,j,p,cap,one⟩ := bad
-                  rw [common_strobe w j N (P*m) cap (Nat.mul_pos hp pos)] at one
-                  exact False.elim (nohit ⟨N,j,p,cap,(common_strobe w j N P cap hp).trans one⟩)
-            · apply Classical.byContradiction
-              intro nohit
-              apply shared
-              intro J
-              rcases joint_key_or_strobe w J P hp with ok|hit
-              · exact ok
-              · obtain ⟨j,p,cap,one⟩ := hit
-                exact False.elim (nohit ⟨J+2,j,p,cap,one⟩)
-          · apply Classical.byContradiction
-            intro nohit
-            apply all_clean
-            intro s q r _ _ start large extra first n white black
-            rcases repair_or_strobe w s (P*q) r n P hp (by omega) extra first white black with ok|hit
-            · exact ok
-            · obtain ⟨j,pos,cap,one⟩ := hit
-              exact False.elim (nohit ⟨s+r+n+1,j,pos,cap,one⟩)
-        · apply Classical.byContradiction
-          intro miss
-          apply all_torn
-          intro s q hs hq cap
-          have clock (i : Nat) : w (s+(i+P*q))=w (s+i) := by
-            rw [show s+(i+P*q)=s+P*q+i by omega]
-            exact repeat_return c T P s hs q i
-          rcases tear_or_strobe w s (P*q) P mark (Nat.mul_pos hp hq) hp cap clock with torn|ok
-          · exact torn
-          · obtain ⟨j,pos,le,one⟩ := ok
-            exact False.elim (miss ⟨2*s+2*(P*q),j,pos,le,one⟩)
-  obtain ⟨N,j,pos,hj,one⟩ := hit
-  rw [common_strobe w j N P hj hp] at one
-  refine ⟨j,?_,one⟩
-  by_cases small : j < T+P
-  · have zero := seedPrefix j pos small
-    change origin w j = false at zero
-    rw [zero] at one
-    contradiction
-  · omega
-
-theorem east_actual (t j : Nat) : east center t j = cell t (j:Int) := by
-  induction t generalizing j with
-  | zero =>
-    cases j with
-    | zero => rfl
-    | succ j => simp [east, cell]; omega
-  | succ t ih =>
-    cases j with
-    | zero => rfl
-    | succ j =>
-      simp only [east, ih, cell]
-      congr 1 <;> congr 1 <;> omega
-
-theorem inverse_actual (t : Nat) (x : Int) :
-    xor (cell (t+1) x) (cell t x || cell t (x+1)) = cell t (x-1) := by
-  rw [cell]
-  generalize cell t (x-1) = a
-  generalize cell t x = b
-  generalize cell t (x+1) = c
-  cases a <;> cases b <;> cases c <;> rfl
-
-theorem pair_actual (d t : Nat) :
-    (pair center d).1 t = cell t (-(d:Int)) ∧
-    (pair center d).2 t = cell t (-(d:Int)+1) := by
-  induction d generalizing t with
-  | zero => exact ⟨rfl, east_actual t 1⟩
-  | succ d ih =>
-    constructor
-    · change xor ((pair center d).1 (t+1)) ((pair center d).1 t || (pair center d).2 t) = _
-      rw [(ih (t+1)).1, (ih t).1, (ih t).2, inverse_actual]
-      congr 1 <;> omega
-    · change (pair center d).1 t = _
-      rw [(ih t).1]
-      congr 1 <;> omega
-
-theorem actual_origin (d : Nat) (hd : 0 < d) : origin center d = false := by
-  change (pair center d).1 0 = _
-  rw [(pair_actual d 0).1,cell]
-  exact decide_eq_false (by omega)
-
-theorem west_outside_actual (t : Nat) (x : Int) (hx : x < -(t:Int)) :
-    cell t x = false := by
-  induction t generalizing x with
-  | zero => exact decide_eq_false (by omega)
-  | succ t ih =>
-    rw [cell,ih (x-1) (by omega),ih x (by omega),ih (x+1) (by omega)]
-    rfl
-
-theorem west_mark_actual (t : Nat) : cell t (-(t:Int)) = true := by
-  induction t with
-  | zero => rfl
-  | succ t ih =>
-    rw [cell,west_outside_actual t _ (by omega),west_outside_actual t _ (by omega),
-        show -(↑(t+1):Int)+1 = -(t:Int) by omega, ih]
-    rfl
-
-/-- Exact finite-cylinder conjugacy: agreement up to n is equivalent to recovering
-the singleton's west seed through depth n-1. No recurrence assumption. -/
-theorem finite_seed_iff (c : Trace) (hm : c 0 = true) (n : Nat) :
-    (∀ d, 0 < d → d < n → origin c d = false) ↔ agree c center n := by
-  constructor
-  · intro seed
-    have get (d : Nat) (hd : d < n) : c d = center d := by
-      induction d using Nat.strongRecOn with
-      | ind d ih =>
-        by_cases zero : d=0
-        · subst d; exact hm
-        · have e := origin_diagonal d (a:=c) (b:=center) (fun j hj => ih j hj (by omega))
-          rw [seed d (by omega) hd,actual_origin d (by omega)] at e
-          exact bx0 e.symm
-    exact get
-  · intro h d hd hn
-    have e := origin_diagonal d (a:=c) (b:=center) (agree_weaken h (by omega))
-    rw [h d hn,actual_origin d hd] at e
-    simpa using e
-
-/-- Both entire marked light cones, expressed in the same two coordinates used
-by the finite test. The west statement is an output of sideways decoding, not
-a replacement initialization assumption. -/
-theorem actual_rims (t : Nat) :
-    (pair center t).1 t = true ∧ east center t t = true ∧
-    ∀ j, t < j → (pair center j).1 t = false ∧ east center t j = false := by
-  refine ⟨(pair_actual t t).1.trans (west_mark_actual t),east_mark _ rfl t,?_⟩
-  intro j hj
-  exact ⟨(pair_actual j t).1.trans (west_outside_actual _ _ (by omega)),
-    east_outside _ _ _ hj⟩
-
-theorem repeat_eq {c : Trace} {T P : Nat} (_hp : 0 < P)
-    (period : ∀ t, T ≤ t → c (t+P) = c t) : repeatWord c T P = c := by
-  funext i
-  unfold repeatWord
-  split
-  · rfl
-  · rename_i hi
-    have mult (n k : Nat) : c (T+k+P*n) = c (T+k) := by
-      induction n with
-      | zero => simp
-      | succ n ih =>
-        rw [Nat.mul_succ, ←Nat.add_assoc, period _ (by omega), ih]
-    have idn := Nat.mod_add_div (i-T) P
-    have e := mult ((i-T)/P) ((i-T)%P)
-    rw [show T + (i-T)%P + P*((i-T)/P) = i by omega] at e
-    exact e.symm
+        | true => exact False.elim (any ⟨t,lt,h⟩)
+      exact ⟨N,1,by decide,fun t late => by simp [MaskedRightRigidity.maskedRight,zero t late,zero (t+1) (by omega)]⟩
 
 theorem close_step4 (hcenter : EventuallyPeriodic center) : False := by
-  obtain ⟨T,P,hp,h⟩ := hcenter
-  have same := repeat_eq hp h
-  have init : ∀ j, 0 < j → j < T+P → origin (repeatWord center T P) j = false := by
-    intro j hj _
-    rw [same]
-    exact actual_origin j hj
-  obtain ⟨j,hj,hit⟩ := L1 center (by decide) T P hp init
-  rw [same, actual_origin j (by omega)] at hit
-  contradiction
+  have mixed := actual_mixed hcenter
+  obtain ⟨T,P,hp,clock⟩ := hcenter
+  exact collision center T P hp rfl clock mixed (fun t _ => actual_locks.2 t) actual_locks.1 actual_locks.2
 
 end OpenProblem.AncestryBlueprint
-
+#print axioms OpenProblem.AncestryBlueprint.decoder_bound
+#print axioms OpenProblem.AncestryBlueprint.west_rich
 #print axioms OpenProblem.AncestryBlueprint.close_step4
