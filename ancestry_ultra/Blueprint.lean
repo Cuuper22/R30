@@ -1132,6 +1132,210 @@ theorem repeat_return (c : Trace) (T P a : Nat) (ha : T≤a) (i r : Nat) :
   simp only [repeatWord,ite_eq_right (show ¬a+P*i+r<T by omega),ite_eq_right (show ¬a+r<T by omega),
     show a+P*i+r-T=(a+r-T)+P*i by omega,Nat.add_mul_mod_self_left]
 
+/-- Both gate bits occur arbitrarily late on this single clock residue. -/
+def Swing (c : Trace) (T P p : Nat) : Prop :=
+  ∀ K (b : Bool), ∃ k, K≤k ∧ gate c (T+p+P*k)=b
+
+private theorem eventually_fixed {c : Trace} {T P p : Nat} (notSwing : ¬Swing c T P p) :
+    ∃ K, ∃ v : Bool, ∀ k, K≤k → gate c (T+p+P*k)=v := by
+  by_cases zeros : ∀ K, ∃ k, K≤k ∧ gate c (T+p+P*k)=false
+  · by_cases ones : ∀ K, ∃ k, K≤k ∧ gate c (T+p+P*k)=true
+    · exact False.elim (notSwing (fun K b => by cases b <;> first | exact zeros K | exact ones K))
+    · have stop : ∃ K, ¬∃ k, K≤k ∧ gate c (T+p+P*k)=true :=
+        Classical.not_forall.mp ones
+      obtain ⟨K,miss⟩ := stop
+      exact ⟨K,false,fun k le => by cases h : gate c (T+p+P*k) with
+        | false => rfl
+        | true => exact False.elim (miss ⟨k,le,h⟩)⟩
+  · obtain ⟨K,miss⟩ := Classical.not_forall.mp zeros
+    exact ⟨K,true,fun k le => by cases h : gate c (T+p+P*k) with
+      | false => exact False.elim (miss ⟨k,le,h⟩)
+      | true => rfl⟩
+
+private theorem has_swing (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
+    (noFork : ¬HeadFork c) (clock : ∀ a, T≤a → ∀ i r, c (a+P*i+r)=c (a+r)) :
+    ∃ p, p<P ∧ Swing c T P p := by
+  apply Classical.byContradiction
+  intro miss
+  have bounded (n : Nat) (le : n≤P) :
+      ∃ K, ∀ p, p<n → ∃ v : Bool, ∀ k, K≤k → gate c (T+p+P*k)=v := by
+    induction n with
+    | zero => exact ⟨0,by omega⟩
+    | succ n ih =>
+      obtain ⟨K,small⟩ := ih (by omega)
+      obtain ⟨L,v,top⟩ := eventually_fixed (fun swing => miss ⟨n,by omega,swing⟩)
+      refine ⟨K+L,?_⟩
+      intro p pr
+      by_cases eq : p=n
+      · subst p; exact ⟨v,fun k h => top k (by omega)⟩
+      · obtain ⟨z,old⟩ := small p (by omega)
+        exact ⟨z,fun k h => old k (by omega)⟩
+  obtain ⟨K,steady⟩ := bounded P (by omega)
+  let s := T+P*K
+  have per (i : Nat) : c (s+i)=c (s+P+i) := by simpa using (clock s (by dsimp [s];omega) 1 i).symm
+  obtain ⟨r,_,_,_,white,ne⟩ := every_pair_splits c mark noFork s (s+P) (by omega) per
+  obtain ⟨v,fix⟩ := steady (r%P) (Nat.mod_lt _ hp)
+  have h1 := fix (K+r/P) (Nat.le_add_right _ _)
+  have h2 := fix (K+r/P+1) (Nat.le_trans (Nat.le_add_right _ _) (Nat.le_succ _))
+  have idn := Nat.mod_add_div r P
+  have same : gate c (s+r)=gate c (s+P+r) := by
+    rw [Nat.mul_add] at h1
+    rw [Nat.mul_succ,Nat.mul_add] at h2
+    dsimp [s]
+    rw [show T+P*K+r=T+r%P+(P*K+P*(r/P)) by omega,
+      show T+P*K+P+r=T+r%P+(P*K+P*(r/P)+P) by omega,h1,h2]
+  apply ne
+  simpa [gate,←per r,white] using same
+
+/-- Under any mixed or constant clock, a no-fork solution must have
+a genuinely fluctuating white slot whose IMMEDIATE successor is eventually
+always high. It is not assumed that any chosen gate block repeats. -/
+theorem terminal_swing (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
+    (noFork : ¬HeadFork c) (clock : ∀ a, T≤a → ∀ i r, c (a+P*i+r)=c (a+r)) :
+    ∃ p K, Swing c T P p ∧ ∀ k, K≤k → c (T+p+P*k)=false ∧ gate c (T+p+P*k+1)=true := by
+  obtain ⟨p,_,swing⟩ := has_swing c T P hp mark noFork clock
+  have black : ∃ n, c (T+p+n)=true := by
+    apply Classical.byContradiction
+    intro absent
+    obtain ⟨a,_,high⟩ := swing 0 true
+    obtain ⟨b,ab,low⟩ := swing a false
+    have stays (n : Nat) : gate c (T+p+P*a+n)=true := by
+      induction n with
+      | zero => simpa using high
+      | succ n ih =>
+        apply gate_latched c (T+p+P*a+n) _ ih
+        cases e : c (T+p+P*a+n) with
+        | false => rfl
+        | true => exact False.elim (absent ⟨P*a+n,by simpa [Nat.add_assoc] using e⟩)
+    have last := stays (P*b-P*a)
+    have le := Nat.mul_le_mul_left P ab
+    rw [show T+p+P*a+(P*b-P*a)=T+p+P*b by omega,low] at last
+    contradiction
+  obtain ⟨n,black⟩ := black
+  have pastEnd : ¬Swing c T P (p+n) := by
+    intro both
+    obtain ⟨k,_,z⟩ := both 0 false
+    have same : c (T+(p+n)+P*k)=true := by
+      simpa [Nat.add_assoc] using (clock (T+p+n) (by omega) k 0).trans (by simpa using black)
+    simp [gate,same] at z
+  have edge (n : Nat) (stop : ¬Swing c T P (p+n)) :
+      ∃ j, Swing c T P (p+j) ∧ ¬Swing c T P (p+j+1) := by
+    induction n with
+    | zero => exact False.elim (stop (by simpa using swing))
+    | succ n ih =>
+      by_cases prior : Swing c T P (p+n)
+      · exact ⟨n,prior,by simpa [Nat.add_assoc] using stop⟩
+      · exact ih prior
+  obtain ⟨j,on,off⟩ := edge n pastEnd
+  let h := p+j
+  obtain ⟨K,v,stable⟩ := eventually_fixed off
+  have lo (k : Nat) : c (T+h+P*k)=false := by
+    obtain ⟨a,_,z⟩ := on 0 false
+    have wa : c (T+h+P*a)=false := by
+      cases e : c (T+h+P*a) with
+      | false => rfl
+      | true => simp [gate,show c (T+(p+j)+P*a)=true by exact e] at z
+    have f (b : Nat) : c (T+h+P*b)=c (T+h) := by simpa using clock (T+h) (by omega) b 0
+    exact (f k).trans ((f a).symm.trans wa)
+  have stable' (k : Nat) (le : K≤k) : gate c (T+h+P*k+1)=v := by
+    rw [show T+h+P*k+1=T+(p+j+1)+P*k by dsimp [h];omega]
+    exact stable k le
+  obtain ⟨a,ak,one⟩ := on K true
+  have v1 := (stable' a ak).symm.trans (gate_latched c _ (lo a) one)
+  exact ⟨h,K,on,fun k le => ⟨lo k,(stable' k le).trans v1⟩⟩
+
+/-- At opposite definite gate values, a newly closed block produces
+its first synthesized excess immediately after its Q copied sites. -/
+private theorem fresh_excess (c : Trace) (s Q : Nat) (_pos : 0<Q) (cap : s≤Q)
+    (opposite : gate c (s+Q)≠gate c s)
+    (blank : ∀ j, 0<j → j≤s+Q+1 → origin c j=false) :
+    cyclicWest c s Q (Q+1) 0=true ∧
+    ∀ j, j<Q+1 → cyclicWest c s Q j 0=west c s j := by
+  have prior (i : Nat) (lt : i<Q) : gate c (s+(0+i))=gate c (s+(0+i)%Q) := by
+    simp [Nat.mod_eq_of_lt lt]
+  have e := invert_tip (fun i => c (s+i)) (fun i => gate c (s+i)) (fun i => gate c (s+i%Q)) Q 0 prior
+  simp only [Nat.zero_add,Nat.mod_self,Nat.add_zero,invert_true] at e
+  rw [finite_west c s (Q+1) (fun j hj le => blank j hj (by omega)),west_vac c s (Q+1) (by omega)] at e
+  constructor
+  · change xor false (cyclicWest c s Q (Q+1) 0)=xor (gate c (s+Q)) (gate c s) at e
+    cases g : gate c (s+Q) <;> cases k : gate c s <;> simp_all
+  · intro j lt
+    exact (cyclic_earlier c s Q j (by omega)).trans (finite_west c s j (fun n p le => blank n p (by omega)))
+
+/-- If the two gate colors agree and their successors are high, a fresh
+cycle leaves both next source bits clear. The opposite-color case
+instead carries the common marked parity at the second bit. -/
+private theorem fresh_pair (c : Trace) (s Q : Nat) (length : 1<Q) (cap : s≤Q)
+    (high : gate c (s+1)=true) (later : gate c (s+Q+1)=true)
+    (blank : ∀ j, 0<j → j≤s+Q+2 → origin c j=false) :
+    cyclicWest c s Q (Q+1) 0=xor (gate c s) (gate c (s+Q)) ∧
+    cyclicWest c s Q (Q+2) 0=
+      (xor (gate c s) (gate c (s+Q)) && xor (decide (s%2=1)) (markParity c (s+Q) (s+Q+1))) := by
+  by_cases same : gate c s=gate c (s+Q)
+  · have through (i : Nat) (le : i<Q+2) : gate c (s+i%Q)=gate c (s+i) := by
+      by_cases small : i<Q
+      · simp [Nat.mod_eq_of_lt small]
+      · rcases (show i=Q ∨ i=Q+1 by omega) with eq|eq
+        · subst i; simpa using same
+        · subst i
+          rw [Nat.add_mod_left,Nat.mod_eq_of_lt length,high,show s+(Q+1)=s+Q+1 by omega,later]
+    have cleared (d : Nat) (lo : Q<d) (up : d≤Q+2) : cyclicWest c s Q d 0=false := by
+      have eq := invert_agree (fun i => c (s+i)) (fun i => gate c (s+i%Q))
+        (fun i => gate c (s+i)) d 0 (fun i hi => by simpa only [Nat.zero_add] using through i (by omega))
+      change invertGate _ _ d 0=false
+      rw [eq,invert_true,Nat.add_zero,finite_west c s d (fun j pos le => blank j pos (by omega)),
+        west_vac c s d (by omega)]
+    simp [same,cleared (Q+1) (by omega) (by omega),cleared (Q+2) (by omega) (by omega)]
+  · obtain ⟨one,first⟩ := fresh_excess c s Q (by omega) cap (Ne.symm same)
+      (fun j pos le => blank j pos (by omega))
+    have second := next_tear_bit c s Q Q (by omega) one first blank
+    rw [Nat.add_mod_left,Nat.mod_eq_of_lt length,high,show s+(Q+1)=s+Q+1 by omega,later,
+      parity_cut c (s+Q) s 0 (Q+1) (by omega),parity_void c (s+Q) s (by omega),
+      show s+(Q+1)=s+Q+1 by omega] at second
+    have neqBit : xor (gate c s) (gate c (s+Q))=true := by
+      cases a : gate c s <;> cases b : gate c (s+Q) <;> simp_all
+    rw [neqBit,one,Bool.true_and]
+    exact ⟨rfl,bx0 (by simpa using second)⟩
+
+/-- Every old opposite-colored cut of this one white residue supplies a
+distinct lag ending at J, and their second bits share a prescribed
+row-zero parity. Both target colors have arbitrarily late realizations. -/
+def MarkedFans (c : Trace) (T P : Nat) : Prop :=
+  ∃ p K, Swing c T P p ∧ ∀ k, K≤k →
+    let J := T+p+P*k
+    gate c (J+1)=true ∧ ∀ i, K≤i →
+      let s := T+p+P*i
+      s+1<J → 2*s≤J →
+        cyclicWest c s (J-s) ((J-s)+1) 0=xor (gate c s) (gate c J) ∧
+        cyclicWest c s (J-s) ((J-s)+2) 0=
+          (xor (gate c s) (gate c J) && xor (decide (s%2=1)) (markParity c J (J+1)))
+
+theorem marked_fans_or_strobe (c : Trace) (T P : Nat) (hp : 0<P) (mark : c 0=true)
+    (noFork : ¬HeadFork c) (clock : ∀ a, T≤a → ∀ i r, c (a+P*i+r)=c (a+r)) :
+    MarkedFans c T P ∨ ∃ N j, 0<j ∧ j≤N ∧ east c (2^N*P) (2^N*P-j)=true := by
+  by_cases hit : ∃ N j, 0<j ∧ j≤N ∧ east c (2^N*P) (2^N*P-j)=true
+  · exact Or.inr hit
+  · have blank (j : Nat) (p : 0<j) : origin c j=false := by
+      cases h : origin c j with
+      | false => rfl
+      | true => exact False.elim (hit ⟨j,j,p,by omega,(common_strobe c j j P (by omega) hp).trans h⟩)
+    obtain ⟨p,K,sw,next⟩ := terminal_swing c T P hp mark noFork clock
+    refine Or.inl ⟨p,K,sw,?_⟩
+    intro k mature
+    let J := T+p+P*k
+    change gate c (J+1)=true ∧ _
+    have one := (next k mature).2
+    refine ⟨one,?_⟩
+    intro i earlyMature
+    let s := T+p+P*i
+    change s+1<J → 2*s≤J → _
+    intro lt double
+    have sum : s+(J-s)=J := by omega
+    have e := fresh_pair c s (J-s) (by omega) (by omega) (next i earlyMature).2
+      (by rw [sum];exact one) (fun j pos _ => blank j pos)
+    rw [sum] at e
+    exact e
+
 theorem L1 (c : Trace) (hmark : c 0 = true) (T P : Nat) (hp : 0 < P)
     (seedPrefix : ∀ j, 0 < j → j < T+P → origin (repeatWord c T P) j = false) :
     ∃ j, T+P ≤ j ∧ origin (repeatWord c T P) j = true := by
@@ -1175,7 +1379,24 @@ theorem L1 (c : Trace) (hmark : c 0 = true) (T P : Nat) (hp : 0 < P)
             · -- For EVERY common absolute tear time, all cyclic keys
               -- agree across cuts and lag lengths, with one prescribed
               -- value at forced-high eastern arrivals.
-              sorry
+              by_cases families : ∀ m, 0<m → MarkedFans w T (P*m)
+              · -- The full two-bit source record at ALL sufficiently
+                -- early cuts of one variable residue has just two classes,
+                -- even after prescribing any clock refinement P*m.
+                sorry
+              · apply Classical.byContradiction
+                intro nohit
+                apply families
+                intro m pos
+                have clock (a : Nat) (late : T≤a) (i r : Nat) :
+                    w (a+(P*m)*i+r)=w (a+r) := by
+                  rw [Nat.mul_assoc]
+                  exact repeat_return c T P a late (m*i) r
+                rcases marked_fans_or_strobe w T (P*m) (Nat.mul_pos hp pos) mark fork clock with ok|bad
+                · exact ok
+                · obtain ⟨N,j,p,cap,one⟩ := bad
+                  rw [common_strobe w j N (P*m) cap (Nat.mul_pos hp pos)] at one
+                  exact False.elim (nohit ⟨N,j,p,cap,(common_strobe w j N P cap hp).trans one⟩)
             · apply Classical.byContradiction
               intro nohit
               apply shared
