@@ -4,5 +4,16 @@
   "ancestry_ultra/__pycache__/p2_dominant_relay.cpython-312.pyc": "f7558af1c977a6939e85a8b65ed21ae60e9d45b8",
   "ancestry_ultra/__pycache__/p2_b_recur_host.cpython-312.pyc": "cedabf444240dc0cfb4cd3eecd894bb67880df94",
   "ancestry_ultra/p2_b_dyadic_replica.py": "becd3ad2343ac2c6428f36757ccd1c7cb1c6407e",
-  "ancestry_ultra/p2_b_checker_flux.py": "60eb2e01453f481386684b46b7a9051b93fe6bd6"
+  "ancestry_ultra/p2_b_checker_flux.py": "60eb2e01453f481386684b46b7a9051b93fe6bd6",
+  "ancestry_ultra/p2_b_paired_nojump.py": "969fc60e6c8a3f498e02a3983a89798d1b737d73",
+  "ancestry_ultra/p2_b_physical_repeats.py": "c5c872a5cb36473175e2bebe4ff7b1810d989df8",
+  "ancestry_ultra/p2_b_purefive_extension.py": "a6b53d765b390826ca1fe361644b16042efbe3c8",
+  "ancestry_ultra/p2_b_return_complexity.py": "4df2c2cc5827f485bccc0e2257765ee47b8973d9",
+  "ancestry_ultra/p2_b_replica_carriers.py": "9a2a9dcd2f1546a805b485b4f935caecf98da439",
+  "ancestry_ultra/p2_b_finite_right_sync.py": "f7263f6188b23ee2f10a3ec10f7ac0330bbb8f60",
+  "ancestry_ultra/__pycache__/p2_b_physical_repeats.cpython-312.pyc": "9ade98eb7e11696633ef9131a470fc7fa4c0fd90",
+  "ancestry_ultra/p2_b_slip_embedding.py": "2e4418eab87eed0c35c7d5f98a3507dcdb075ff2",
+  "ancestry_ultra/__pycache__/p2_b_dyadic_replica.cpython-312.pyc": "e9f71941eecae90f1507cdfb7521b62ac63386f4",
+  "runtime-evidence/r30a_purefive.log": "c4e765fb835dc3b69af44cab91f4256c8a47a686",
+  "runtime-evidence/r30a_purefive2.log": "2bc76dbe3b3c91fcbcab9b717d042f91c401adab"
 }

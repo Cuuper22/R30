@@ -1,0 +1,12 @@
+width 25 pure5 physical cyclic hosts [1726, 7839]
+width 26 surviving isolated pure5 host sizes [2514, 9936]
+width 27 surviving isolated pure5 host sizes [3903, 12983]
+width 28 surviving isolated pure5 host sizes [5352, 16193]
+width 29 surviving isolated pure5 host sizes [8025, 21374]
+width 30 surviving isolated pure5 host sizes [11732, 26586]
+width 31 surviving isolated pure5 host sizes [16791, 31825]
+small 32 16 actual exits 17 word (0, 1334466151)
+small 32 10 actual exits 18 word (0, 250238567)
+width 32 surviving isolated pure5 host sizes [23906, 16, 10, 40878]
+small 33 17 actual exits 19 word (0, 1334466151)
+width 33 surviving isolated pure5 host sizes [35235, 17, 51280]
