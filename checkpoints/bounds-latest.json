@@ -19,7 +19,7 @@
   "bounds_ultra/barrier2/symbolic_finite_host_traps.txt": "19c7a3b8b0dc3a3492ce9e788a1da2d91371bbe8",
   "bounds_ultra/barrier2/__pycache__/symbolic_shared_b_hosts.cpython-312.pyc": "88b187fa2317ebc4ef90d89d27ec9f95cbdeb8fb",
   "bounds_ultra/barrier2/symbolic_finite_attractors.py": "8e1437f846329f15e64c4eddb387afa810f1294e",
-  "bounds_ultra/barrier2/symbolic_core_source_wire.md": "ab1e8af3c8d4444f3d6f7356f0142644f65c78bc",
+  "bounds_ultra/barrier2/symbolic_core_source_wire.md": "b2bb201d361b4595bacad4bd53637920cb45ded6",
   "bounds_ultra/barrier2/__pycache__/symbolic_q221_lift.cpython-312.pyc": "772486989531c3410dc54e3d403cd43782a158e2",
   "bounds_ultra/barrier2/__pycache__/symbolic_host_inverse.cpython-312.pyc": "d2d52f78c76b5cab5eeefb548983c4929724bce5",
   "bounds_ultra/barrier2/__pycache__/symbolic_lifted_words.cpython-312.pyc": "f5fe288538648bb5c0632ba323ccd343aace3353",
@@ -69,5 +69,12 @@
   "bounds_ultra/barrier2/symbolic_58203_integer_cocycle.txt": "9e9e94c71fffe6290fe04fcf3bb750048de75742",
   "bounds_ultra/barrier2/symbolic_58203_front_speed.py": "40503d798b157f9fdf6baa21ec8b4f944bf5d1dd",
   "bounds_ultra/barrier2/__pycache__/symbolic_58203_integer_cocycle.cpython-312.pyc": "d3e79abff2a5fbfc8fb1524f21d3011b5dc165b4",
-  "bounds_ultra/barrier2/__pycache__/symbolic_82754_rank.cpython-312.pyc": "975b396c901fbf86fd33383f6b3bb75cd27cc3ec"
+  "bounds_ultra/barrier2/__pycache__/symbolic_82754_rank.cpython-312.pyc": "975b396c901fbf86fd33383f6b3bb75cd27cc3ec",
+  "bounds_ultra/barrier2/symbolic_58203_sofic.txt": "db0ba8f1d56697601cb68dfa92f5609e77f85caa",
+  "bounds_ultra/barrier2/symbolic_58203_torus_capture.cpp": "468f7c7b306570f3d25981386638629266aca21e",
+  "bounds_ultra/barrier2/symbolic_58203_sofic.json": "1e1a81c765c81be94b5892d1cbaad47a328177e8",
+  "bounds_ultra/barrier2/symbolic_58203_density.py": "178c6d3df9e59d80437b64c70dde5f7977fc3e7d",
+  "bounds_ultra/barrier2/symbolic_58203_torus_capture.txt": "bc14cad77fa3a9e720b44c2eadb20c22c560b0d1",
+  "bounds_ultra/barrier2/symbolic_58203_density.txt": "b73a5db2da2699d43616c06bfb32c374760b7999",
+  "bounds_ultra/barrier2/symbolic_58203_sofic.py": "e8c041acb0da25d76469feb2ed24e70d21551ac7"
 }

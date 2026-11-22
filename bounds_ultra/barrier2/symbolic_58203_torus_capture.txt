@@ -1,0 +1,11 @@
+word 5 physical 10 spatial transient 0 period 155 normalized permanent white 0 black 0
+word 35 physical 16 spatial transient 39 period 325 normalized permanent white 0 black 0
+word 355 physical 26 spatial transient 2407 period 2444 normalized permanent white 0 black 0
+word 3555 physical 36 no spatial cycle within 210000
+word 35555 physical 46 no spatial cycle within 210000
+word 35355 physical 42 no spatial cycle within 210000
+word 355555 physical 56 no spatial cycle within 210000
+word 353555 physical 52 no spatial cycle within 210000
+word 3535555 physical 62 no spatial cycle within 210000
+word 3553555 physical 62 no spatial cycle within 210000
+word 3535355 physical 58 no spatial cycle within 210000

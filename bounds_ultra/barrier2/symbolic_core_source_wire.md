@@ -437,3 +437,16 @@ period 8 (symbolic_58203_phase_split.py). Each ordered short, long
 pair returns to its identical true cap after 16 physical ticks while
 the spatial pure-five reference shifts by 16, with 74 differing bits
 out of 155 between the two reference windows.
+
+Determinizing the fixed E25 58,203 component itself on complete B tiles
+produces 664 reachable subset states, minimized to 105 including reject.
+The shortest exclusion after isolated shorts is 3553. Between shorts
+the allowed counts of long tiles in the projection are 1 or any integer
+>=3; the upper bound on the fraction of short tiles is 3/8 over long
+paths, by a max-plus edge potential. Thus the white-q pulse density is
+at most 4/17 and the fixed-clock western head must be black on at least
+15/17 of all sufficiently long physical intervals, asymptotically.
+The exact deterministic graph and certificate are in
+symbolic_58203_sofic.py/.json and symbolic_58203_density.py. These are
+statements of the fixed physically legal projection, not a claim every
+projected word extends to an infinite physical right history.
