@@ -801,6 +801,157 @@ theorem cyclic_offset (c : Trace) (s Q b : Nat) (pos : 0<Q) (large : Q<b)
     rw [eq,Bool.xor_self] at t
     contradiction
 
+/-- A white wall latches its actual eastern head once it is black. The
+next effective gate is then one even if the wall switches to black. -/
+private theorem gate_latched (c : Trace) (t : Nat) (white : c t=false)
+    (high : gate c t=true) : gate c (t+1)=true := by
+  have one : east c t 1=true := by simpa [gate,white] using high
+  have nxt : east c (t+1) 1=true := by
+    change rule (east c t 0) (east c t 1) (east c t 2)=true
+    rw [east_wall,white,one]
+    simp [rule]
+  simp [gate,nxt]
+
+/-- Keep the measured cyclic input before the tear, then insert one
+threshold. Nothing here reads a genuine gate after the initial Q block. -/
+def repairedInput (c : Trace) (s Q r a i : Nat) : Bool :=
+  if i<r then gate c (s+i%Q) else decide (r+a≤i)
+
+def Cleans (c : Trace) (s Q r n a : Nat) : Prop :=
+  a≤n ∧ ∀ j, r+1≤j → j≤r+n+1 →
+    invertGate (fun i => c (s+i)) (repairedInput c s Q r a) j 0=false
+
+private theorem clean_unique_aux (c : Trace) (s Q r n a b : Nat)
+    (ca : Cleans c s Q r n a) (cb : Cleans c s Q r n b) : ¬a<b := by
+  intro lt
+  let m := fun i => c (s+i)
+  let f := repairedInput c s Q r a
+  let g := repairedInput c s Q r b
+  have prior (i : Nat) (hi : i<r+a) : f (0+i)=g (0+i) := by
+    simp only [f,g,repairedInput,Nat.zero_add]
+    split
+    · rfl
+    · simp [show ¬r+a≤i by omega,show ¬r+b≤i by omega]
+  have tip := invert_tip m f g (r+a) 0 prior
+  rw [ca.2 (r+a+1) (by omega) (by have := ca.1; omega),
+      cb.2 (r+a+1) (by omega) (by have := ca.1; omega),Bool.xor_self] at tip
+  simp [f,g,repairedInput,show ¬r+a<r by omega,show ¬r+b≤r+a by omega] at tip
+
+theorem clean_unique (c : Trace) (s Q r n a b : Nat)
+    (ca : Cleans c s Q r n a) (cb : Cleans c s Q r n b) : a=b := by
+  have lo := clean_unique_aux c s Q r n a b ca cb
+  have hi := clean_unique_aux c s Q r n b a cb ca
+  omega
+
+/-- Keep the inlet low until further notice. The first black left by this
+probe identifies the forced eastern rise time without searching thresholds. -/
+def lowProbe (c : Trace) (s Q r i : Nat) : Bool :=
+  invertGate (fun k => c (s+k)) (fun k => if k<r then gate c (s+k%Q) else false) (r+i+1) 0
+
+theorem first_low_probe (c : Trace) (s Q r n a : Nat) (clean : Cleans c s Q r n a) :
+    (∀ i, i<a → lowProbe c s Q r i=false) ∧ lowProbe c s Q r a=true := by
+  let m := fun k => c (s+k)
+  let f := fun k => if k<r then gate c (s+k%Q) else false
+  let g := repairedInput c s Q r a
+  have same (i : Nat) (hi : i<r+a) : f (0+i)=g (0+i) := by
+    simp only [f,g,repairedInput,Nat.zero_add]
+    split
+    · rfl
+    · simp [show ¬r+a≤i by omega]
+  constructor
+  · intro i hi
+    exact (invert_agree m f g (r+i+1) 0 (fun j hj => same j (by omega))).trans
+      (clean.2 _ (by omega) (by have := clean.1; omega))
+  · have tip := invert_tip m f g (r+a) 0 same
+    rw [clean.2 _ (by omega) (by have := clean.1; omega)] at tip
+    simpa [lowProbe,m,f,g,repairedInput,show ¬r+a<r by omega] using tip
+
+/-- This is the whole white suffix of the tear followed by the first
+black. The cutoff is determined before looking at any post-cycle eastern
+sample: the finite inverse strip has at most one threshold cleaning it. -/
+def Repairs (c : Trace) (s Q r : Nat) : Prop :=
+  ∀ n, (∀ i, i<n → c (s+r+i)=false) → c (s+r+n)=true →
+    ∃ a, Cleans c s Q r n a ∧ (a=0 ↔ gate c (s+r%Q)=false) ∧
+      (∀ i, i<a → lowProbe c s Q r i=false) ∧ lowProbe c s Q r a=true
+
+theorem actual_repair (c : Trace) (s Q r n : Nat) (old : s<r+1)
+    (prior : ∀ i, i<r → gate c (s+i)=gate c (s+i%Q))
+    (tear : gate c (s+r)≠gate c (s+r%Q))
+    (white : ∀ i, i<n → c (s+r+i)=false) (black : c (s+r+n)=true)
+    (blank : ∀ j, 0<j → j≤s+r+n+1 → origin c j=false) :
+    ∃ a, Cleans c s Q r n a ∧ (a=0 ↔ gate c (s+r%Q)=false) := by
+  let z := fun i => gate c (s+r+i)
+  have endone : z n=true := by simp [z,gate,black]
+  have least (k : Nat) (hk : z k=true) : ∃ a, a≤k ∧ z a=true ∧ ∀ i, i<a → z i=false := by
+    induction k using Nat.strongRecOn with
+    | ind k ih =>
+      by_cases found : ∃ j, j<k ∧ z j=true
+      · obtain ⟨j,lt,jx⟩ := found
+        obtain ⟨a,le,ax,lower⟩ := ih j lt jx
+        exact ⟨a,by omega,ax,lower⟩
+      · refine ⟨k,by omega,hk,?_⟩
+        intro j lt
+        cases e : z j with
+        | false => rfl
+        | true => exact False.elim (found ⟨j,lt,e⟩)
+  obtain ⟨a,cap,hit,low⟩ := least n endone
+  have above (i : Nat) (ai : a≤i) (bound : i≤n) : z i=true := by
+    induction i with
+    | zero => have av : a=0 := by omega
+              simpa [av] using hit
+    | succ i ih =>
+      by_cases av : a=i+1
+      · simpa [av] using hit
+      · exact gate_latched c (s+r+i) (white i (by omega)) (ih (by omega) (by omega))
+  have common (i : Nat) (capI : i≤r+n) : repairedInput c s Q r a i=gate c (s+i) := by
+    by_cases lt : i<r
+    · simpa [repairedInput,lt] using (prior i lt).symm
+    · obtain ⟨j,rfl⟩ := Nat.exists_eq_add_of_le (show r≤i by omega)
+      have e : s+(r+j)=s+r+j := by omega
+      by_cases aj : a≤j
+      · have one := above j aj (by omega)
+        simpa [repairedInput,e,show ¬r+j<r by omega,show r+a≤r+j by omega,z] using one.symm
+      · have zero := low j (by omega)
+        simpa [repairedInput,e,show ¬r+j<r by omega,show ¬r+a≤r+j by omega,z] using zero.symm
+  refine ⟨a,⟨cap,?_⟩,?_⟩
+  · intro j lo hi
+    have eq := invert_agree (fun i => c (s+i)) (repairedInput c s Q r a)
+      (fun i => gate c (s+i)) j 0
+      (by intro i h; simpa only [Nat.zero_add] using common i (by omega))
+    rw [eq,invert_true,Nat.add_zero,finite_west c s j (fun i p le => blank i p (by omega)),
+      west_vac c s j (by omega)]
+  · have firstbit : a=0 ↔ gate c (s+r)=true := by
+      constructor
+      · intro eq; simpa [eq,z] using hit
+      · intro one
+        by_cases eq : a=0
+        · exact eq
+        · have h := low 0 (by omega)
+          simp [z,one] at h
+    rw [firstbit]
+    cases h : gate c (s+r) <;> cases k : gate c (s+r%Q) <;> simp_all
+
+/-- One failed run repair already returns an actual positive origin
+coefficient; no true post-Q eastern sample enters the left-hand test. -/
+theorem repair_or_strobe (c : Trace) (s Q r n k : Nat) (hk : 0<k) (old : s<r+1)
+    (extra : cyclicWest c s Q (r+1) 0=true)
+    (first : ∀ j, j<r+1 → cyclicWest c s Q j 0=west c s j)
+    (white : ∀ i, i<n → c (s+r+i)=false) (black : c (s+r+n)=true) :
+    (∃ a, Cleans c s Q r n a ∧ (a=0 ↔ gate c (s+r%Q)=false) ∧
+      (∀ i, i<a → lowProbe c s Q r i=false) ∧ lowProbe c s Q r a=true) ∨
+      ∃ j, 0<j ∧ j≤s+r+n+1 ∧ east c (2^(s+r+n+1)*k) (2^(s+r+n+1)*k-j)=true := by
+  by_cases positive : ∃ j, 0<j ∧ j≤s+r+n+1 ∧ origin c j=true
+  · obtain ⟨j,pos,cap,hit⟩ := positive
+    exact Or.inr ⟨j,pos,cap,(common_strobe c j (s+r+n+1) k cap hk).trans hit⟩
+  · have blank (j : Nat) (pos : 0<j) (cap : j≤s+r+n+1) : origin c j=false := by
+      cases h : origin c j with
+      | false => rfl
+      | true => exact False.elim (positive ⟨j,pos,cap,h⟩)
+    obtain ⟨prior,tear⟩ := first_cyclic_tear c s Q r old extra first
+      (fun j p le => blank j p (by omega))
+    obtain ⟨a,cleans,sign⟩ := actual_repair c s Q r n old prior tear white black blank
+    exact Or.inl ⟨a,cleans,sign,first_low_probe c s Q r n a cleans⟩
+
 /-- The survivor test is exact at the FIRST candidate mark, not just a
 sufficient comparison of entire periodic right columns. If this arithmetic
 synchronization fails at any Q then the true strobe already has a hit. -/
@@ -874,8 +1025,21 @@ theorem L1 (c : Trace) (hmark : c 0 = true) (T P : Nat) (hp : 0 < P)
         by_cases all_torn : ∀ s q, T≤s → 0<q → s≤P*q → TornCycles w s (P*q)
         · -- The first manufactured mark on EVERY cyclic closure has to
           -- line up exactly with its first true (noncyclic) east tear.
-          -- Defeat this simultaneous survival obstruction.
-          sorry
+          -- Each subsequent all-white suffix has only one possible repair.
+          -- Its rise is the first black of an all-low probe; switching there
+          -- must erase every candidate mark THROUGH the following black.
+          by_cases all_clean : ∀ s q r, T≤s → 0<q → s≤P*q → P*q≤r →
+              cyclicWest w s (P*q) (r+1) 0=true →
+              (∀ j, j<r+1 → cyclicWest w s (P*q) j 0=west w s j) → Repairs w s (P*q) r
+          · sorry
+          · apply Classical.byContradiction
+            intro nohit
+            apply all_clean
+            intro s q r _ _ start large extra first n white black
+            rcases repair_or_strobe w s (P*q) r n P hp (by omega) extra first white black with ok|hit
+            · exact ok
+            · obtain ⟨j,pos,cap,one⟩ := hit
+              exact False.elim (nohit ⟨s+r+n+1,j,pos,cap,one⟩)
         · apply Classical.byContradiction
           intro miss
           apply all_torn
