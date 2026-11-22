@@ -26,6 +26,73 @@ def origin (c : Trace) (d : Nat) : Bool := (pair c d).1 0
 /-- Finite data agreement, excluding the right endpoint. -/
 def agree (a b : Trace) (n : Nat) : Prop := ∀ i, i < n → a i = b i
 
+private theorem agree_weaken {a b : Trace} {m n : Nat} (h : agree a b n) (hm : m ≤ n) :
+    agree a b m := fun i hi => h i (by omega)
+
+theorem east_prefix {a b : Trace} (t j : Nat) (h : agree a b t) :
+    east a t (j+1) = east b t (j+1) := by
+  induction t generalizing j with
+  | zero => rfl
+  | succ t ih =>
+    have h' := agree_weaken h (Nat.le_succ t)
+    change rule (east a t j) (east a t (j+1)) (east a t (j+2)) =
+      rule (east b t j) (east b t (j+1)) (east b t (j+2))
+    rw [ih j h',ih (j+1) h']
+    congr 1
+    cases j with
+    | zero =>
+      cases t with
+      | zero => exact h 0 (by omega)
+      | succ t => exact h (t+1) (by omega)
+    | succ j => exact ih j h'
+
+private theorem bx0 {a b : Bool} (h : xor a b = false) : a = b := by
+  cases a <;> cases b <;> simp_all
+
+private theorem bxCancel (x y k : Bool) : xor (xor x k) (xor y k) = xor x y := by
+  cases x <;> cases y <;> cases k <;> rfl
+
+/-- The extreme wall coefficient occurs precisely once in every sideways diagonal.
+The entire nonlinear correction depends strictly on earlier wall letters. -/
+theorem diagonal {a b : Trace} (d t : Nat) (h : agree a b (t+d)) :
+    xor ((pair a d).1 t) ((pair b d).1 t) = xor (a (t+d)) (b (t+d)) ∧
+    (pair a d).2 t = (pair b d).2 t := by
+  induction d generalizing t with
+  | zero =>
+    exact ⟨rfl,east_prefix t 0 h⟩
+  | succ d ih =>
+    have hd := ih t (agree_weaken h (by omega))
+    have mid : (pair a d).1 t = (pair b d).1 t := by
+      apply bx0
+      rw [hd.1,h (t+d) (by omega)]
+      simp
+    have hh := ih (t+1) (agree_weaken h (by omega))
+    refine ⟨?_,mid⟩
+    change xor (xor ((pair a d).1 (t+1)) ((pair a d).1 t || (pair a d).2 t))
+      (xor ((pair b d).1 (t+1)) ((pair b d).1 t || (pair b d).2 t)) = _
+    rw [mid,hd.2,bxCancel,hh.1,show t+1+d=t+(d+1) by omega]
+
+theorem origin_diagonal {a b : Trace} (n : Nat) (h : agree a b n) :
+    xor (origin a n) (origin b n) = xor (a n) (b n) := by
+  simpa [origin] using (diagonal n 0 (a:=a) (b:=b) (by simpa using h)).1
+
+theorem east_outside (c : Trace) (t j : Nat) (ht : t < j) : east c t j = false := by
+  induction t generalizing j with
+  | zero => cases j <;> simp_all [east]
+  | succ t ih =>
+    obtain ⟨k,rfl⟩ := Nat.exists_eq_succ_of_ne_zero (show j ≠ 0 by omega)
+    change rule (east c t k) (east c t (k+1)) (east c t (k+2)) = false
+    rw [ih k (by omega),ih (k+1) (by omega),ih (k+2) (by omega)]
+    rfl
+
+theorem east_mark (c : Trace) (hc : c 0 = true) (t : Nat) : east c t t = true := by
+  induction t with
+  | zero => exact hc
+  | succ t ih =>
+    change rule (east c t t) (east c t (t+1)) (east c t (t+2)) = true
+    rw [ih,east_outside _ _ _ (by omega),east_outside _ _ _ (by omega)]
+    rfl
+
 /-- Every putative periodic wall can be specified by a finite onset/period word.
 This is a sequence on TIME, never a spatial periodicization of a genuine age row. -/
 def repeatWord (c : Trace) (T P i : Nat) : Bool :=
@@ -79,7 +146,54 @@ theorem actual_origin (d : Nat) (hd : 0 < d) : origin center d = false := by
   rw [(pair_actual d 0).1,cell]
   exact decide_eq_false (by omega)
 
-theorem repeat_eq {c : Trace} {T P : Nat} (hp : 0 < P)
+theorem west_outside_actual (t : Nat) (x : Int) (hx : x < -(t:Int)) :
+    cell t x = false := by
+  induction t generalizing x with
+  | zero => exact decide_eq_false (by omega)
+  | succ t ih =>
+    rw [cell,ih (x-1) (by omega),ih x (by omega),ih (x+1) (by omega)]
+    rfl
+
+theorem west_mark_actual (t : Nat) : cell t (-(t:Int)) = true := by
+  induction t with
+  | zero => rfl
+  | succ t ih =>
+    rw [cell,west_outside_actual t _ (by omega),west_outside_actual t _ (by omega),
+        show -(↑(t+1):Int)+1 = -(t:Int) by omega, ih]
+    rfl
+
+/-- Exact finite-cylinder conjugacy: agreement up to n is equivalent to recovering
+the singleton's west seed through depth n-1. No recurrence assumption. -/
+theorem finite_seed_iff (c : Trace) (hm : c 0 = true) (n : Nat) :
+    (∀ d, 0 < d → d < n → origin c d = false) ↔ agree c center n := by
+  constructor
+  · intro seed
+    have get (d : Nat) (hd : d < n) : c d = center d := by
+      induction d using Nat.strongRecOn with
+      | ind d ih =>
+        by_cases zero : d=0
+        · subst d; exact hm
+        · have e := origin_diagonal d (a:=c) (b:=center) (fun j hj => ih j hj (by omega))
+          rw [seed d (by omega) hd,actual_origin d (by omega)] at e
+          exact bx0 e.symm
+    exact get
+  · intro h d hd hn
+    have e := origin_diagonal d (a:=c) (b:=center) (agree_weaken h (by omega))
+    rw [h d hn,actual_origin d hd] at e
+    simpa using e
+
+/-- Both entire marked light cones, expressed in the same two coordinates used
+by the finite test. The west statement is an output of sideways decoding, not
+a replacement initialization assumption. -/
+theorem actual_rims (t : Nat) :
+    (pair center t).1 t = true ∧ east center t t = true ∧
+    ∀ j, t < j → (pair center j).1 t = false ∧ east center t j = false := by
+  refine ⟨(pair_actual t t).1.trans (west_mark_actual t),east_mark _ rfl t,?_⟩
+  intro j hj
+  exact ⟨(pair_actual j t).1.trans (west_outside_actual _ _ (by omega)),
+    east_outside _ _ _ hj⟩
+
+theorem repeat_eq {c : Trace} {T P : Nat} (_hp : 0 < P)
     (period : ∀ t, T ≤ t → c (t+P) = c t) : repeatWord c T P = c := by
   funext i
   unfold repeatWord
