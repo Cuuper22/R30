@@ -894,3 +894,71 @@ west-to-east crossing and any incoming eastern material cannot use the
 same occurrence of an unresolved gate. A west-to-east ray exists for
 every true western launch; it is not assumed injective in those launches.
 Neither source is claimed to make the two opposite crossings simultaneous.
+
+### Genuine western origin of the center vacancy that the eastern gate reads
+
+Take any late maximal white run [s,b) of length w=b-s in the true center.
+Write k for the length of its terminal high suffix in R: on white R cannot
+fall. The even checker vacancy at s entered from the odd western cell -1
+at s-1 (the black-to-white edge forces that raw cell high). While the white
+run is internal, h=R. On the final white h=1-R. Thus a first mismatch of
+two homologous white runs always starts with the two run-initial center
+packets or their same-run descendants, from homologous strictly western
+entrances; a common earlier high would have prevented the later split.
+
+Here is the exact passage of that material packet from one run-initial
+center vacancy to the next. It persists as an ancestor of the next run's
+initial vacancy if and only if the intervening black run has length ONE
+and (k=1, or k=2 with w>=3). Otherwise the new initial vacancy has a fresh
+box entrance from -2 after the former initial vacancy. To see this, the
+last black's odd h is a fresh western entry if its predecessor was black.
+After a single black and terminal R=0 its old h=1 also suppresses bounce,
+again requiring a fresh west entry. After a single black and terminal
+R=1 it instead bounces the last white center vacancy to -1, whence that
+same material enters the new center. If k=1 the last white's vacancy is
+the run-initial one by successive stays. If k>=2 it came from the odd h
+on the penultimate white. For k>=3 that odd was freshly admitted because
+the preceding h was high. For k=2 it is fresh if that penultimate white
+starts the run (the old center then was black), and otherwise it bounces
+the old run-initial vacancy, since the preceding internal h was zero.
+These alternatives apply to material ancestry; different fresh entrances
+need not have different original singleton-relative checker founders.
+
+Consequently if the run-initial center packet eventually persists across
+all runs, each black is isolated and this actual q suffix code applies
+throughout. Every starting white row then has one of TWO genuine central
+vacuum gaps with explicitly marked endpoints: nearest black sites
+(-(w+1),w) when k=1, or (-(w-1),w-1) when k=2. Indeed until its first
+black neighbor the blank interval's two fronts run at full speed. With
+k=1 the first high R is the terminal white, while h stays zero even on
+that white and is high on the following black. With k=2 both neighbors
+first become high on the penultimate white. In this latter case the next
+h is zero, so the western endpoint reaches -1 with a second true black
+immediately behind at -2. That trailing bit toggles each rightward-front
+step while the intervening gap is blank; the initial site -w therefore
+has value 1 XOR ((w-2) mod 2). At every subsequent center black its
+previous raw neighbors are (h,C,R)=(0,0,1), and the black's only ordinary
+raw parent is the eastern one. On the black row itself the raw triple is
+111, so this particular center black has no raw material children: its
+eastern child cancels, a possible western child would choose its own
+rather than the more eastern OR-parent, and the center becomes white.
+The neighboring forests can nevertheless emit repeatedly from the same
+older mark. A renewal from -2, as classified above, is the alternative
+when the true center packet does not persist.
+
+On the strict east one also gets the matching rim basin. In the canonical
+checker completion use j=t+Q-2-x, distance west of the actual newest
+eastern D mark. A material path has nondecreasing j; a nonmark path cannot
+stay in a fixed positive lane j for 2^(j+3) ticks. The two true raw traces
+there have dyadic period dividing 2^(j+3) by the triangular right-rim
+permutation (or are already checker); Ancestry's comparison of maximum
+constant run lengths excludes perpetual D there. Consequently after more
+than J*2^(J+3)+J ticks every D in lanes [0,J] descends from the actual
+newest east mark at the initial cutoff. In particular the eastern supplier
+is the mark, or its distance from that mark grows without bound. The same
+argument for each individual true checker-material history (only raw rim
+depth 2 is forever opposite checker) means the material present in either
+copy upon contact with the older eastern mark can be traced to the same
+actual sufficiently early rightmost checker mark, for each fixed Q. This
+is an actual same-origin contact; sibling cancellation need not respect
+an identity of the ensuing temporal D parents.
