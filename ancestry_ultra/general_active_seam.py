@@ -5,7 +5,7 @@ arrival. Check true row500, matched R90 clocks, and OR-erased singleton caps."""
 from general_characteristic_d4 import field
 
 def step(x,c,r):return (2*x|c)^((x if r==30 else 0)|x>>1)
-def cap(x,r):return x^(((x>>1)if r==30 else 0)|(x>>2) if r==30 else x>>2)
+def cap(x,r):return x^(((x>>1)|(x>>2)) if r==30 else (x>>2))
 def spin(x,seq,r):
  for c in seq:x=step(x,c,r)
  return x
