@@ -99,3 +99,18 @@ same singleton. Their old (center,west-head) pairs are respectively
 parent can land in the exact marked source, with its entire ensuing rim.
 The missing implication must involve the prescribed host/read history
 or the exact joint source rather than a ban on this sign transition.
+
+**Genuine lag surgery test.** Compare two true ages at a common periodic
+phase. Until the first unequal old west head at j they have the same
+masked read. Cross-swapping their complete western and eastern halves at
+the starting cut therefore preserves the true center through j, by
+induction. At j the center is white and the two strict-east heads differ.
+Both crossed full rows give the complement of the true center at j+1:
+their update is the old west head of one donor XOR the opposite east bit.
+Thus this swap between two genuine finite rows does not produce the
+fixed-wall fork required above. If the donor with the *zero* east head
+at j has a black at x=2, both original strict-east heads at j+1 are 1
+and the two crossed centers rejoin the true center at j+2. Indeed
+the west and east neighbor rows at j+1 are still their respective
+donors, so the common saturated OR ignores the center flip. The
+one-tick flip at j+1 remains.
